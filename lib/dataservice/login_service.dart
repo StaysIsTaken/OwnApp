@@ -16,11 +16,18 @@ class LoginService {
   // ─── Register ─────────────────────────────────────────────────────────────
   static Future<void> register({
     required String username,
+    required String firstName,
+    required String lastName,
     required String password,
   }) async {
     await _dio.post(
       '/register',
-      data: {'username': username, 'password': password},
+      data: {
+        'username': username,
+        'first_name': firstName,
+        'last_name': lastName,
+        'password': password,
+      },
     );
   }
 

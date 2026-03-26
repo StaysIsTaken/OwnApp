@@ -10,7 +10,6 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  // null = loading, true = open, false = closed
   bool? _registrationOpen;
 
   @override
@@ -125,6 +124,8 @@ class _RegisterFormState extends State<_RegisterForm>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
@@ -157,6 +158,8 @@ class _RegisterFormState extends State<_RegisterForm>
   void dispose() {
     _animController.dispose();
     _usernameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -169,6 +172,8 @@ class _RegisterFormState extends State<_RegisterForm>
     try {
       await LoginService.register(
         username: _usernameController.text.trim(),
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -247,6 +252,62 @@ class _RegisterFormState extends State<_RegisterForm>
                         ),
                         const SizedBox(height: 36),
 
+                        // ── Vorname + Nachname nebeneinander ──────
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _FieldLabel(label: 'Vorname'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _firstNameController,
+                                    textInputAction: TextInputAction.next,
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Max',
+                                      prefixIcon: Icon(Icons.badge_outlined),
+                                    ),
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'Pflichtfeld';
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _FieldLabel(label: 'Nachname'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _lastNameController,
+                                    textInputAction: TextInputAction.next,
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Mustermann',
+                                      prefixIcon: Icon(Icons.badge_outlined),
+                                    ),
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'Pflichtfeld';
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+
                         // ── Benutzername ─────────────────────────
                         _FieldLabel(label: 'Benutzername'),
                         const SizedBox(height: 6),
@@ -258,12 +319,10 @@ class _RegisterFormState extends State<_RegisterForm>
                             prefixIcon: Icon(Icons.person_outline_rounded),
                           ),
                           validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
+                            if (v == null || v.trim().isEmpty)
                               return 'Bitte Benutzernamen eingeben';
-                            }
-                            if (v.trim().length < 3) {
+                            if (v.trim().length < 3)
                               return 'Mindestens 3 Zeichen';
-                            }
                             return null;
                           },
                         ),
@@ -291,12 +350,9 @@ class _RegisterFormState extends State<_RegisterForm>
                             ),
                           ),
                           validator: (v) {
-                            if (v == null || v.isEmpty) {
+                            if (v == null || v.isEmpty)
                               return 'Bitte Passwort eingeben';
-                            }
-                            if (v.length < 6) {
-                              return 'Mindestens 6 Zeichen';
-                            }
+                            if (v.length < 6) return 'Mindestens 6 Zeichen';
                             return null;
                           },
                         ),
@@ -325,12 +381,10 @@ class _RegisterFormState extends State<_RegisterForm>
                             ),
                           ),
                           validator: (v) {
-                            if (v == null || v.isEmpty) {
+                            if (v == null || v.isEmpty)
                               return 'Bitte Passwort bestätigen';
-                            }
-                            if (v != _passwordController.text) {
+                            if (v != _passwordController.text)
                               return 'Passwörter stimmen nicht überein';
-                            }
                             return null;
                           },
                         ),
