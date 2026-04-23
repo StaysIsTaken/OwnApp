@@ -54,6 +54,96 @@ class HomePage extends BasePage {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+
+          // Recipes navigation card
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () => Navigator.pushNamed(context, AppRoutes.recipes),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colors.secondaryContainer,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      ),
+                      child: Icon(
+                        Icons.menu_book_outlined,
+                        color: colors.onSecondaryContainer,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Rezepte', style: text.titleLarge),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Rezepte, Zutaten & Kategorien verwalten.',
+                            style: text.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: colors.outline),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Work Log navigation card
+          InkWell(
+            onTap: () => Navigator.pushNamed(context, AppRoutes.workLog),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      ),
+                      child: Icon(
+                        Icons.assignment_outlined,
+                        color: colors.onPrimaryContainer,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Arbeitsprotokoll', style: text.titleLarge),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tasks erfassen, Start- & Endzeit protokollieren.',
+                            style: text.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: colors.outline,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
