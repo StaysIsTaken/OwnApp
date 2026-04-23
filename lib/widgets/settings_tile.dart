@@ -8,6 +8,7 @@ class SettingsTile extends StatelessWidget {
   final VoidCallback onTap;
 
   const SettingsTile({
+    super.key,
     required this.icon,
     required this.label,
     required this.subtitle,

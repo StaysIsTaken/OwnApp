@@ -1,16 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/provider/user_provider.dart';
 import 'package:productivity/tabs/home.dart';
 import 'package:productivity/tabs/login.dart';
 import 'package:productivity/tabs/register.dart';
 import 'package:productivity/tabs/settings.dart';
 import 'package:productivity/tabs/recipes/recipes_page.dart';
 import 'package:productivity/tabs/work_log.dart';
+import 'package:productivity/tabs/time.dart';
+import 'package:productivity/widgets/drawer.dart';
+import 'package:provider/provider.dart';
 
 // ─────────────────────────────────────────────
 //  Entry Point
 // ─────────────────────────────────────────────
 void main() {
-  runApp(const MainApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        // Add more providers here …
+      ],
+      child: const MainApp(),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────
@@ -45,8 +57,8 @@ class AppTheme {
   AppTheme._(); // Prevent instantiation
 
   // ── Brand Colors ───────────────────────────
-  static const Color primaryColor = Color(0xFF6C63FF);
-  static const Color secondaryColor = Color(0xFF03DAC6);
+  static const Color primaryColor = Color.fromARGB(255, 81, 72, 249);
+  static const Color secondaryColor = Color.fromARGB(255, 10, 80, 92);
   static const Color errorColor = Color(0xFFCF6679);
 
   // ── Shared shape / radius ──────────────────
@@ -220,6 +232,7 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String workLog = '/work-log';
   static const String recipes = '/recipes';
+  static const String time = '/time';
   // Add more route names here …
 
   static final Map<String, WidgetBuilder> routes = {
@@ -229,6 +242,7 @@ class AppRoutes {
     settings: (_) => const SettingsPage(),
     workLog: (_) => const WorkLogPage(),
     recipes: (_) => const RecipesPage(),
+    time: (_) => const TimePage(),
     // Register new pages here …
   };
 }
@@ -249,12 +263,15 @@ abstract class BasePage extends StatelessWidget {
   /// Override to add a FAB.
   Widget? buildFAB(BuildContext context) => null;
 
+  Widget? buildDrawer(BuildContext context) => DrawerWidget();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title), actions: buildActions(context)),
+      appBar: AppBar(title: Text(title)),
       body: SafeArea(child: buildBody(context)),
       floatingActionButton: buildFAB(context),
+      drawer: buildDrawer(context),
     );
   }
 }
