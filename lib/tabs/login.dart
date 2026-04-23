@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:productivity/provider/user_provider.dart';
+import 'package:provider/provider.dart';
 import '../dataservice/login_service.dart';
 
 class Login extends StatefulWidget {
@@ -55,8 +57,9 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
         username: _usernameController.text.trim(),
         password: _passwordController.text,
       );
-
       if (!mounted) return;
+      final user = await LoginService.currentUser;
+      context.read<UserProvider>().login(user);
       Navigator.pushReplacementNamed(context, '/home');
     } on DioException catch (e) {
       if (!mounted) return;

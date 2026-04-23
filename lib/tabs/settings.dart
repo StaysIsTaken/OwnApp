@@ -7,7 +7,6 @@ class SettingsPage extends BasePage {
 
   @override
   Widget buildBody(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
 
     return ListView(
