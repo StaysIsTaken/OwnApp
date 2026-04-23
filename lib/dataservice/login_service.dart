@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:productivity/dataclasses/User.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginService {
@@ -73,5 +74,18 @@ class LoginService {
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
     return token != null;
+  }
+
+  static Future<User> get currentUser async {
+    final token = await getToken();
+
+    final response = await _dio.get(
+      '/me',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    if (response.statusCode == 200) {
+      return User.fromJson(response.data);
+    }
+    throw Exception('Failed to fetch current user');
   }
 }

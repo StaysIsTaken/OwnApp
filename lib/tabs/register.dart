@@ -271,8 +271,9 @@ class _RegisterFormState extends State<_RegisterForm>
                                       prefixIcon: Icon(Icons.badge_outlined),
                                     ),
                                     validator: (v) {
-                                      if (v == null || v.trim().isEmpty)
+                                      if (v == null || v.trim().isEmpty) {
                                         return 'Pflichtfeld';
+                                      }
                                       return null;
                                     },
                                   ),
@@ -296,8 +297,9 @@ class _RegisterFormState extends State<_RegisterForm>
                                       prefixIcon: Icon(Icons.badge_outlined),
                                     ),
                                     validator: (v) {
-                                      if (v == null || v.trim().isEmpty)
+                                      if (v == null || v.trim().isEmpty) {
                                         return 'Pflichtfeld';
+                                      }
                                       return null;
                                     },
                                   ),
@@ -319,10 +321,12 @@ class _RegisterFormState extends State<_RegisterForm>
                             prefixIcon: Icon(Icons.person_outline_rounded),
                           ),
                           validator: (v) {
-                            if (v == null || v.trim().isEmpty)
+                            if (v == null || v.trim().isEmpty) {
                               return 'Bitte Benutzernamen eingeben';
-                            if (v.trim().length < 3)
+                            }
+                            if (v.trim().length < 3) {
                               return 'Mindestens 3 Zeichen';
+                            }
                             return null;
                           },
                         ),
@@ -350,8 +354,9 @@ class _RegisterFormState extends State<_RegisterForm>
                             ),
                           ),
                           validator: (v) {
-                            if (v == null || v.isEmpty)
+                            if (v == null || v.isEmpty) {
                               return 'Bitte Passwort eingeben';
+                            }
                             if (v.length < 6) return 'Mindestens 6 Zeichen';
                             return null;
                           },
@@ -381,10 +386,12 @@ class _RegisterFormState extends State<_RegisterForm>
                             ),
                           ),
                           validator: (v) {
-                            if (v == null || v.isEmpty)
+                            if (v == null || v.isEmpty) {
                               return 'Bitte Passwort bestätigen';
-                            if (v != _passwordController.text)
+                            }
+                            if (v != _passwordController.text) {
                               return 'Passwörter stimmen nicht überein';
+                            }
                             return null;
                           },
                         ),
