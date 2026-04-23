@@ -3,6 +3,8 @@ import 'package:productivity/tabs/home.dart';
 import 'package:productivity/tabs/login.dart';
 import 'package:productivity/tabs/register.dart';
 import 'package:productivity/tabs/settings.dart';
+import 'package:productivity/tabs/recipes/recipes_page.dart';
+import 'package:productivity/tabs/work_log.dart';
 
 // ─────────────────────────────────────────────
 //  Entry Point
@@ -216,6 +218,8 @@ class AppRoutes {
   static const String register = '/register';
   static const String home = '/home';
   static const String settings = '/settings';
+  static const String workLog = '/work-log';
+  static const String recipes = '/recipes';
   // Add more route names here …
 
   static final Map<String, WidgetBuilder> routes = {
@@ -223,6 +227,8 @@ class AppRoutes {
     register: (_) => const RegisterPage(),
     home: (_) => const HomePage(),
     settings: (_) => const SettingsPage(),
+    workLog: (_) => const WorkLogPage(),
+    recipes: (_) => const RecipesPage(),
     // Register new pages here …
   };
 }
