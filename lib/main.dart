@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/provider/user_provider.dart';
+import 'package:productivity/provider/settings_provider.dart';
 import 'package:productivity/tabs/home.dart';
 import 'package:productivity/tabs/login.dart';
+import 'package:productivity/tabs/recipes/manage_categories_page.dart';
+import 'package:productivity/tabs/recipes/manage_ingredients_page.dart';
+import 'package:productivity/tabs/recipes/manage_units_page.dart';
 import 'package:productivity/tabs/register.dart';
 import 'package:productivity/tabs/settings.dart';
 import 'package:productivity/tabs/recipes/recipes_page.dart';
-import 'package:productivity/tabs/work_log.dart';
+
 import 'package:productivity/tabs/time.dart';
 import 'package:productivity/widgets/drawer.dart';
+import 'package:productivity/widgets/auth_wrapper.dart';
 import 'package:provider/provider.dart';
 
 // ─────────────────────────────────────────────
@@ -18,7 +23,7 @@ void main() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
-        // Add more providers here …
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: const MainApp(),
     ),
@@ -42,7 +47,7 @@ class MainApp extends StatelessWidget {
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system, // Follows OS setting
       // ── Routing ────────────────────────────
-      initialRoute: AppRoutes.login,
+      home: const AppAuthWrapper(),
       routes: AppRoutes.routes,
     );
   }
@@ -230,19 +235,24 @@ class AppRoutes {
   static const String register = '/register';
   static const String home = '/home';
   static const String settings = '/settings';
-  static const String workLog = '/work-log';
+
   static const String recipes = '/recipes';
   static const String time = '/time';
+  static const String categories = '/categories';
+  static const String ingredients = '/ingredients';
+  static const String units = '/units';
   // Add more route names here …
 
   static final Map<String, WidgetBuilder> routes = {
-    login: (_) => const Login(),
     register: (_) => const RegisterPage(),
     home: (_) => const HomePage(),
     settings: (_) => const SettingsPage(),
-    workLog: (_) => const WorkLogPage(),
+
     recipes: (_) => const RecipesPage(),
     time: (_) => const TimePage(),
+    categories: (_) => const ManageCategoriesPage(),
+    ingredients: (_) => const ManageIngredientsPage(),
+    units: (_) => const ManageUnitsPage(),
     // Register new pages here …
   };
 }
@@ -268,7 +278,7 @@ abstract class BasePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(title: Text(title), actions: buildActions(context)),
       body: SafeArea(child: buildBody(context)),
       floatingActionButton: buildFAB(context),
       drawer: buildDrawer(context),

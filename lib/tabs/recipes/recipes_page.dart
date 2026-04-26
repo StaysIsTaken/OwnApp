@@ -4,10 +4,10 @@ import 'package:productivity/dataservice/ingredient_service.dart';
 import 'package:productivity/dataservice/recipe_service.dart';
 import 'package:productivity/dataservice/unit_service.dart';
 import 'package:productivity/main.dart';
-import 'package:productivity/models/category.dart';
-import 'package:productivity/models/ingredient.dart';
-import 'package:productivity/models/recipe.dart';
-import 'package:productivity/models/unit.dart';
+import 'package:productivity/dataclasses/category.dart';
+import 'package:productivity/dataclasses/ingredient.dart';
+import 'package:productivity/dataclasses/recipe.dart';
+import 'package:productivity/dataclasses/unit.dart';
 import 'package:productivity/tabs/recipes/manage_categories_page.dart';
 import 'package:productivity/tabs/recipes/manage_ingredients_page.dart';
 import 'package:productivity/tabs/recipes/manage_units_page.dart';
@@ -16,21 +16,78 @@ import 'package:productivity/tabs/recipes/recipe_form_page.dart';
 // ─────────────────────────────────────────────
 //  RecipesPage  –  main recipe list
 // ─────────────────────────────────────────────
-class RecipesPage extends StatefulWidget {
-  const RecipesPage({super.key});
+class RecipesPage extends BasePage {
+  const RecipesPage({super.key}) : super(title: 'Rezepte');
 
   @override
-  State<RecipesPage> createState() => _RecipesPageState();
+  Widget buildBody(BuildContext context) => const _RecipesPageContent();
+
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return [
+      PopupMenuButton<String>(
+        icon: const Icon(Icons.tune_outlined),
+        tooltip: 'Verwalten',
+        onSelected: (v) {
+          Widget? page;
+          switch (v) {
+            case 'categories':
+              page = const ManageCategoriesPage();
+            case 'ingredients':
+              page = const ManageIngredientsPage();
+            case 'units':
+              page = const ManageUnitsPage();
+          }
+          if (page != null) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => page!));
+          }
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(
+            value: 'categories',
+            child: ListTile(
+              leading: Icon(Icons.category_outlined),
+              title: Text('Kategorien'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'ingredients',
+            child: ListTile(
+              leading: Icon(Icons.eco_outlined),
+              title: Text('Zutaten'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'units',
+            child: ListTile(
+              leading: Icon(Icons.straighten_outlined),
+              title: Text('Einheiten'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
 }
 
-class _RecipesPageState extends State<RecipesPage> {
+class _RecipesPageContent extends StatefulWidget {
+  const _RecipesPageContent();
+
+  @override
+  State<_RecipesPageContent> createState() => _RecipesPageContentState();
+}
+
+class _RecipesPageContentState extends State<_RecipesPageContent> {
   List<Recipe> _recipes = [];
   List<Category> _categories = [];
   Map<String, Ingredient> _ingredientMap = {};
   Map<String, Unit> _unitMap = {};
 
   String _filterText = '';
-  String? _filterCategoryId; // null = all
+  List<String> _filterCategoryIds = []; // empty = all
   bool _loading = true;
 
   @override
@@ -66,17 +123,17 @@ class _RecipesPageState extends State<RecipesPage> {
           .where((r) => r.name.toLowerCase().contains(q))
           .toList();
     }
-    if (_filterCategoryId != null) {
+    if (_filterCategoryIds.isNotEmpty) {
       list = list
-          .where((r) => r.categoryId == _filterCategoryId)
+          .where((r) => r.categoryIds.any((cid) => _filterCategoryIds.contains(cid)))
           .toList();
     }
     list.sort((a, b) => a.name.compareTo(b.name));
     return list;
   }
 
-  String? _categoryName(String? id) =>
-      id == null ? null : _categories.where((c) => c.id == id).firstOrNull?.name;
+  List<String> _categoryNames(List<String> ids) =>
+      _categories.where((c) => ids.contains(c.id)).map((c) => c.name).toList();
 
   Future<void> _openForm({Recipe? recipe}) async {
     final changed = await Navigator.push<bool>(
@@ -88,65 +145,15 @@ class _RecipesPageState extends State<RecipesPage> {
     if (changed == true) await _load();
   }
 
-  Future<void> _navigate(Widget page) async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-    await _load(); // reload in case data changed
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final filtered = _filtered;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rezepte'),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.tune_outlined),
-            tooltip: 'Verwalten',
-            onSelected: (v) {
-              switch (v) {
-                case 'categories':
-                  _navigate(const ManageCategoriesPage());
-                case 'ingredients':
-                  _navigate(const ManageIngredientsPage());
-                case 'units':
-                  _navigate(const ManageUnitsPage());
-              }
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: 'categories',
-                child: ListTile(
-                  leading: Icon(Icons.category_outlined),
-                  title: Text('Kategorien'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'ingredients',
-                child: ListTile(
-                  leading: Icon(Icons.eco_outlined),
-                  title: Text('Zutaten'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'units',
-                child: ListTile(
-                  leading: Icon(Icons.straighten_outlined),
-                  title: Text('Einheiten'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
+    return Stack(
+      children: [
+        Column(
           children: [
             // ── Search bar ────────────────────────────
             Padding(
@@ -178,16 +185,26 @@ class _RecipesPageState extends State<RecipesPage> {
                   children: [
                     _FilterChip(
                       label: 'Alle',
-                      selected: _filterCategoryId == null,
+                      selected: _filterCategoryIds.isEmpty,
                       onTap: () =>
-                          setState(() => _filterCategoryId = null),
+                          setState(() => _filterCategoryIds = []),
                     ),
-                    ..._categories.map((c) => _FilterChip(
-                          label: c.name,
-                          selected: _filterCategoryId == c.id,
-                          onTap: () =>
-                              setState(() => _filterCategoryId = c.id),
-                        )),
+                    ..._categories.map((c) {
+                      final isSelected = _filterCategoryIds.contains(c.id);
+                      return _FilterChip(
+                        label: c.name,
+                        selected: isSelected,
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              _filterCategoryIds.remove(c.id);
+                            } else {
+                              _filterCategoryIds.add(c.id);
+                            }
+                          });
+                        },
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -221,14 +238,14 @@ class _RecipesPageState extends State<RecipesPage> {
                               const SizedBox(height: 12),
                               Text(
                                 _filterText.isEmpty &&
-                                        _filterCategoryId == null
+                                        _filterCategoryIds.isEmpty
                                     ? 'Noch keine Rezepte vorhanden'
                                     : 'Keine Rezepte gefunden',
                                 style: text.bodyMedium
                                     ?.copyWith(color: colors.outline),
                               ),
                               if (_filterText.isEmpty &&
-                                  _filterCategoryId == null) ...[
+                                  _filterCategoryIds.isEmpty) ...[
                                 const SizedBox(height: 6),
                                 Text(
                                   'Tippe auf + um ein Rezept anzulegen',
@@ -245,8 +262,8 @@ class _RecipesPageState extends State<RecipesPage> {
                           itemCount: filtered.length,
                           itemBuilder: (_, i) => _RecipeCard(
                             recipe: filtered[i],
-                            categoryName:
-                                _categoryName(filtered[i].categoryId),
+                            categoryNames:
+                                _categoryNames(filtered[i].categoryIds),
                             ingredientMap: _ingredientMap,
                             unitMap: _unitMap,
                             onTap: () => _openForm(recipe: filtered[i]),
@@ -255,12 +272,16 @@ class _RecipesPageState extends State<RecipesPage> {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        icon: const Icon(Icons.add),
-        label: const Text('Neues Rezept'),
-      ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
+            onPressed: () => _openForm(),
+            icon: const Icon(Icons.add),
+            label: const Text('Neues Rezept'),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -309,14 +330,14 @@ class _FilterChip extends StatelessWidget {
 // ── Recipe Card ───────────────────────────────────────────────────────────────
 class _RecipeCard extends StatelessWidget {
   final Recipe recipe;
-  final String? categoryName;
+  final List<String> categoryNames;
   final Map<String, Ingredient> ingredientMap;
   final Map<String, Unit> unitMap;
   final VoidCallback onTap;
 
   const _RecipeCard({
     required this.recipe,
-    required this.categoryName,
+    required this.categoryNames,
     required this.ingredientMap,
     required this.unitMap,
     required this.onTap,
@@ -365,8 +386,8 @@ class _RecipeCard extends StatelessWidget {
                           style: text.bodyLarge
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
-                        if (categoryName != null)
-                          Text(categoryName!,
+                        if (categoryNames.isNotEmpty)
+                          Text(categoryNames.join(', '),
                               style: text.bodySmall?.copyWith(
                                   color: colors.primary)),
                       ],

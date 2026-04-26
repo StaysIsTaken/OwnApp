@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/unit_service.dart';
 import 'package:productivity/main.dart';
-import 'package:productivity/models/unit.dart';
+import 'package:productivity/dataclasses/unit.dart';
 import 'package:productivity/widgets/manage_item_tile.dart';
 
-// ─────────────────────────────────────────────
-//  ManageUnitsPage  –  CRUD for units
-// ─────────────────────────────────────────────
-class ManageUnitsPage extends StatefulWidget {
-  const ManageUnitsPage({super.key});
+class ManageUnitsPage extends BasePage {
+  const ManageUnitsPage({super.key}) : super(title: 'Einheiten verwalten');
 
   @override
-  State<ManageUnitsPage> createState() => _ManageUnitsPageState();
+  Widget buildBody(BuildContext context) => const _ManageUnitsContent();
 }
 
-class _ManageUnitsPageState extends State<ManageUnitsPage> {
+class _ManageUnitsContent extends StatefulWidget {
+  const _ManageUnitsContent();
+
+  @override
+  State<_ManageUnitsContent> createState() => _ManageUnitsContentState();
+}
+
+class _ManageUnitsContentState extends State<_ManageUnitsContent> {
   List<Unit> _units = [];
   bool _loading = true;
 
@@ -81,10 +85,9 @@ class _ManageUnitsPageState extends State<ManageUnitsPage> {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Einheiten verwalten')),
-      body: SafeArea(
-        child: _loading
+    return Stack(
+      children: [
+        _loading
             ? const Center(child: CircularProgressIndicator())
             : _units.isEmpty
                 ? Center(
@@ -114,16 +117,19 @@ class _ManageUnitsPageState extends State<ManageUnitsPage> {
                       onDelete: () => _confirmDelete(_units[i]),
                     ),
                   ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openForm(),
-        child: const Icon(Icons.add),
-      ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: () => _openForm(),
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
     );
   }
 }
 
-// ── Unit Form (Bottom Sheet) ──────────────────────────────────────────────────
 class _UnitForm extends StatefulWidget {
   final Unit? unit;
   final Future<void> Function(Unit) onSave;

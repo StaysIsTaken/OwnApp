@@ -25,6 +25,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
       route: AppRoutes.home,
     ),
     NavItem(
+      icon: Icons.menu_book_outlined,
+      iconActive: Icons.menu_book_rounded,
+      label: 'Rezepte',
+      route: AppRoutes.recipes,
+    ),
+    NavItem(
       icon: Icons.schedule_outlined,
       iconActive: Icons.schedule_rounded,
       label: 'Zeiten',
@@ -35,6 +41,24 @@ class _DrawerWidgetState extends State<DrawerWidget>
       iconActive: Icons.settings_rounded,
       label: 'Einstellungen',
       route: AppRoutes.settings,
+    ),
+    NavItem(
+      icon: Icons.category_outlined,
+      iconActive: Icons.category_rounded,
+      label: 'Kategorien',
+      route: AppRoutes.categories,
+    ),
+    NavItem(
+      icon: Icons.eco_outlined,
+      iconActive: Icons.eco_rounded,
+      label: 'Zutaten',
+      route: AppRoutes.ingredients,
+    ),
+    NavItem(
+      icon: Icons.straighten_outlined,
+      iconActive: Icons.straighten_rounded,
+      label: 'Einheiten',
+      route: AppRoutes.units,
     ),
   ];
 
@@ -89,7 +113,7 @@ class _DrawerWidgetState extends State<DrawerWidget>
                       onTap: () {
                         Navigator.pop(context);
                         if (currentRoute != item.route) {
-                          Navigator.pushNamed(context, item.route);
+                          Navigator.pushReplacementNamed(context, item.route);
                         }
                       },
                     ),

@@ -100,9 +100,9 @@ class HomePage extends BasePage {
           ),
           const SizedBox(height: 12),
 
-          // Work Log navigation card
+          // Zeiterfassung navigation card
           InkWell(
-            onTap: () => Navigator.pushNamed(context, AppRoutes.workLog),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.time),
             borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             child: Card(
               child: Padding(
@@ -112,12 +112,12 @@ class HomePage extends BasePage {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: colors.primaryContainer,
+                        color: colors.tertiaryContainer,
                         borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                       ),
                       child: Icon(
-                        Icons.assignment_outlined,
-                        color: colors.onPrimaryContainer,
+                        Icons.schedule_outlined,
+                        color: colors.onTertiaryContainer,
                         size: 24,
                       ),
                     ),
@@ -126,10 +126,10 @@ class HomePage extends BasePage {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Arbeitsprotokoll', style: text.titleLarge),
+                          Text('Zeiterfassung', style: text.titleLarge),
                           const SizedBox(height: 4),
                           Text(
-                            'Tasks erfassen, Start- & Endzeit protokollieren.',
+                            'Arbeitszeiten und Pausen erfassen.',
                             style: text.bodyMedium,
                           ),
                         ],

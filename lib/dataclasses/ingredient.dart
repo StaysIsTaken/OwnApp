@@ -8,12 +8,12 @@ import 'dart:convert';
 class Ingredient {
   final String id;
   final String name;
-  final String defaultUnitId;
+  final String? defaultUnitId;
 
   const Ingredient({
     required this.id,
     required this.name,
-    required this.defaultUnitId,
+    this.defaultUnitId,
   });
 
   Ingredient copyWith({String? id, String? name, String? defaultUnitId}) =>
@@ -30,9 +30,9 @@ class Ingredient {
       };
 
   factory Ingredient.fromJson(Map<String, dynamic> j) => Ingredient(
-        id: j['id'] as String,
-        name: j['name'] as String,
-        defaultUnitId: j['defaultUnitId'] as String,
+        id: j['id']?.toString() ?? '',
+        name: j['name']?.toString() ?? '',
+        defaultUnitId: j['defaultUnitId']?.toString(),
       );
 
   String toJsonString() => jsonEncode(toJson());

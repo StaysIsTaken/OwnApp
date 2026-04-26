@@ -1,41 +1,52 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:productivity/models/ingredient.dart';
+import 'package:productivity/dataclasses/ingredient.dart';
+import 'package:productivity/dataservice/api_client.dart';
 
 // ─────────────────────────────────────────────
-//  IngredientService
+//  IngredientService – API-backed
 // ─────────────────────────────────────────────
 class IngredientService {
   IngredientService._();
 
-  static const String _key = 'ingredients';
+  static const String _path = '/ingredients';
 
   static Future<List<Ingredient>> loadAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    return (prefs.getStringList(_key) ?? [])
-        .map(Ingredient.fromJsonString)
+    final response = await ApiClient.dio.get(_path);
+    return (response.data['items'] as List<dynamic>)
+        .map((e) => Ingredient.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
-  /// Inserts a new ingredient or replaces an existing one with the same id.
-  static Future<void> upsert(Ingredient ingredient) async {
-    final items = await loadAll();
-    final idx = items.indexWhere((i) => i.id == ingredient.id);
-    if (idx >= 0) {
-      items[idx] = ingredient;
-    } else {
-      items.add(ingredient);
-    }
-    await _persist(items);
+  static Future<Ingredient> getById(String id) async {
+    final response = await ApiClient.dio.get('$_path/$id');
+    return Ingredient.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  static Future<Ingredient> create(Ingredient ingredient) async {
+    final response = await ApiClient.dio.post(
+      _path,
+      data: ingredient.toJson(),
+    );
+    return Ingredient.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  static Future<Ingredient> update(Ingredient ingredient) async {
+    final response = await ApiClient.dio.put(
+      '$_path/${ingredient.id}',
+      data: ingredient.toJson(),
+    );
+    return Ingredient.fromJson(response.data as Map<String, dynamic>);
   }
 
   static Future<void> delete(String id) async {
-    final items = await loadAll();
-    items.removeWhere((i) => i.id == id);
-    await _persist(items);
+    await ApiClient.dio.delete('$_path/$id');
   }
 
-  static Future<void> _persist(List<Ingredient> items) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_key, items.map((i) => i.toJsonString()).toList());
+  /// Inserts or replaces – convenience wrapper kept for API compatibility.
+  static Future<void> upsert(Ingredient ingredient) async {
+    try {
+      await update(ingredient);
+    } catch (_) {
+      await create(ingredient);
+    }
   }
 }

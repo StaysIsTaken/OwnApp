@@ -19,9 +19,9 @@ class Unit {
   Map<String, dynamic> toJson() => {'id': id, 'name': name, 'symbol': symbol};
 
   factory Unit.fromJson(Map<String, dynamic> j) => Unit(
-        id: j['id'] as String,
-        name: j['name'] as String,
-        symbol: j['symbol'] as String,
+        id: j['id']?.toString() ?? '',
+        name: j['name']?.toString() ?? '',
+        symbol: j['symbol']?.toString() ?? '',
       );
 
   String toJsonString() => jsonEncode(toJson());

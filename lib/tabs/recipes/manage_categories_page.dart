@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/category_service.dart';
 import 'package:productivity/main.dart';
-import 'package:productivity/models/category.dart';
+import 'package:productivity/dataclasses/category.dart';
 import 'package:productivity/widgets/manage_item_tile.dart';
 
-// ─────────────────────────────────────────────
-//  ManageCategoriesPage  –  CRUD for categories
-// ─────────────────────────────────────────────
-class ManageCategoriesPage extends StatefulWidget {
-  const ManageCategoriesPage({super.key});
+class ManageCategoriesPage extends BasePage {
+  const ManageCategoriesPage({super.key}) : super(title: 'Kategorien verwalten');
 
   @override
-  State<ManageCategoriesPage> createState() => _ManageCategoriesPageState();
+  Widget buildBody(BuildContext context) => const _ManageCategoriesContent();
 }
 
-class _ManageCategoriesPageState extends State<ManageCategoriesPage> {
+class _ManageCategoriesContent extends StatefulWidget {
+  const _ManageCategoriesContent();
+
+  @override
+  State<_ManageCategoriesContent> createState() => _ManageCategoriesContentState();
+}
+
+class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
   List<Category> _categories = [];
   bool _loading = true;
 
@@ -81,10 +85,9 @@ class _ManageCategoriesPageState extends State<ManageCategoriesPage> {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Kategorien verwalten')),
-      body: SafeArea(
-        child: _loading
+    return Stack(
+      children: [
+        _loading
             ? const Center(child: CircularProgressIndicator())
             : _categories.isEmpty
                 ? Center(
@@ -113,16 +116,19 @@ class _ManageCategoriesPageState extends State<ManageCategoriesPage> {
                       onDelete: () => _confirmDelete(_categories[i]),
                     ),
                   ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openForm(),
-        child: const Icon(Icons.add),
-      ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: () => _openForm(),
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
     );
   }
 }
 
-// ── Category Form (Bottom Sheet) ──────────────────────────────────────────────
 class _CategoryForm extends StatefulWidget {
   final Category? category;
   final Future<void> Function(Category) onSave;

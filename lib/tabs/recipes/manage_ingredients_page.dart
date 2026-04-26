@@ -2,21 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/ingredient_service.dart';
 import 'package:productivity/dataservice/unit_service.dart';
 import 'package:productivity/main.dart';
-import 'package:productivity/models/ingredient.dart';
-import 'package:productivity/models/unit.dart';
+import 'package:productivity/dataclasses/ingredient.dart';
+import 'package:productivity/dataclasses/unit.dart';
 import 'package:productivity/widgets/manage_item_tile.dart';
 
-// ─────────────────────────────────────────────
-//  ManageIngredientsPage  –  CRUD for ingredients
-// ─────────────────────────────────────────────
-class ManageIngredientsPage extends StatefulWidget {
-  const ManageIngredientsPage({super.key});
+class ManageIngredientsPage extends BasePage {
+  const ManageIngredientsPage({super.key}) : super(title: 'Zutaten verwalten');
 
   @override
-  State<ManageIngredientsPage> createState() => _ManageIngredientsPageState();
+  Widget buildBody(BuildContext context) => const _ManageIngredientsContent();
 }
 
-class _ManageIngredientsPageState extends State<ManageIngredientsPage> {
+class _ManageIngredientsContent extends StatefulWidget {
+  const _ManageIngredientsContent();
+
+  @override
+  State<_ManageIngredientsContent> createState() => _ManageIngredientsContentState();
+}
+
+class _ManageIngredientsContentState extends State<_ManageIngredientsContent> {
   List<Ingredient> _ingredients = [];
   List<Unit> _units = [];
   bool _loading = true;
@@ -40,7 +44,8 @@ class _ManageIngredientsPageState extends State<ManageIngredientsPage> {
     });
   }
 
-  String _unitName(String unitId) {
+  String _unitName(String? unitId) {
+    if (unitId == null) return '–';
     final unit = _units.where((u) => u.id == unitId).firstOrNull;
     return unit != null ? '${unit.name} (${unit.symbol})' : '–';
   }
@@ -102,10 +107,9 @@ class _ManageIngredientsPageState extends State<ManageIngredientsPage> {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Zutaten verwalten')),
-      body: SafeArea(
-        child: _loading
+    return Stack(
+      children: [
+        _loading
             ? const Center(child: CircularProgressIndicator())
             : _ingredients.isEmpty
                 ? Center(
@@ -136,16 +140,19 @@ class _ManageIngredientsPageState extends State<ManageIngredientsPage> {
                       onDelete: () => _confirmDelete(_ingredients[i]),
                     ),
                   ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openForm(),
-        child: const Icon(Icons.add),
-      ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: () => _openForm(),
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
     );
   }
 }
 
-// ── Ingredient Form (Bottom Sheet) ────────────────────────────────────────────
 class _IngredientForm extends StatefulWidget {
   final Ingredient? ingredient;
   final List<Unit> units;
@@ -171,8 +178,12 @@ class _IngredientFormState extends State<_IngredientForm> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.ingredient?.name ?? '');
-    _selectedUnitId = widget.ingredient?.defaultUnitId ??
-        (widget.units.isNotEmpty ? widget.units.first.id : null);
+    final initUnitId = widget.ingredient?.defaultUnitId;
+    if (initUnitId != null && widget.units.any((u) => u.id == initUnitId)) {
+      _selectedUnitId = initUnitId;
+    } else {
+      _selectedUnitId = widget.units.isNotEmpty ? widget.units.first.id : null;
+    }
   }
 
   @override

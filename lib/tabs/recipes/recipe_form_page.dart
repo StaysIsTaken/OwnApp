@@ -5,11 +5,11 @@ import 'package:productivity/dataservice/ingredient_service.dart';
 import 'package:productivity/dataservice/recipe_service.dart';
 import 'package:productivity/dataservice/unit_service.dart';
 import 'package:productivity/main.dart';
-import 'package:productivity/models/category.dart';
-import 'package:productivity/models/ingredient.dart';
-import 'package:productivity/models/recipe.dart';
-import 'package:productivity/models/recipe_ingredient.dart';
-import 'package:productivity/models/unit.dart';
+import 'package:productivity/dataclasses/category.dart';
+import 'package:productivity/dataclasses/ingredient.dart';
+import 'package:productivity/dataclasses/recipe.dart';
+import 'package:productivity/dataclasses/recipe_ingredient.dart';
+import 'package:productivity/dataclasses/unit.dart';
 
 // ─────────────────────────────────────────────
 //  RecipeFormPage  –  create / edit a recipe
@@ -29,7 +29,7 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _descCtrl;
 
-  String? _selectedCategoryId;
+  List<String> _selectedCategoryIds = [];
   List<_IngredientEntry> _entries = [];
 
   List<Category> _categories = [];
@@ -47,9 +47,10 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
     final r = widget.recipe;
     _nameCtrl = TextEditingController(text: r?.name ?? '');
     _descCtrl = TextEditingController(text: r?.description ?? '');
-    _selectedCategoryId = r?.categoryId;
+    _selectedCategoryIds = List<String>.from(r?.categoryIds ?? []);
     _entries = r?.ingredients
             .map((ri) => _IngredientEntry(
+                  id: ri.id,
                   ingredientId: ri.ingredientId,
                   unitId: ri.unitId,
                   amount: ri.amount,
@@ -96,10 +97,11 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
       id: widget.recipe?.id ??
           DateTime.now().microsecondsSinceEpoch.toString(),
       name: _nameCtrl.text.trim(),
-      categoryId: _selectedCategoryId,
+      categoryIds: _selectedCategoryIds,
       description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
       ingredients: _entries
           .map((e) => RecipeIngredient(
+                id: e.id,
                 ingredientId: e.ingredientId,
                 unitId: e.unitId,
                 amount: e.amount,
@@ -224,26 +226,35 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                     ),
                     const SizedBox(height: 12),
 
-                    // ── Category ──────────────────────────
-                    DropdownButtonFormField<String>(
-                      value: _selectedCategoryId,
-                      decoration: const InputDecoration(
-                        labelText: 'Kategorie (optional)',
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Keine Kategorie'),
-                        ),
-                        ..._categories.map((c) => DropdownMenuItem(
-                              value: c.id,
-                              child: Text(c.name),
-                            )),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _selectedCategoryId = v),
-                    ),
-                    const SizedBox(height: 12),
+                    // ── Categories ────────────────────────
+                    Text('Kategorien', style: text.titleMedium),
+                    const SizedBox(height: 8),
+                    _categories.isEmpty
+                        ? Text('Keine Kategorien vorhanden.',
+                            style: text.bodySmall?.copyWith(color: colors.outline))
+                        : Wrap(
+                            spacing: 8,
+                            runSpacing: 0,
+                            children: _categories.map((c) {
+                              final isSelected = _selectedCategoryIds.contains(c.id);
+                              return FilterChip(
+                                label: Text(c.name),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _selectedCategoryIds.add(c.id);
+                                    } else {
+                                      _selectedCategoryIds.remove(c.id);
+                                    }
+                                  });
+                                },
+                                selectedColor: colors.primaryContainer,
+                                checkmarkColor: colors.primary,
+                              );
+                            }).toList(),
+                          ),
+                    const SizedBox(height: 24),
 
                     // ── Description ───────────────────────
                     TextFormField(
@@ -343,22 +354,26 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
 
 // ── Mutable entry for the form ────────────────────────────────────────────────
 class _IngredientEntry {
+  String? id;
   String ingredientId;
-  String unitId;
+  String? unitId;
   double amount;
 
   _IngredientEntry({
+    this.id,
     required this.ingredientId,
-    required this.unitId,
+    this.unitId,
     required this.amount,
   });
 
   _IngredientEntry copyWith({
+    String? id,
     String? ingredientId,
     String? unitId,
     double? amount,
   }) =>
       _IngredientEntry(
+        id: id ?? this.id,
         ingredientId: ingredientId ?? this.ingredientId,
         unitId: unitId ?? this.unitId,
         amount: amount ?? this.amount,
@@ -386,17 +401,23 @@ class _AddIngredientSheet extends StatefulWidget {
 class _AddIngredientSheetState extends State<_AddIngredientSheet> {
   final _formKey = GlobalKey<FormState>();
   late String _selectedIngredientId;
-  late String _selectedUnitId;
+  late String? _selectedUnitId;
   late final TextEditingController _amountCtrl;
 
   @override
   void initState() {
     super.initState();
     final init = widget.initial;
-    _selectedIngredientId =
-        init?.ingredientId ?? widget.ingredients.first.id;
-    _selectedUnitId = init?.unitId ??
-        widget.ingredients.first.defaultUnitId;
+    _selectedIngredientId = init?.ingredientId ?? widget.ingredients.first.id;
+    
+    // Safety check for defaultUnitId
+    final prefUnitId = init?.unitId ?? widget.ingredients.first.defaultUnitId;
+    if (prefUnitId != null && widget.units.any((u) => u.id == prefUnitId)) {
+      _selectedUnitId = prefUnitId;
+    } else {
+      _selectedUnitId = widget.units.isNotEmpty ? widget.units.first.id : null;
+    }
+
     _amountCtrl = TextEditingController(
       text: init != null ? _fmtAmount(init.amount) : '',
     );
@@ -416,7 +437,11 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
     final ingredient = widget.ingredients.firstWhere((i) => i.id == id);
     setState(() {
       _selectedIngredientId = id;
-      _selectedUnitId = ingredient.defaultUnitId;
+      // Only use the default unit if it actually exists in our units list
+      if (ingredient.defaultUnitId != null &&
+          widget.units.any((u) => u.id == ingredient.defaultUnitId)) {
+        _selectedUnitId = ingredient.defaultUnitId;
+      }
     });
   }
 
@@ -507,11 +532,11 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 3,
-                  child: DropdownButtonFormField<String>(
+                  child: DropdownButtonFormField<String?>(
                     value: _selectedUnitId,
                     decoration: const InputDecoration(labelText: 'Einheit'),
                     items: widget.units
-                        .map((u) => DropdownMenuItem(
+                        .map((u) => DropdownMenuItem<String?>(
                               value: u.id,
                               child: Text('${u.name} (${u.symbol})'),
                             ))

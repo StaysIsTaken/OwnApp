@@ -1,39 +1,49 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:productivity/models/unit.dart';
+import 'package:productivity/dataclasses/unit.dart';
+import 'package:productivity/dataservice/api_client.dart';
 
 // ─────────────────────────────────────────────
-//  UnitService
+//  UnitService – API-backed
 // ─────────────────────────────────────────────
 class UnitService {
   UnitService._();
 
-  static const String _key = 'units';
+  static const String _path = '/units';
 
   static Future<List<Unit>> loadAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    return (prefs.getStringList(_key) ?? []).map(Unit.fromJsonString).toList();
+    final response = await ApiClient.dio.get(_path);
+    return (response.data['items'] as List<dynamic>)
+        .map((e) => Unit.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  /// Inserts a new unit or replaces an existing one with the same id.
-  static Future<void> upsert(Unit unit) async {
-    final items = await loadAll();
-    final idx = items.indexWhere((i) => i.id == unit.id);
-    if (idx >= 0) {
-      items[idx] = unit;
-    } else {
-      items.add(unit);
-    }
-    await _persist(items);
+  static Future<Unit> getById(String id) async {
+    final response = await ApiClient.dio.get('$_path/$id');
+    return Unit.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  static Future<Unit> create(Unit unit) async {
+    final response = await ApiClient.dio.post(_path, data: unit.toJson());
+    return Unit.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  static Future<Unit> update(Unit unit) async {
+    final response = await ApiClient.dio.put(
+      '$_path/${unit.id}',
+      data: unit.toJson(),
+    );
+    return Unit.fromJson(response.data as Map<String, dynamic>);
   }
 
   static Future<void> delete(String id) async {
-    final items = await loadAll();
-    items.removeWhere((i) => i.id == id);
-    await _persist(items);
+    await ApiClient.dio.delete('$_path/$id');
   }
 
-  static Future<void> _persist(List<Unit> items) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_key, items.map((i) => i.toJsonString()).toList());
+  /// Inserts or replaces – convenience wrapper kept for API compatibility.
+  static Future<void> upsert(Unit unit) async {
+    try {
+      await update(unit);
+    } catch (_) {
+      await create(unit);
+    }
   }
 }
