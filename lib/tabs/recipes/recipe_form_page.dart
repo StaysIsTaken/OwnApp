@@ -239,6 +239,11 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                               final isSelected = _selectedCategoryIds.contains(c.id);
                               return FilterChip(
                                 label: Text(c.name),
+                                labelStyle: TextStyle(
+                                  color: isSelected ? colors.onPrimary : colors.onSurfaceVariant,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  fontSize: 13,
+                                ),
                                 selected: isSelected,
                                 onSelected: (selected) {
                                   setState(() {
@@ -249,8 +254,16 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                                     }
                                   });
                                 },
-                                selectedColor: colors.primaryContainer,
-                                checkmarkColor: colors.primary,
+                                backgroundColor: colors.surfaceVariant.withOpacity(0.3),
+                                selectedColor: colors.primary,
+                                checkmarkColor: colors.onPrimary,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(
+                                    color: isSelected ? colors.primary : colors.outline.withOpacity(0.2),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                               );
                             }).toList(),
                           ),
@@ -437,10 +450,13 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
     final ingredient = widget.ingredients.firstWhere((i) => i.id == id);
     setState(() {
       _selectedIngredientId = id;
-      // Only use the default unit if it actually exists in our units list
-      if (ingredient.defaultUnitId != null &&
-          widget.units.any((u) => u.id == ingredient.defaultUnitId)) {
-        _selectedUnitId = ingredient.defaultUnitId;
+      
+      // Update unit: use default unit if valid, otherwise fallback to the first unit in the list
+      final defUnit = ingredient.defaultUnitId?.toString();
+      if (defUnit != null && widget.units.any((u) => u.id.toString() == defUnit)) {
+        _selectedUnitId = defUnit;
+      } else if (widget.units.isNotEmpty) {
+        _selectedUnitId = widget.units.first.id;
       }
     });
   }

@@ -10,11 +10,7 @@ class Ingredient {
   final String name;
   final String? defaultUnitId;
 
-  const Ingredient({
-    required this.id,
-    required this.name,
-    this.defaultUnitId,
-  });
+  const Ingredient({required this.id, required this.name, this.defaultUnitId});
 
   Ingredient copyWith({String? id, String? name, String? defaultUnitId}) =>
       Ingredient(
@@ -24,16 +20,37 @@ class Ingredient {
       );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'defaultUnitId': defaultUnitId,
-      };
+    'id': id,
+    'name': name,
+    'unitId': defaultUnitId, // redundanter Fallback
+  };
 
-  factory Ingredient.fromJson(Map<String, dynamic> j) => Ingredient(
-        id: j['id']?.toString() ?? '',
-        name: j['name']?.toString() ?? '',
-        defaultUnitId: j['defaultUnitId']?.toString(),
-      );
+  factory Ingredient.fromJson(Map<String, dynamic> j) {
+    // Try to find the unit ID in various places (flat or nested)
+    dynamic rawUnit =
+        j['unit'] ??
+        j['default_unit'] ??
+        j['defaultUnit'] ??
+        j['unitId'] ??
+        j['unit_id'] ??
+        j['defaultUnitId'] ??
+        j['default_unit_id'];
+
+    String? extractedId;
+    if (rawUnit is Map) {
+      extractedId =
+          (rawUnit['id'] ?? rawUnit['categoryId'] ?? rawUnit['unitId'])
+              ?.toString();
+    } else {
+      extractedId = rawUnit?.toString();
+    }
+
+    return Ingredient(
+      id: j['id']?.toString() ?? '',
+      name: j['name']?.toString() ?? '',
+      defaultUnitId: extractedId,
+    );
+  }
 
   String toJsonString() => jsonEncode(toJson());
 

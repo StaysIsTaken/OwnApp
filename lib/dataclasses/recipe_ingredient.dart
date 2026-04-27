@@ -32,14 +32,14 @@ class RecipeIngredient {
       );
 
   Map<String, dynamic> toJson() => {
-        'ingredient_id': ingredientId,
+        'ingredientId': ingredientId,
         'amount': amount,
       };
 
   factory RecipeIngredient.fromJson(Map<String, dynamic> j) => RecipeIngredient(
         id: j['id']?.toString(),
-        ingredientId: j['ingredient_id']?.toString() ?? '',
-        unitId: j['unit_id']?.toString(), // Ensure unit_id is parsed if present
+        ingredientId: (j['ingredientId'] ?? j['ingredient_id'] ?? '').toString(),
+        unitId: (j['unitId'] ?? j['unit_id'])?.toString(),
         amount: (j['amount'] as num?)?.toDouble() ?? 0.0,
       );
 

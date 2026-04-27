@@ -20,6 +20,14 @@ class SettingsPage extends BasePage {
           child: Column(
             children: [
               SwitchListTile(
+                title: const Text('Dark Mode'),
+                subtitle: const Text('Dunkles Design verwenden'),
+                value: settings.isDarkMode,
+                onChanged: (v) => settings.setDarkMode(v),
+                secondary: const Icon(Icons.dark_mode),
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
                 secondary: Icon(Icons.access_time, color: colors.primary),
                 title: const Text('24-Stunden-Format'),
                 subtitle: const Text('Zeit als 24h oder 12h (AM/PM) anzeigen'),

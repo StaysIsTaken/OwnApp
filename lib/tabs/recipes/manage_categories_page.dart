@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/category_service.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/category.dart';
-import 'package:productivity/widgets/manage_item_tile.dart';
 
 class ManageCategoriesPage extends BasePage {
   const ManageCategoriesPage({super.key}) : super(title: 'Kategorien verwalten');
@@ -38,19 +37,17 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
   }
 
   Future<void> _confirmDelete(Category cat) async {
+    final colors = Theme.of(context).colorScheme;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Kategorie löschen?'),
-        content: Text('„${cat.name}" wirklich löschen?'),
+        content: Text('Möchtest du „${cat.name}“ wirklich löschen?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Abbrechen'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Löschen'),
+            child: Text('Löschen', style: TextStyle(color: colors.error)),
           ),
         ],
       ),
@@ -66,9 +63,7 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.radiusLg),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
       ),
       builder: (_) => _CategoryForm(
         category: category,
@@ -85,46 +80,63 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Stack(
-      children: [
-        _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _categories.isEmpty
-                ? Center(
-                    child: Column(
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openForm(),
+        label: const Text('Kategorie'),
+        icon: const Icon(Icons.add),
+      ),
+      body: _categories.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.category_outlined, size: 64, color: colors.outline.withOpacity(0.5)),
+                  const SizedBox(height: 16),
+                  Text('Noch keine Kategorien', style: text.bodyLarge?.copyWith(color: colors.outline)),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _categories.length,
+              itemBuilder: (context, i) {
+                final cat = _categories[i];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: colors.outlineVariant.withOpacity(0.5)),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: CircleAvatar(
+                      backgroundColor: colors.primaryContainer,
+                      child: Icon(Icons.label_outline, color: colors.onPrimaryContainer, size: 20),
+                    ),
+                    title: Text(cat.name, style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.category_outlined,
-                            size: 64, color: colors.outlineVariant),
-                        const SizedBox(height: 12),
-                        Text('Noch keine Kategorien',
-                            style: text.bodyMedium
-                                ?.copyWith(color: colors.outline)),
-                        const SizedBox(height: 6),
-                        Text('Tippe auf + um eine Kategorie anzulegen',
-                            style: text.bodySmall
-                                ?.copyWith(color: colors.outlineVariant)),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          onPressed: () => _openForm(category: cat),
+                          tooltip: 'Bearbeiten',
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete_outline, size: 20, color: colors.error),
+                          onPressed: () => _confirmDelete(cat),
+                          tooltip: 'Löschen',
+                        ),
                       ],
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-                    itemCount: _categories.length,
-                    itemBuilder: (_, i) => ManageItemTile(
-                      title: _categories[i].name,
-                      onEdit: () => _openForm(category: _categories[i]),
-                      onDelete: () => _confirmDelete(_categories[i]),
-                    ),
                   ),
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton(
-            onPressed: () => _openForm(),
-            child: const Icon(Icons.add),
-          ),
-        ),
-      ],
+                );
+              },
+            ),
     );
   }
 }
@@ -161,8 +173,7 @@ class _CategoryFormState extends State<_CategoryForm> {
     setState(() => _saving = true);
 
     final cat = Category(
-      id: widget.category?.id ??
-          DateTime.now().microsecondsSinceEpoch.toString(),
+      id: widget.category?.id ?? '',
       name: _nameCtrl.text.trim(),
     );
     await widget.onSave(cat);
@@ -177,9 +188,7 @@ class _CategoryFormState extends State<_CategoryForm> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 24,
+        left: 24, right: 24, top: 24,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       child: Form(
@@ -188,44 +197,36 @@ class _CategoryFormState extends State<_CategoryForm> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
             Text(
               isEdit ? 'Kategorie bearbeiten' : 'Neue Kategorie',
-              style: text.titleLarge,
+              style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             TextFormField(
               controller: _nameCtrl,
               autofocus: true,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Name',
-                hintText: 'z. B. Frühstück',
+                hintText: 'z.B. Frühstück',
+                filled: true,
+                fillColor: colors.surfaceVariant.withOpacity(0.3),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Name eingeben' : null,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Name eingeben' : null,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             ElevatedButton(
               onPressed: _saving ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               child: _saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : Text(isEdit ? 'Speichern' : 'Kategorie anlegen'),
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

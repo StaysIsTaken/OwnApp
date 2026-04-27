@@ -113,6 +113,16 @@ class _RecipesPageContentState extends State<_RecipesPageContent> {
       _unitMap = {for (final u in results[3] as List<Unit>) u.id: u};
       _loading = false;
     });
+
+    // Lazy load details for each recipe in the background to avoid engine lag
+    for (int i = 0; i < _recipes.length; i++) {
+      final detailed = await RecipeService.loadDetails(_recipes[i]);
+      if (mounted) {
+        setState(() {
+          _recipes[i] = detailed;
+        });
+      }
+    }
   }
 
   List<Recipe> get _filtered {
@@ -386,10 +396,29 @@ class _RecipeCard extends StatelessWidget {
                           style: text.bodyLarge
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
-                        if (categoryNames.isNotEmpty)
-                          Text(categoryNames.join(', '),
-                              style: text.bodySmall?.copyWith(
-                                  color: colors.primary)),
+                        if (categoryNames.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: categoryNames.map((name) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: colors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: colors.primary.withOpacity(0.2), width: 0.5),
+                              ),
+                              child: Text(
+                                name,
+                                style: text.labelSmall?.copyWith(
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            )).toList(),
+                          ),
+                        ],
                       ],
                     ),
                   ),
