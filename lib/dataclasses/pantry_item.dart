@@ -1,15 +1,15 @@
-import 'dart:convert';
-
 // ─────────────────────────────────────────────
 //  PantryItem (Vorratsartikel)
+//  API uses `quantity` / `minQuantity`; Dart keeps
+//  `amount` / `minAmount` for shorter call sites.
 // ─────────────────────────────────────────────
 class PantryItem {
   final String id;
   final String ingredientId;
   final String unitId;
-  final String? storageLocationId;
-  final double amount; // Match DB: amount
-  final double minAmount; // Match DB: minAmount
+  final String storageLocationId;
+  final double amount;
+  final double minAmount;
   final DateTime? expiryDate;
   final DateTime updatedAt;
 
@@ -17,7 +17,7 @@ class PantryItem {
     required this.id,
     required this.ingredientId,
     required this.unitId,
-    this.storageLocationId,
+    required this.storageLocationId,
     required this.amount,
     required this.minAmount,
     this.expiryDate,
@@ -50,8 +50,8 @@ class PantryItem {
         'ingredientId': ingredientId,
         'unitId': unitId,
         'storageLocationId': storageLocationId,
-        'amount': amount,
-        'minAmount': minAmount,
+        'quantity': amount,
+        'minQuantity': minAmount,
         'expiryDate': expiryDate?.toIso8601String().split('T')[0],
       };
 
@@ -60,11 +60,11 @@ class PantryItem {
       id: j['id']?.toString() ?? '',
       ingredientId: (j['ingredientId'] ?? '').toString(),
       unitId: (j['unitId'] ?? '').toString(),
-      storageLocationId: j['storageLocationId']?.toString(),
-      amount: (j['amount'] as num?)?.toDouble() ?? (j['quantity'] as num?)?.toDouble() ?? 0.0,
-      minAmount: (j['minAmount'] as num?)?.toDouble() ?? (j['minQuantity'] as num?)?.toDouble() ?? 0.0,
+      storageLocationId: (j['storageLocationId'] ?? '').toString(),
+      amount: (j['quantity'] as num?)?.toDouble() ?? 0.0,
+      minAmount: (j['minQuantity'] as num?)?.toDouble() ?? 0.0,
       expiryDate: j['expiryDate'] != null ? DateTime.tryParse(j['expiryDate'].toString()) : null,
-      updatedAt: j['updatedAt'] != null 
+      updatedAt: j['updatedAt'] != null
           ? DateTime.tryParse(j['updatedAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );

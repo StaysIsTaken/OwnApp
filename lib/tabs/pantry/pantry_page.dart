@@ -220,12 +220,17 @@ class _PantryListState extends State<_PantryList> {
                     TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
                     ElevatedButton(
                       onPressed: () async {
-                        if (selIngId == null || selUnitId == null) return;
+                        if (selIngId == null || selUnitId == null || selLocId == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Zutat, Einheit und Lagerort sind Pflichtfelder.')),
+                          );
+                          return;
+                        }
                         final newItem = PantryItem(
                           id: item?.id ?? '',
                           ingredientId: selIngId!,
                           unitId: selUnitId!,
-                          storageLocationId: selLocId,
+                          storageLocationId: selLocId!,
                           amount: double.tryParse(qtyCtrl.text) ?? 1,
                           minAmount: double.tryParse(minQtyCtrl.text) ?? 0,
                           expiryDate: selExpiry,

@@ -26,9 +26,4 @@ class ShoppingListService {
   static Future<void> delete(String id) async {
     await ApiClient.dio.delete('$_path/$id');
   }
-
-  static Future<void> clearBought() async {
-    // Check if the backend has this endpoint, otherwise loop through and delete
-    await ApiClient.dio.delete('$_path/clear-bought');
-  }
 }
