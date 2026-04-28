@@ -50,7 +50,11 @@ class _DesktopChatLayoutState extends State<_DesktopChatLayout> {
           width: 350,
           child: Container(
             decoration: BoxDecoration(
-              border: Border(right: BorderSide(color: colors.outlineVariant.withOpacity(0.5))),
+              border: Border(
+                right: BorderSide(
+                  color: colors.outlineVariant.withOpacity(0.5),
+                ),
+              ),
             ),
             child: _ChatListContent(
               key: _listKey,
@@ -65,7 +69,11 @@ class _DesktopChatLayoutState extends State<_DesktopChatLayout> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.chat_bubble_outline, size: 64, color: colors.outline.withOpacity(0.3)),
+                      Icon(
+                        Icons.chat_bubble_outline,
+                        size: 64,
+                        color: colors.outline.withOpacity(0.3),
+                      ),
                       const SizedBox(height: 16),
                       const Text('Wähle einen Chat aus, um zu schreiben'),
                     ],
@@ -123,7 +131,7 @@ class _ChatListContentState extends State<_ChatListContent> {
   void _showCreateDialog() async {
     final users = await UserService.getAllUsers();
     if (!mounted) return;
-    
+
     final me = Provider.of<UserProvider>(context, listen: false).user;
     final otherUsers = users.where((u) => u.id != me?.id).toList();
 
@@ -131,7 +139,9 @@ class _ChatListContentState extends State<_ChatListContent> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLg),
+        ),
       ),
       builder: (context) => _CreateChatForm(
         users: otherUsers,
@@ -166,7 +176,8 @@ class _ChatListContentState extends State<_ChatListContent> {
                   String subtitle = 'Noch keine Nachrichten';
                   if (room.lastMessage != null) {
                     if (room.isGroup) {
-                      subtitle = '${room.lastMessage!.senderName}: ${room.lastMessage!.message}';
+                      subtitle =
+                          '${room.lastMessage!.senderName}: ${room.lastMessage!.message}';
                     } else {
                       subtitle = room.lastMessage!.message;
                     }
@@ -176,7 +187,9 @@ class _ChatListContentState extends State<_ChatListContent> {
                   if (room.lastMessage != null) {
                     final now = DateTime.now();
                     final date = room.lastMessage!.createdAt;
-                    if (now.day == date.day && now.month == date.month && now.year == date.year) {
+                    if (now.day == date.day &&
+                        now.month == date.month &&
+                        now.year == date.year) {
                       timeStr = DateFormat('HH:mm').format(date);
                     } else {
                       timeStr = DateFormat('dd.MM.').format(date);
@@ -185,13 +198,25 @@ class _ChatListContentState extends State<_ChatListContent> {
 
                   return ListTile(
                     selected: isSelected,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     leading: CircleAvatar(
                       radius: 24,
-                      backgroundColor: room.isGroup ? colors.primaryContainer : colors.secondaryContainer,
+                      backgroundColor: room.isGroup
+                          ? colors.primaryContainer
+                          : colors.secondaryContainer,
                       child: Text(
-                        room.displayName.isNotEmpty ? room.displayName[0].toUpperCase() : '?',
-                        style: TextStyle(color: room.isGroup ? colors.onPrimaryContainer : colors.onSecondaryContainer, fontWeight: FontWeight.bold),
+                        room.displayName.isNotEmpty
+                            ? room.displayName[0].toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          color: room.isGroup
+                              ? colors.onPrimaryContainer
+                              : colors.onSecondaryContainer,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     title: Row(
@@ -199,13 +224,22 @@ class _ChatListContentState extends State<_ChatListContent> {
                         Expanded(
                           child: Text(
                             room.displayName,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (timeStr.isNotEmpty)
-                          Text(timeStr, style: TextStyle(fontSize: 12, color: colors.outline)),
+                          Text(
+                            timeStr,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colors.outline,
+                            ),
+                          ),
                       ],
                     ),
                     subtitle: Padding(
@@ -221,10 +255,15 @@ class _ChatListContentState extends State<_ChatListContent> {
                       if (widget.onRoomSelected != null) {
                         widget.onRoomSelected!(room);
                       } else {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => _MobileChatRoomPage(
-                          room: room,
-                          onDeleted: _load,
-                        )));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => _MobileChatRoomPage(
+                              room: room,
+                              onDeleted: _load,
+                            ),
+                          ),
+                        );
                       }
                     },
                   );
@@ -255,12 +294,17 @@ class _CreateChatFormState extends State<_CreateChatForm> {
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 20, right: 20, top: 20,
+        left: 20,
+        right: 20,
+        top: 20,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_isGroup ? 'Neue Gruppe' : 'Neuer Chat', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            _isGroup ? 'Neue Gruppe' : 'Neuer Chat',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           SwitchListTile(
             title: const Text('Gruppen-Chat'),
@@ -273,7 +317,10 @@ class _CreateChatFormState extends State<_CreateChatForm> {
               decoration: const InputDecoration(labelText: 'Gruppenname'),
             ),
           const SizedBox(height: 16),
-          const Text('Teilnehmer auswählen:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Teilnehmer auswählen:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           SizedBox(
             height: 200,
             child: ListView.builder(
@@ -286,8 +333,10 @@ class _CreateChatFormState extends State<_CreateChatForm> {
                   value: _selectedUserIds.contains(user.id),
                   onChanged: (v) {
                     setState(() {
-                      if (v == true) _selectedUserIds.add(user.id);
-                      else _selectedUserIds.remove(user.id);
+                      if (v == true)
+                        _selectedUserIds.add(user.id);
+                      else
+                        _selectedUserIds.remove(user.id);
                     });
                   },
                 );
@@ -298,18 +347,23 @@ class _CreateChatFormState extends State<_CreateChatForm> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Abbrechen'),
+              ),
               ElevatedButton(
-                onPressed: _selectedUserIds.isEmpty ? null : () async {
-                  final room = await ChatService.createRoom(
-                    _nameCtrl.text.isEmpty ? 'Gruppe' : _nameCtrl.text,
-                    _isGroup,
-                    _selectedUserIds.toList(),
-                  );
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                  widget.onCreated(room);
-                },
+                onPressed: _selectedUserIds.isEmpty
+                    ? null
+                    : () async {
+                        final room = await ChatService.createRoom(
+                          _nameCtrl.text.isEmpty ? 'Gruppe' : _nameCtrl.text,
+                          _isGroup,
+                          _selectedUserIds.toList(),
+                        );
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                        widget.onCreated(room);
+                      },
                 child: const Text('Erstellen'),
               ),
             ],
@@ -399,7 +453,9 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLg),
+        ),
       ),
       builder: (context) => _ChatSettingsView(
         room: widget.room,
@@ -421,13 +477,23 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: colors.surface,
-            border: Border(bottom: BorderSide(color: colors.outlineVariant.withOpacity(0.3))),
+            border: Border(
+              bottom: BorderSide(color: colors.outlineVariant.withOpacity(0.3)),
+            ),
           ),
           child: Row(
             children: [
-              Text(widget.room.displayName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                widget.room.displayName,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
               const Spacer(),
-              IconButton(icon: const Icon(Icons.info_outline, size: 20), onPressed: _showSettings),
+              IconButton(
+                icon: const Icon(Icons.info_outline, size: 20),
+                onPressed: _showSettings,
+              ),
             ],
           ),
         ),
@@ -455,7 +521,9 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: colors.surface,
-            border: Border(top: BorderSide(color: colors.outlineVariant.withOpacity(0.3))),
+            border: Border(
+              top: BorderSide(color: colors.outlineVariant.withOpacity(0.3)),
+            ),
           ),
           child: Row(
             children: [
@@ -466,8 +534,14 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                     hintText: 'Nachricht schreiben...',
                     filled: true,
                     fillColor: colors.surfaceVariant.withOpacity(0.3),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                   ),
                   onSubmitted: (_) => _sendMessage(),
                 ),
@@ -475,7 +549,10 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
               const SizedBox(width: 8),
               CircleAvatar(
                 backgroundColor: colors.primary,
-                child: IconButton(icon: const Icon(Icons.send, color: Colors.white, size: 20), onPressed: _sendMessage),
+                child: IconButton(
+                  icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                  onPressed: _sendMessage,
+                ),
               ),
             ],
           ),
@@ -507,7 +584,11 @@ class _ChatSettingsViewState extends State<_ChatSettingsView> {
   Future<void> _load() async {
     try {
       final members = await ChatService.getMembers(widget.room.id);
-      if (mounted) setState(() { _members = members; _loading = false; });
+      if (mounted)
+        setState(() {
+          _members = members;
+          _loading = false;
+        });
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
@@ -523,47 +604,69 @@ class _ChatSettingsViewState extends State<_ChatSettingsView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Chat-Einstellungen', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            'Chat-Einstellungen',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 20),
           if (widget.room.isGroup) ...[
             ListTile(
               leading: const Icon(Icons.edit_outlined),
               title: const Text('Name ändern'),
-              onTap: () async { /* TODO */ },
+              onTap: () async {
+                /* TODO */
+              },
             ),
             ListTile(
               leading: const Icon(Icons.person_add_outlined),
               title: const Text('Mitglied hinzufügen'),
-              onTap: () async { /* TODO */ },
+              onTap: () async {
+                /* TODO */
+              },
             ),
             const Divider(),
           ],
-          const Text('Teilnehmer:', style: TextStyle(fontWeight: FontWeight.bold)),
-          if (_loading) const CircularProgressIndicator()
-          else Expanded(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _members.length,
-              itemBuilder: (context, i) {
-                final member = _members[i];
-                final isMe = member.id == userProvider.user?.id;
-                return ListTile(
-                  leading: CircleAvatar(child: Text(member.firstname.isNotEmpty ? member.firstname[0] : '?')),
-                  title: Text('${member.firstname} ${member.lastname}'),
-                  subtitle: Text(member.username),
-                  trailing: (widget.room.isGroup && !isMe)
-                      ? IconButton(
-                          icon: const Icon(Icons.person_remove_outlined, color: Colors.red),
-                          onPressed: () async {
-                            await ChatService.removeMember(widget.room.id, member.id);
-                            _load();
-                          },
-                        )
-                      : null,
-                );
-              },
-            ),
+          const Text(
+            'Teilnehmer:',
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
+          if (_loading)
+            const CircularProgressIndicator()
+          else
+            Expanded(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _members.length,
+                itemBuilder: (context, i) {
+                  final member = _members[i];
+                  final isMe = member.id == userProvider.user?.id;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      child: Text(
+                        member.firstname.isNotEmpty ? member.firstname[0] : '?',
+                      ),
+                    ),
+                    title: Text('${member.firstname} ${member.lastname}'),
+                    subtitle: Text(member.username),
+                    trailing: (widget.room.isGroup && !isMe)
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.person_remove_outlined,
+                              color: Colors.red,
+                            ),
+                            onPressed: () async {
+                              await ChatService.removeMember(
+                                widget.room.id,
+                                member.id,
+                              );
+                              _load();
+                            },
+                          )
+                        : null,
+                  );
+                },
+              ),
+            ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: () async {
@@ -573,7 +676,9 @@ class _ChatSettingsViewState extends State<_ChatSettingsView> {
               if (widget.onDeleted != null) widget.onDeleted!();
             },
             icon: const Icon(Icons.exit_to_app),
-            label: Text(widget.room.isGroup ? 'Gruppe verlassen' : 'Chat löschen'),
+            label: Text(
+              widget.room.isGroup ? 'Gruppe verlassen' : 'Chat löschen',
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: colors.errorContainer,
               foregroundColor: colors.onErrorContainer,
@@ -608,25 +713,41 @@ class _ChatBubble extends StatelessWidget {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMe
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           if (showSenderName && senderName != null)
             Padding(
-              padding: const EdgeInsets.only(left: 8.0, bottom: 4.0, right: 8.0),
+              padding: const EdgeInsets.only(
+                left: 8.0,
+                bottom: 4.0,
+                right: 8.0,
+              ),
               child: Text(
                 senderName!,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colors.primary),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: colors.primary,
+                ),
               ),
             ),
           Container(
             margin: const EdgeInsets.only(bottom: 4),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.7,
+            ),
             decoration: BoxDecoration(
               color: isMe ? colors.primary : colors.secondaryContainer,
               borderRadius: BorderRadius.circular(16).copyWith(
-                bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(16),
-                bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(0),
+                bottomRight: isMe
+                    ? const Radius.circular(0)
+                    : const Radius.circular(16),
+                bottomLeft: isMe
+                    ? const Radius.circular(16)
+                    : const Radius.circular(0),
               ),
             ),
             child: Column(
@@ -634,14 +755,20 @@ class _ChatBubble extends StatelessWidget {
               children: [
                 Text(
                   message,
-                  style: TextStyle(color: isMe ? colors.onPrimary : colors.onSecondaryContainer),
+                  style: TextStyle(
+                    color: isMe
+                        ? colors.onPrimary
+                        : colors.onSecondaryContainer,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   time,
                   style: TextStyle(
                     fontSize: 10,
-                    color: (isMe ? colors.onPrimary : colors.onSecondaryContainer).withOpacity(0.7),
+                    color:
+                        (isMe ? colors.onPrimary : colors.onSecondaryContainer)
+                            .withOpacity(0.7),
                   ),
                 ),
               ],

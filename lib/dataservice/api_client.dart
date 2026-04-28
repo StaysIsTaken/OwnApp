@@ -39,7 +39,6 @@ class _AuthInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    // On 401 the token is likely expired – caller handles redirect to login.
     handler.next(err);
   }
 }
