@@ -18,10 +18,16 @@ class PantryService {
 
   static Future<StorageLocation> upsertLocation(StorageLocation loc) async {
     if (loc.id.isEmpty) {
-      final response = await ApiClient.dio.post(_locationPath, data: loc.toJson());
+      final response = await ApiClient.dio.post(
+        _locationPath,
+        data: loc.toJson(),
+      );
       return StorageLocation.fromJson(response.data);
     } else {
-      final response = await ApiClient.dio.put('$_locationPath/${loc.id}', data: loc.toJson());
+      final response = await ApiClient.dio.put(
+        '$_locationPath/${loc.id}',
+        data: loc.toJson(),
+      );
       return StorageLocation.fromJson(response.data);
     }
   }
@@ -40,10 +46,16 @@ class PantryService {
 
   static Future<PantryItem> upsert(PantryItem item) async {
     if (item.id.isEmpty) {
-      final response = await ApiClient.dio.post(_pantryPath, data: item.toJson());
+      final response = await ApiClient.dio.post(
+        _pantryPath,
+        data: item.toJson(),
+      );
       return PantryItem.fromJson(response.data);
     } else {
-      final response = await ApiClient.dio.put('$_pantryPath/${item.id}', data: item.toJson());
+      final response = await ApiClient.dio.put(
+        '$_pantryPath/${item.id}',
+        data: item.toJson(),
+      );
       return PantryItem.fromJson(response.data);
     }
   }

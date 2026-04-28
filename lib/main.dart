@@ -65,7 +65,7 @@ class AppTheme {
   static const double radiusSm = 8.0;
   static const double radiusMd = 12.0;
   static const double radiusLg = 24.0;
-  
+
   static const Color primaryColor = Colors.blue;
   static const Color secondaryColor = Colors.lightBlueAccent;
 
@@ -104,6 +104,7 @@ class AppRoutes {
   static const String storageLocations = '/storage-locations';
 
   static final Map<String, WidgetBuilder> routes = {
+    login: (_) => const Login(),
     register: (_) => const RegisterPage(),
     home: (_) => const HomePage(),
     settings: (_) => const SettingsPage(),
@@ -155,7 +156,9 @@ abstract class BasePage extends StatelessWidget {
             ? _LoginRequiredView(pageTitle: title)
             : buildBody(context),
       ),
-      floatingActionButton: (requiresLogin && !isLoggedIn) ? null : buildFAB(context),
+      floatingActionButton: (requiresLogin && !isLoggedIn)
+          ? null
+          : buildFAB(context),
       drawer: buildDrawer(context),
     );
   }
@@ -182,7 +185,11 @@ class _LoginRequiredView extends StatelessWidget {
                 color: colors.primaryContainer.withOpacity(0.4),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.lock_person_outlined, size: 80, color: colors.primary),
+              child: Icon(
+                Icons.lock_person_outlined,
+                size: 80,
+                color: colors.primary,
+              ),
             ),
             const SizedBox(height: 32),
             Text(
@@ -200,13 +207,20 @@ class _LoginRequiredView extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: () {
                 // Hier zum Login navigieren (angenommen Route ist '/')
-                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                Navigator.of(
+                  context,
+                ).pushNamedAndRemoveUntil('/', (route) => false);
               },
               icon: const Icon(Icons.login),
               label: const Text('Jetzt anmelden'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
             const SizedBox(height: 16),
