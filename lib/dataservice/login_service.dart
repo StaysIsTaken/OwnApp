@@ -1,18 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:productivity/dataclasses/User.dart';
+import 'package:productivity/dataservice/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginService {
-  static const String baseUrl = 'http://192.168.178.20:8000/api/auth';
-
-  static final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-      headers: {'Content-Type': 'application/json'},
-    ),
-  );
+  static const String _basePath = '/auth';
 
   // ─── Register ─────────────────────────────────────────────────────────────
   static Future<void> register({
@@ -21,8 +13,8 @@ class LoginService {
     required String lastName,
     required String password,
   }) async {
-    await _dio.post(
-      '/register',
+    await ApiClient.dio.post(
+      '$_basePath/register',
       data: {
         'username': username,
         'first_name': firstName,
@@ -37,8 +29,8 @@ class LoginService {
     required String username,
     required String password,
   }) async {
-    final response = await _dio.post(
-      '/login',
+    final response = await ApiClient.dio.post(
+      '$_basePath/login',
       data: {'username': username, 'password': password},
     );
     final token = response.data['access_token'];
@@ -48,7 +40,9 @@ class LoginService {
   // ─── Registration Status ──────────────────────────────────────────────────
   static Future<bool> isRegistrationOpen() async {
     try {
-      final response = await _dio.get('/registration-status');
+      final response = await ApiClient.dio.get(
+        '$_basePath/registration-status',
+      );
       return response.data['open'] == true;
     } catch (_) {
       return false;
@@ -77,12 +71,7 @@ class LoginService {
   }
 
   static Future<User> get currentUser async {
-    final token = await getToken();
-
-    final response = await _dio.get(
-      'http://192.168.178.20:8000/api/users/me',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+    final response = await ApiClient.dio.get('/users/me');
     if (response.statusCode == 200) {
       return User.fromJson(response.data);
     }
