@@ -10,11 +10,7 @@ import 'package:productivity/dataservice/login_service.dart';
 class ApiClient {
   ApiClient._();
 
-  static const String baseUrl = String.fromEnvironment(
-    'API_URL',
-    defaultValue:
-        'http://192.168.178.20:8000/api', // bleibt für lokale Entwicklung
-  );
+  static const String baseUrl = 'https://api.home-anft.de/api';
 
   static final Dio _dio = Dio(
     BaseOptions(
