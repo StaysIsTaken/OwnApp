@@ -14,7 +14,8 @@ class NotificationService {
   bool _isConnected = false;
   Timer? _heartbeatTimer;
 
-  static final GlobalKey<ScaffoldMessengerState> messengerKey = GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<ScaffoldMessengerState> messengerKey =
+      GlobalKey<ScaffoldMessengerState>();
 
   Future<void> init() async {
     if (_isConnected) return;
@@ -22,10 +23,12 @@ class NotificationService {
     final token = await LoginService.getToken();
     if (token == null) return;
 
-    final baseUrl = ApiClient.baseUrl; 
+    final baseUrl = ApiClient.baseUrl;
     final uri = Uri.parse(baseUrl);
     final wsScheme = uri.scheme == 'https' ? 'wss' : 'ws';
-    final wsUrl = '$wsScheme://${uri.host}:${uri.port}${uri.path}/chat/ws/notifications?token=$token';
+    final port = uri.hasPort ? ':${uri.port}' : '';
+    final wsUrl =
+        '$wsScheme://${uri.host}$port${uri.path}/chat/ws/notifications?token=$token';
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
@@ -86,8 +89,19 @@ class NotificationService {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  Text(body, style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    body,
+                    style: const TextStyle(color: Colors.white70),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
