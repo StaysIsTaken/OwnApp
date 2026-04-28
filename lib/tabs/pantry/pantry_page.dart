@@ -63,13 +63,14 @@ class _PantryListState extends State<_PantryList> {
         _unitMap = {for (var u in _units) u.id: u};
         _loading = false;
       });
-      print('Pantry geladen: ${_items.length} Items, ${_ingredients.length} Zutaten, ${_units.length} Einheiten, ${_locations.length} Lagerorte');
     } catch (e) {
-      print('FEHLER in PantryPage._load: $e');
       if (mounted) {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim Laden: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Fehler beim Laden: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -83,18 +84,24 @@ class _PantryListState extends State<_PantryList> {
     }).toList();
 
     if (_filterLocationId != null) {
-      list = list.where((i) => i.storageLocationId == _filterLocationId).toList();
+      list = list
+          .where((i) => i.storageLocationId == _filterLocationId)
+          .toList();
     }
     return list;
   }
 
   Future<void> _updateQuantity(PantryItem item, double delta) async {
     try {
-      final updated = item.copyWith(amount: (item.amount + delta).clamp(0, 999999));
+      final updated = item.copyWith(
+        amount: (item.amount + delta).clamp(0, 999999),
+      );
       await PantryService.upsert(updated);
       _load();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
     }
   }
 
@@ -102,7 +109,9 @@ class _PantryListState extends State<_PantryList> {
     if (_ingredients.isEmpty || _units.isEmpty || _locations.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bitte zuerst Zutaten, Einheiten und Lagerorte anlegen!'),
+          content: Text(
+            'Bitte zuerst Zutaten, Einheiten und Lagerorte anlegen!',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -110,44 +119,63 @@ class _PantryListState extends State<_PantryList> {
     }
 
     String? selIngId = item?.ingredientId;
-    if (selIngId != null && !_ingredients.any((i) => i.id == selIngId)) selIngId = null;
+    if (selIngId != null && !_ingredients.any((i) => i.id == selIngId))
+      selIngId = null;
 
     String? selUnitId = item?.unitId;
-    if (selUnitId != null && !_units.any((u) => u.id == selUnitId)) selUnitId = null;
+    if (selUnitId != null && !_units.any((u) => u.id == selUnitId))
+      selUnitId = null;
 
     String? selLocId = item?.storageLocationId;
-    if (selLocId != null && !_locations.any((l) => l.id == selLocId)) selLocId = null;
+    if (selLocId != null && !_locations.any((l) => l.id == selLocId))
+      selLocId = null;
     final qtyCtrl = TextEditingController(text: item?.amount.toString() ?? '1');
-    final minQtyCtrl = TextEditingController(text: item?.minAmount.toString() ?? '0');
+    final minQtyCtrl = TextEditingController(
+      text: item?.minAmount.toString() ?? '0',
+    );
     DateTime? selExpiry = item?.expiryDate;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLg),
+        ),
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20, right: 20, top: 20,
+            left: 20,
+            right: 20,
+            top: 20,
           ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(item == null ? 'Neuer Vorrat' : 'Vorrat bearbeiten', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  item == null ? 'Neuer Vorrat' : 'Vorrat bearbeiten',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
                   value: selIngId,
                   decoration: const InputDecoration(labelText: 'Zutat'),
-                  items: _ingredients.map((i) => DropdownMenuItem(value: i.id, child: Text(i.name))).toList(),
+                  items: _ingredients
+                      .map(
+                        (i) =>
+                            DropdownMenuItem(value: i.id, child: Text(i.name)),
+                      )
+                      .toList(),
                   onChanged: (v) {
                     setDialogState(() {
                       selIngId = v;
                       // Auto-select default unit
-                      final ing = _ingredients.where((i) => i.id == v).firstOrNull;
+                      final ing = _ingredients
+                          .where((i) => i.id == v)
+                          .firstOrNull;
                       if (ing?.defaultUnitId != null) {
                         selUnitId = ing!.defaultUnitId;
                       }
@@ -169,7 +197,14 @@ class _PantryListState extends State<_PantryList> {
                       child: DropdownButtonFormField<String>(
                         value: selUnitId,
                         decoration: const InputDecoration(labelText: 'Einheit'),
-                        items: _units.map((u) => DropdownMenuItem(value: u.id, child: Text(u.symbol))).toList(),
+                        items: _units
+                            .map(
+                              (u) => DropdownMenuItem(
+                                value: u.id,
+                                child: Text(u.symbol),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (v) => setDialogState(() => selUnitId = v),
                       ),
                     ),
@@ -179,28 +214,42 @@ class _PantryListState extends State<_PantryList> {
                 DropdownButtonFormField<String>(
                   value: selLocId,
                   decoration: const InputDecoration(labelText: 'Lagerort'),
-                  items: _locations.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name))).toList(),
+                  items: _locations
+                      .map(
+                        (l) =>
+                            DropdownMenuItem(value: l.id, child: Text(l.name)),
+                      )
+                      .toList(),
                   onChanged: (v) => setDialogState(() => selLocId = v),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: minQtyCtrl,
-                  decoration: const InputDecoration(labelText: 'Mindestmenge (für Einkauf)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Mindestmenge (für Einkauf)',
+                  ),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 12),
                 ListTile(
                   title: const Text('Haltbarkeit'),
-                  subtitle: Text(selExpiry == null ? 'Nicht gesetzt' : DateFormat('dd.MM.yyyy').format(selExpiry!)),
+                  subtitle: Text(
+                    selExpiry == null
+                        ? 'Nicht gesetzt'
+                        : DateFormat('dd.MM.yyyy').format(selExpiry!),
+                  ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
                       initialDate: selExpiry ?? DateTime.now(),
-                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                      firstDate: DateTime.now().subtract(
+                        const Duration(days: 365),
+                      ),
                       lastDate: DateTime.now().add(const Duration(days: 3650)),
                     );
-                    if (picked != null) setDialogState(() => selExpiry = picked);
+                    if (picked != null)
+                      setDialogState(() => selExpiry = picked);
                   },
                 ),
                 const SizedBox(height: 24),
@@ -217,12 +266,21 @@ class _PantryListState extends State<_PantryList> {
                         },
                       ),
                     const Spacer(),
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Abbrechen'),
+                    ),
                     ElevatedButton(
                       onPressed: () async {
-                        if (selIngId == null || selUnitId == null || selLocId == null) {
+                        if (selIngId == null ||
+                            selUnitId == null ||
+                            selLocId == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Zutat, Einheit und Lagerort sind Pflichtfelder.')),
+                            const SnackBar(
+                              content: Text(
+                                'Zutat, Einheit und Lagerort sind Pflichtfelder.',
+                              ),
+                            ),
                           );
                           return;
                         }
@@ -296,17 +354,22 @@ class _PantryListState extends State<_PantryList> {
                       FilterChip(
                         label: const Text('Alle'),
                         selected: _filterLocationId == null,
-                        onSelected: (_) => setState(() => _filterLocationId = null),
+                        onSelected: (_) =>
+                            setState(() => _filterLocationId = null),
                       ),
                       const SizedBox(width: 8),
-                      ..._locations.map((loc) => Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: FilterChip(
-                              label: Text(loc.name),
-                              selected: _filterLocationId == loc.id,
-                              onSelected: (s) => setState(() => _filterLocationId = s ? loc.id : null),
+                      ..._locations.map(
+                        (loc) => Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: FilterChip(
+                            label: Text(loc.name),
+                            selected: _filterLocationId == loc.id,
+                            onSelected: (s) => setState(
+                              () => _filterLocationId = s ? loc.id : null,
                             ),
-                          )),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -317,7 +380,12 @@ class _PantryListState extends State<_PantryList> {
           // --- List ---
           Expanded(
             child: filtered.isEmpty
-                ? Center(child: Text('Keine Vorräte gefunden', style: text.bodyLarge))
+                ? Center(
+                    child: Text(
+                      'Keine Vorräte gefunden',
+                      style: text.bodyLarge,
+                    ),
+                  )
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
                     itemCount: filtered.length,
@@ -325,7 +393,9 @@ class _PantryListState extends State<_PantryList> {
                       final item = filtered[i];
                       final ing = _ingredientMap[item.ingredientId];
                       final unit = _unitMap[item.unitId];
-                      final loc = _locations.where((l) => l.id == item.storageLocationId).firstOrNull;
+                      final loc = _locations
+                          .where((l) => l.id == item.storageLocationId)
+                          .firstOrNull;
 
                       return GestureDetector(
                         onTap: () => _showEditDialog(item),
@@ -370,7 +440,8 @@ class _PantryCard extends StatelessWidget {
     final text = Theme.of(context).textTheme;
 
     final isLow = item.minAmount > 0 && item.amount < item.minAmount;
-    final isExpired = item.expiryDate != null && item.expiryDate!.isBefore(DateTime.now());
+    final isExpired =
+        item.expiryDate != null && item.expiryDate!.isBefore(DateTime.now());
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -389,7 +460,9 @@ class _PantryCard extends StatelessWidget {
                 children: [
                   Text(
                     ingredient?.name ?? 'Unbekannt',
-                    style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: text.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   if (location != null)
                     Text(
@@ -409,7 +482,9 @@ class _PantryCard extends StatelessWidget {
                       if (item.minAmount > 0)
                         Text(
                           ' / min. ${item.minAmount}',
-                          style: text.bodySmall?.copyWith(color: colors.outline),
+                          style: text.bodySmall?.copyWith(
+                            color: colors.outline,
+                          ),
                         ),
                     ],
                   ),

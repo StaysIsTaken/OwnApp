@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/login_service.dart';
+import 'package:productivity/provider/user_provider.dart';
+import 'package:productivity/main.dart';
+import 'package:provider/provider.dart';
 
 class DrawerFooterWidget extends StatelessWidget {
   final ColorScheme scheme;
@@ -40,11 +43,17 @@ class DrawerFooterWidget extends StatelessWidget {
           const SizedBox(width: 12),
           Flexible(
             child: TextButton.icon(
-              onPressed: () {
-                LoginService.logout();
-                Navigator.of(
-                  context,
-                ).pushNamedAndRemoveUntil('/', (route) => false);
+              onPressed: () async {
+                // Update UserProvider
+                Provider.of<UserProvider>(context, listen: false).logout();
+                // Clear saved token
+                await LoginService.logout();
+                // Navigate to login page
+                if (context.mounted) {
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+                }
               },
               icon: Icon(Icons.logout_rounded, size: 16, color: scheme.primary),
               label: Text('Abmelden', style: TextStyle(color: scheme.primary)),

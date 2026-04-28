@@ -37,14 +37,14 @@ class RecipeService {
       final catIds = catsRaw
           .map((e) {
             final map = e as Map<String, dynamic>;
-            return (map['categoryId'] ?? map['category_id'] ?? map['id'] ?? '').toString();
+            return (map['categoryId'] ?? map['category_id'] ?? map['id'] ?? '')
+                .toString();
           })
           .where((id) => id.isNotEmpty)
           .toList();
 
       return recipe.copyWith(ingredients: ings, categoryIds: catIds);
     } catch (e) {
-      print('Error loading details for recipe ${recipe.id}: $e');
       return recipe;
     }
   }
@@ -57,8 +57,8 @@ class RecipeService {
 
   static Future<Recipe> create(Recipe recipe) async {
     final data = recipe.toJson();
-    data.remove('category_ids'); 
-    
+    data.remove('category_ids');
+
     final response = await ApiClient.dio.post(_path, data: data);
     return Recipe.fromJson(response.data as Map<String, dynamic>);
   }
@@ -67,10 +67,7 @@ class RecipeService {
     final data = recipe.toJson();
     data.remove('category_ids');
 
-    final response = await ApiClient.dio.put(
-      '$_path/${recipe.id}',
-      data: data,
-    );
+    final response = await ApiClient.dio.put('$_path/${recipe.id}', data: data);
     return Recipe.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -119,19 +116,26 @@ class RecipeService {
     return response.data as List<dynamic>;
   }
 
-  static Future<void> syncCategories(String recipeId, List<String> categoryIds) async {
+  static Future<void> syncCategories(
+    String recipeId,
+    List<String> categoryIds,
+  ) async {
     final currentCatsRaw = await getCategories(recipeId);
-    final currentCatIds = (currentCatsRaw).map((e) {
-      final map = e as Map<String, dynamic>;
-      return (map['categoryId'] ?? map['category_id'] ?? map['id'] ?? '').toString();
-    }).where((id) => id.isNotEmpty).toList();
+    final currentCatIds = (currentCatsRaw)
+        .map((e) {
+          final map = e as Map<String, dynamic>;
+          return (map['categoryId'] ?? map['category_id'] ?? map['id'] ?? '')
+              .toString();
+        })
+        .where((id) => id.isNotEmpty)
+        .toList();
 
     for (final existingId in currentCatIds) {
       if (!categoryIds.contains(existingId)) {
         try {
           await ApiClient.dio.delete('$_path/$recipeId/categories/$existingId');
         } catch (e) {
-          print('Could not delete category $existingId: $e');
+          // Category deletion failed silently
         }
       }
     }
@@ -149,7 +153,7 @@ class RecipeService {
   /// Synchronizes a recipe and its ingredients/categories with the backend
   static Future<void> upsert(Recipe recipe) async {
     Recipe savedRecipe;
-    
+
     try {
       savedRecipe = await update(recipe);
     } catch (e) {

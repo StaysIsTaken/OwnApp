@@ -28,7 +28,6 @@ class UserProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('Auto-login failed: $e');
       await LoginService.logout();
       _user = null;
       notifyListeners();
