@@ -80,7 +80,7 @@ class LoginService {
     final token = await getToken();
 
     final response = await _dio.get(
-      '/me',
+      'http://192.168.178.20:8000/api/users/me',
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     if (response.statusCode == 200) {

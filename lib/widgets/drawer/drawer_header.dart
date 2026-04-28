@@ -39,7 +39,7 @@ class DrawerHeaderWidget extends StatelessWidget {
           _Avatar(user: user),
           const SizedBox(height: 16),
           Text(
-            '${user?.firstname} ${user?.lastname}',
+            user != null ? '${user.firstname} ${user.lastname}' : 'Nicht angemeldet',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -49,7 +49,7 @@ class DrawerHeaderWidget extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '${user?.username}',
+            user?.username ?? 'Kein Benutzer',
             style: TextStyle(
               color: Colors.white.withOpacity(0.75),
               fontSize: 12.5,

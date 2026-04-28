@@ -89,34 +89,38 @@ class _TimeInputDialogState extends State<TimeInputDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
-            controller: _timeController,
-            keyboardType: const TextInputType.numberWithOptions(signed: false),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
-              LengthLimitingTextInputFormatter(5),
-            ],
-            style: TextStyle(color: colors.onSurface, fontSize: 24),
-            decoration: InputDecoration(
-              hintText: 'HH:MM',
-              hintStyle: TextStyle(color: colors.onSurfaceVariant),
-              filled: true,
-              fillColor: colors.surfaceContainerHighest,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+          SizedBox(
+            width: 150,
+            child: TextField(
+              controller: _timeController,
+              keyboardType: const TextInputType.numberWithOptions(signed: false),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
+                LengthLimitingTextInputFormatter(5),
+              ],
+              style: TextStyle(color: colors.onSurface, fontSize: 24),
+              decoration: InputDecoration(
+                hintText: 'HH:MM',
+                hintStyle: TextStyle(color: colors.onSurfaceVariant),
+                filled: true,
+                fillColor: colors.surfaceContainerHighest,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                errorText: _errorText,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
-              errorText: _errorText,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+              textAlign: TextAlign.center,
+              onChanged: _onTimeChanged,
             ),
-            textAlign: TextAlign.center,
-            onChanged: _onTimeChanged,
           ),
           const SizedBox(height: 16),
           Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               TextButton(

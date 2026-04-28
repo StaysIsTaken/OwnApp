@@ -17,12 +17,19 @@ class _DrawerWidgetState extends State<DrawerWidget>
   late final AnimationController _animController;
   late final Animation<double> _fadeAnim;
 
-  static const _navItems = [
+  // Split items into categories
+  static const _mainItems = [
     NavItem(
       icon: Icons.home_outlined,
       iconActive: Icons.home_rounded,
       label: 'Home',
       route: AppRoutes.home,
+    ),
+    NavItem(
+      icon: Icons.menu_book_outlined,
+      iconActive: Icons.menu_book_rounded,
+      label: 'Rezepte',
+      route: AppRoutes.recipes,
     ),
     NavItem(
       icon: Icons.schedule_outlined,
@@ -31,12 +38,67 @@ class _DrawerWidgetState extends State<DrawerWidget>
       route: AppRoutes.time,
     ),
     NavItem(
-      icon: Icons.settings_outlined,
-      iconActive: Icons.settings_rounded,
-      label: 'Einstellungen',
-      route: AppRoutes.settings,
+      icon: Icons.chat_outlined,
+      iconActive: Icons.chat_rounded,
+      label: 'Chat',
+      route: AppRoutes.chat,
     ),
   ];
+
+  static const _pantryItems = [
+    NavItem(
+      icon: Icons.inventory_2_outlined,
+      iconActive: Icons.inventory_2_rounded,
+      label: 'Vorräte',
+      route: AppRoutes.pantry,
+    ),
+    NavItem(
+      icon: Icons.shopping_cart_outlined,
+      iconActive: Icons.shopping_cart_rounded,
+      label: 'Einkaufsliste',
+      route: AppRoutes.shoppingList,
+    ),
+    NavItem(
+      icon: Icons.calendar_month_outlined,
+      iconActive: Icons.calendar_month_rounded,
+      label: 'Essensplaner',
+      route: AppRoutes.mealPlan,
+    ),
+  ];
+
+  static const _managementItems = [
+    NavItem(
+      icon: Icons.category_outlined,
+      iconActive: Icons.category_rounded,
+      label: 'Kategorien',
+      route: AppRoutes.categories,
+    ),
+    NavItem(
+      icon: Icons.eco_outlined,
+      iconActive: Icons.eco_rounded,
+      label: 'Zutaten',
+      route: AppRoutes.ingredients,
+    ),
+    NavItem(
+      icon: Icons.straighten_outlined,
+      iconActive: Icons.straighten_rounded,
+      label: 'Einheiten',
+      route: AppRoutes.units,
+    ),
+    NavItem(
+      icon: Icons.warehouse_outlined,
+      iconActive: Icons.warehouse_rounded,
+      label: 'Lagerorte',
+      route: AppRoutes.storageLocations,
+    ),
+  ];
+
+  static const _settingsItem = NavItem(
+    icon: Icons.settings_outlined,
+    iconActive: Icons.settings_rounded,
+    label: 'Einstellungen',
+    route: AppRoutes.settings,
+  );
 
   @override
   void initState() {
@@ -78,29 +140,46 @@ class _DrawerWidgetState extends State<DrawerWidget>
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                 children: [
-                  const DrawerSectionLabel(label: 'MENÜ'),
+                  const DrawerSectionLabel(label: 'NAVIGATION'),
                   const SizedBox(height: 4),
-                  ..._navItems.map(
-                    (item) => DrawerNavTile(
-                      item: item,
-                      isActive: currentRoute == item.route,
-                      scheme: scheme,
-                      isDark: isDark,
-                      onTap: () {
-                        Navigator.pop(context);
-                        if (currentRoute != item.route) {
-                          Navigator.pushNamed(context, item.route);
-                        }
-                      },
-                    ),
-                  ),
+                  ..._mainItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
+                  
+                  const SizedBox(height: 24),
+                  const DrawerSectionLabel(label: 'VORRÄTE'),
+                  const SizedBox(height: 4),
+                  ..._pantryItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
+
+                  const SizedBox(height: 24),
+                  const DrawerSectionLabel(label: 'VERWALTUNG'),
+                  const SizedBox(height: 4),
+                  ..._managementItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
                 ],
               ),
+            ),
+            const Divider(height: 1, indent: 20, endIndent: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: _buildTile(_settingsItem, currentRoute, scheme, isDark),
             ),
             DrawerFooterWidget(scheme: scheme, isDark: isDark),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTile(NavItem item, String currentRoute, ColorScheme scheme, bool isDark) {
+    return DrawerNavTile(
+      item: item,
+      isActive: currentRoute == item.route,
+      scheme: scheme,
+      isDark: isDark,
+      onTap: () {
+        Navigator.pop(context);
+        if (currentRoute != item.route) {
+          Navigator.pushReplacementNamed(context, item.route);
+        }
+      },
     );
   }
 }
