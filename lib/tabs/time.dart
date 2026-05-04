@@ -133,6 +133,20 @@ class _TimePageState extends State<_TimePageContent> {
     }
   }
 
+  Future<void> _completeEntry(TimeEntry entry) async {
+    try {
+      final updated = entry.copyWith(endTime: DateTime.now());
+      final result = await TimeEntryService.update(updated);
+      setState(() {
+        final idx = _entries.indexWhere((e) => e.id == result.id);
+        if (idx >= 0) _entries[idx] = result;
+      });
+      _showSnack('Eintrag beendet');
+    } catch (e) {
+      _showSnack('Fehler beim Beenden: $e');
+    }
+  }
+
   // ── UI helpers ────────────────────────────────
   void _editEntry(TimeEntry entry) {
     setState(() {
@@ -288,8 +302,8 @@ class _TimePageState extends State<_TimePageContent> {
                                 ? DateFormat(timeFormat).format(DateTime(0, 0, 0, _startTime!.hour, _startTime!.minute))
                                 : 'Jetzt',
                             style: TextStyle(
-                              color: _startTime != null 
-                                ? colors.onSurface 
+                              color: _startTime != null
+                                ? colors.onSurface
                                 : colors.onSurfaceVariant.withOpacity(0.6)
                             ),
                           ),
@@ -298,21 +312,41 @@ class _TimePageState extends State<_TimePageContent> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: InkWell(
-                        onTap: () => _selectTime(false),
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'Ende',
-                            filled: true,
-                            fillColor: colors.surface,
+                      child: Stack(
+                        children: [
+                          InkWell(
+                            onTap: () => _selectTime(false),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: 'Ende',
+                                filled: true,
+                                fillColor: colors.surface,
+                              ),
+                              child: Text(
+                                _endTime != null
+                                    ? DateFormat(timeFormat).format(DateTime(0, 0, 0, _endTime!.hour, _endTime!.minute))
+                                    : 'Optional',
+                                style: TextStyle(color: colors.onSurface),
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            _endTime != null
-                                ? DateFormat(timeFormat).format(DateTime(0, 0, 0, _endTime!.hour, _endTime!.minute))
-                                : 'Optional',
-                            style: TextStyle(color: colors.onSurface),
-                          ),
-                        ),
+                          if (_endTime != null)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              child: Center(
+                                child: IconButton(
+                                  icon: Icon(Icons.clear, color: colors.error),
+                                  tooltip: 'Endzeit entfernen',
+                                  onPressed: () => setState(() => _endTime = null),
+                                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                                  padding: EdgeInsets.zero,
+                                  splashRadius: 20,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -481,6 +515,12 @@ class _TimePageState extends State<_TimePageContent> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (entry.endTime == null)
+                    IconButton(
+                      icon: Icon(Icons.check_circle, color: colors.secondary),
+                      tooltip: 'Beenden',
+                      onPressed: () => _completeEntry(entry),
+                    ),
                   IconButton(
                     icon: Icon(Icons.edit, color: colors.primary),
                     onPressed: () => _editEntry(entry),

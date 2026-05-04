@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git ls-tree *)",
+      "Bash(git pull *)",
+      "Bash(git fetch *)",
+      "Bash(gh pr *)",
+      "WebFetch(domain:api.home-anft.de)",
+      "Bash(curl -sS -A \"Mozilla/5.0\" -o /tmp/openapi.json -w \"HTTP %{http_code} | %{size_download} bytes\\\\n\" https://api.home-anft.de/openapi.json)",
+      "Read(//tmp/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(/c/Users/anj/flutter/bin/flutter analyze *)",
+      "Bash(where gh *)",
+      "Bash(gh --version)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" --version)",
+      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue | Select-Object Source; Get-ChildItem -Path \"$env:LOCALAPPDATA\\\\Programs\",\"$env:ProgramFiles\",\"${env:ProgramFiles\\(x86\\)}\" -Filter \"gh.exe\" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 5 FullName)",
+      "Bash(curl -sS -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/StaysIsTaken/OwnApp/pulls?head=StaysIsTaken:dev&state=all\")",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git branch *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -sS -i -X POST -H \"Content-Type: application/json\" -d '{\"username\":\"x\",\"password\":\"x\"}' https://api.home-anft.de/api/auth/login)",
+      "Bash(curl -sS -i -X OPTIONS -H \"Origin: https://app.home-anft.de\" -H \"Access-Control-Request-Method: GET\" -H \"Access-Control-Request-Headers: authorization,content-type\" https://api.home-anft.de/api/pantry/)",
+      "Bash(curl -sS -i https://api.home-anft.de/api/pantry/)",
+      "Bash(curl -sS -i -H \"Authorization: Bearer invalidtoken\" https://api.home-anft.de/api/pantry/)",
+      "Bash(curl -sS -X POST -H \"Content-Type: application/json\" -d '{\"username\":\"Stays\",\"password\":\"JanPhilip123\"}' https://api.home-anft.de/api/auth/login)",
+      "Bash(curl -sS -i -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NGYxNzRjYS1kNzdhLTRmYzUtYmE2ZC02Yjg3ODM5OTM4Y2IiLCJleHAiOjE3NzczOTYyNjh9.29J6ITg2oIMIM3QJwwSDzXWwfl98C-NPrcyDrAJVLFs' https://api.home-anft.de/api/users/me)",
+      "Bash(curl -sS -i -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NGYxNzRjYS1kNzdhLTRmYzUtYmE2ZC02Yjg3ODM5OTM4Y2IiLCJleHAiOjE3NzczOTYyNjh9.29J6ITg2oIMIM3QJwwSDzXWwfl98C-NPrcyDrAJVLFs' 'https://api.home-anft.de/api/pantry/?limit=10')",
+      "Bash(curl -sS -i -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NGYxNzRjYS1kNzdhLTRmYzUtYmE2ZC02Yjg3ODM5OTM4Y2IiLCJleHAiOjE3NzczOTYyNjh9.29J6ITg2oIMIM3QJwwSDzXWwfl98C-NPrcyDrAJVLFs' https://api.home-anft.de/api/pantry)",
+      "Bash(curl -sS -o /dev/null -w 'HTTP %{http_code}\\\\n' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NGYxNzRjYS1kNzdhLTRmYzUtYmE2ZC02Yjg3ODM5OTM4Y2IiLCJleHAiOjE3NzczOTYyNjh9.29J6ITg2oIMIM3QJwwSDzXWwfl98C-NPrcyDrAJVLFs' https://api.home-anft.de/api/users/me)",
+      "Bash(curl -sS -o /dev/null -w 'HTTP %{http_code}\\\\n' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NGYxNzRjYS1kNzdhLTRmYzUtYmE2ZC02Yjg3ODM5OTM4Y2IiLCJleHAiOjE3NzczOTYyNjh9.29J6ITg2oIMIM3QJwwSDzXWwfl98C-NPrcyDrAJVLFs' https://api.home-anft.de/api/pantry/)",
+      "Bash(curl -sS -o /dev/null -w 'HTTP %{http_code}\\\\n' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NGYxNzRjYS1kNzdhLTRmYzUtYmE2ZC02Yjg3ODM5OTM4Y2IiLCJleHAiOjE3NzczOTYyNjh9.29J6ITg2oIMIM3QJwwSDzXWwfl98C-NPrcyDrAJVLFs' https://api.home-anft.de/api/pantry/transactions)",
+      "Bash(python3 -c \"import json,sys,datetime; d=json.load\\(sys.stdin\\); exp=d.get\\('exp',0\\); print\\(f'exp={exp} → {datetime.datetime.utcfromtimestamp\\(exp\\).isoformat\\(\\)}Z'\\)\")"
+    ]
+  }
+}
