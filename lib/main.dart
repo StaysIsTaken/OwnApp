@@ -14,6 +14,7 @@ import 'package:productivity/tabs/pantry/shopping_list_page.dart';
 import 'package:productivity/tabs/pantry/meal_plan_page.dart';
 import 'package:productivity/tabs/pantry/manage_storage_locations_page.dart';
 import 'package:productivity/tabs/chat/chat_page.dart';
+import 'package:productivity/tabs/tasks.dart';
 
 import 'package:productivity/tabs/time.dart';
 import 'package:productivity/widgets/drawer.dart';
@@ -92,6 +93,7 @@ class AppRoutes {
 
   static const String recipes = '/recipes';
   static const String time = '/time';
+  static const String tasks = '/tasks';
   static const String categories = '/categories';
   static const String ingredients = '/ingredients';
   static const String units = '/units';
@@ -111,6 +113,7 @@ class AppRoutes {
 
     recipes: (_) => const RecipesPage(),
     time: (_) => const TimePage(),
+    tasks: (_) => const TasksPage(),
     categories: (_) => const ManageCategoriesPage(),
     ingredients: (_) => const ManageIngredientsPage(),
     units: (_) => const ManageUnitsPage(),

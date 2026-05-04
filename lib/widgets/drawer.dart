@@ -38,6 +38,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
       route: AppRoutes.time,
     ),
     NavItem(
+      icon: Icons.task_outlined,
+      iconActive: Icons.task_rounded,
+      label: 'Tasks',
+      route: AppRoutes.tasks,
+    ),
+    NavItem(
       icon: Icons.chat_outlined,
       iconActive: Icons.chat_rounded,
       label: 'Chat',
