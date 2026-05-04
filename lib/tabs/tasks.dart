@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:productivity/dataclasses/task.dart';
+import 'package:productivity/dataclasses/User.dart';
 import 'package:productivity/dataservice/login_service.dart';
 import 'package:productivity/dataservice/task_service.dart';
+import 'package:productivity/dataservice/user_service.dart';
 import 'package:productivity/main.dart';
 
 class TasksPage extends BasePage {
@@ -26,6 +28,8 @@ class _TasksPageState extends State<_TasksPageContent> {
   String _priority = 'medium';
 
   List<Task> _tasks = [];
+  List<User> _users = [];
+  User? _currentUser;
   bool _isLoading = true;
   String? _error;
 
@@ -39,7 +43,21 @@ class _TasksPageState extends State<_TasksPageContent> {
   @override
   void initState() {
     super.initState();
-    _loadTasks();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    try {
+      final user = await LoginService.currentUser;
+      final users = await UserService.getAllUsers();
+      setState(() {
+        _currentUser = user;
+        _users = users;
+      });
+      _loadTasks();
+    } catch (e) {
+      _loadTasks();
+    }
   }
 
   @override
@@ -74,15 +92,19 @@ class _TasksPageState extends State<_TasksPageContent> {
       return;
     }
 
+    if (_currentUser == null) {
+      _showSnack('User nicht geladen');
+      return;
+    }
+
     try {
-      final user = await LoginService.currentUser;
       final newTask = Task(
         id: '',
         title: _titleController.text,
         description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
         dueDate: _dueDate,
         priority: _priority,
-        userId: user.id,
+        userId: _currentUser!.id,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -116,6 +138,29 @@ class _TasksPageState extends State<_TasksPageContent> {
       _showSnack('Task gelöscht');
     } catch (e) {
       _showSnack('Fehler beim Löschen: $e');
+    }
+  }
+
+  Future<void> _changeTaskUser(Task task, User newUser) async {
+    try {
+      final updated = task.copyWith(userId: newUser.id);
+      await TaskService.update(updated);
+      setState(() {
+        final idx = _tasks.indexWhere((t) => t.id == task.id);
+        if (idx >= 0) _tasks[idx] = updated;
+      });
+      _showSnack('User geändert zu ${newUser.firstname}');
+    } catch (e) {
+      _showSnack('Fehler beim Ändern des Users: $e');
+    }
+  }
+
+  String _getUserName(String userId) {
+    try {
+      final user = _users.firstWhere((u) => u.id == userId);
+      return '${user.firstname} ${user.lastname}';
+    } catch (e) {
+      return 'Unbekannt';
     }
   }
 
@@ -540,6 +585,40 @@ class _TasksPageState extends State<_TasksPageContent> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: colors.primaryContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.person_rounded, size: 14, color: colors.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _getUserName(task.userId),
+                    style: text.labelSmall?.copyWith(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                PopupMenuButton<User>(
+                  onSelected: (user) => _changeTaskUser(task, user),
+                  itemBuilder: (context) => _users
+                      .map((user) => PopupMenuItem(
+                            value: user,
+                            child: Text('${user.firstname} ${user.lastname}'),
+                          ))
+                      .toList(),
+                  child: Icon(Icons.edit, size: 12, color: colors.primary),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Row(
