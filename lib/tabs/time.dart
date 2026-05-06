@@ -237,6 +237,28 @@ class _TimePageState extends State<_TimePageContent> {
             .where(
                 (e) => e.date.month == now.month && e.date.year == now.year)
             .toList();
+      case 'yesterday':
+        final yesterday = now.subtract(const Duration(days: 1));
+        return _entries
+            .where(
+              (e) =>
+                  e.date.year == yesterday.year &&
+                  e.date.month == yesterday.month &&
+                  e.date.day == yesterday.day,
+            )
+            .toList();
+      case 'last-thursday':
+        final oneWeekAgo = now.subtract(const Duration(days: 7));
+        int daysBack = oneWeekAgo.weekday == 4 ? 0 : (oneWeekAgo.weekday - 4 + 7) % 7;
+        final lastThursday = oneWeekAgo.subtract(Duration(days: daysBack));
+        return _entries
+            .where(
+              (e) =>
+                  e.date.year == lastThursday.year &&
+                  e.date.month == lastThursday.month &&
+                  e.date.day == lastThursday.day,
+            )
+            .toList();
       default:
         return _entries;
     }
@@ -422,6 +444,16 @@ class _TimePageState extends State<_TimePageContent> {
                 ButtonSegment(
                   value: 'month',
                   label: Text('Monat',
+                      style: TextStyle(color: colors.onSurface)),
+                ),
+                ButtonSegment(
+                  value: 'yesterday',
+                  label: Text('Gestern',
+                      style: TextStyle(color: colors.onSurface)),
+                ),
+                ButtonSegment(
+                  value: 'last-thursday',
+                  label: Text('Do. letzte Woche',
                       style: TextStyle(color: colors.onSurface)),
                 ),
               ],
