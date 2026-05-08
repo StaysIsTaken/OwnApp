@@ -217,6 +217,24 @@ class _TimePageState extends State<_TimePageContent> {
     }
   }
 
+  Duration _getTotalDuration(List<TimeEntry> entries) {
+    Duration total = Duration.zero;
+    for (final entry in entries) {
+      total += entry.duration;
+    }
+    return total;
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    } else {
+      return '${minutes}m';
+    }
+  }
+
   List<TimeEntry> get _filteredEntries {
     final now = DateTime.now();
     switch (_filterDate) {
@@ -425,49 +443,80 @@ class _TimePageState extends State<_TimePageContent> {
         const SizedBox(height: 24),
 
         // ── List header ─────────────────────────
-        Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Einträge', style: text.titleLarge),
-            const Spacer(),
-            SegmentedButton<String>(
-              segments: [
-                ButtonSegment(
-                  value: 'today',
-                  label: Text('Heute',
-                      style: TextStyle(color: colors.onSurface)),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'today',
+                    label: Text('Heute',
+                        style: TextStyle(color: colors.onSurface)),
+                  ),
+                  ButtonSegment(
+                    value: 'week',
+                    label: Text('Woche',
+                        style: TextStyle(color: colors.onSurface)),
+                  ),
+                  ButtonSegment(
+                    value: 'month',
+                    label: Text('Monat',
+                        style: TextStyle(color: colors.onSurface)),
+                  ),
+                  ButtonSegment(
+                    value: 'yesterday',
+                    label: Text('Gestern',
+                        style: TextStyle(color: colors.onSurface)),
+                  ),
+                  ButtonSegment(
+                    value: 'last-thursday',
+                    label: Text('Do. letzte Woche',
+                        style: TextStyle(color: colors.onSurface)),
+                  ),
+                ],
+                selected: {_filterDate},
+                onSelectionChanged: (s) =>
+                    setState(() => _filterDate = s.first),
+                style: SegmentedButton.styleFrom(
+                  backgroundColor: colors.surface,
+                  foregroundColor: colors.onSurface,
+                  selectedBackgroundColor: colors.primaryContainer,
+                  selectedForegroundColor: colors.onPrimaryContainer,
                 ),
-                ButtonSegment(
-                  value: 'week',
-                  label: Text('Woche',
-                      style: TextStyle(color: colors.onSurface)),
-                ),
-                ButtonSegment(
-                  value: 'month',
-                  label: Text('Monat',
-                      style: TextStyle(color: colors.onSurface)),
-                ),
-                ButtonSegment(
-                  value: 'yesterday',
-                  label: Text('Gestern',
-                      style: TextStyle(color: colors.onSurface)),
-                ),
-                ButtonSegment(
-                  value: 'last-thursday',
-                  label: Text('Do. letzte Woche',
-                      style: TextStyle(color: colors.onSurface)),
-                ),
-              ],
-              selected: {_filterDate},
-              onSelectionChanged: (s) =>
-                  setState(() => _filterDate = s.first),
-              style: SegmentedButton.styleFrom(
-                backgroundColor: colors.surface,
-                foregroundColor: colors.onSurface,
-                selectedBackgroundColor: colors.primaryContainer,
-                selectedForegroundColor: colors.onPrimaryContainer,
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 16),
+
+        // ── Total Duration ──────────────────────
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colors.primaryContainer.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Gesamtzeit',
+                style: text.labelMedium?.copyWith(color: colors.outline),
+              ),
+              Text(
+                _formatDuration(_getTotalDuration(_filteredEntries)),
+                style: text.headlineSmall?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
 

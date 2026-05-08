@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/provider/user_provider.dart';
-import 'package:productivity/tabs/home.dart';
+import 'package:productivity/tabs/dashboard/dashboard_page.dart';
 import 'package:productivity/tabs/login.dart';
 import 'package:provider/provider.dart';
 
@@ -12,7 +12,7 @@ class AppAuthWrapper extends StatelessWidget {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
         if (userProvider.isLoggedIn) {
-          return const HomePage();
+          return const DashboardPage();
         } else {
           return const Login();
         }
