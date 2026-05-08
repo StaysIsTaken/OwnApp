@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
 import 'package:productivity/tabs/home.dart';
+import 'package:productivity/tabs/dashboard/dashboard_page.dart';
 import 'package:productivity/tabs/login.dart';
 import 'package:productivity/tabs/recipes/manage_categories_page.dart';
 import 'package:productivity/tabs/recipes/manage_ingredients_page.dart';
@@ -24,6 +26,7 @@ import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('de_DE', null);
   runApp(
     MultiProvider(
       providers: [
@@ -89,6 +92,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String register = '/register';
   static const String home = '/home';
+  static const String dashboard = '/dashboard';
   static const String settings = '/settings';
 
   static const String recipes = '/recipes';
@@ -108,7 +112,8 @@ class AppRoutes {
   static final Map<String, WidgetBuilder> routes = {
     login: (_) => const Login(),
     register: (_) => const RegisterPage(),
-    home: (_) => const HomePage(),
+    home: (_) => const DashboardPage(),
+    dashboard: (_) => const DashboardPage(),
     settings: (_) => const SettingsPage(),
 
     recipes: (_) => const RecipesPage(),
