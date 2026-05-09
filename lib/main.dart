@@ -19,14 +19,23 @@ import 'package:productivity/tabs/chat/chat_page.dart';
 import 'package:productivity/tabs/tasks.dart';
 
 import 'package:productivity/tabs/time.dart';
+import 'package:flutter/foundation.dart';
 import 'package:productivity/widgets/drawer.dart';
 import 'package:productivity/widgets/auth_wrapper.dart';
 import 'package:productivity/dataservice/notification_service.dart';
+import 'package:productivity/dataservice/local_notification_manager.dart';
+import 'package:productivity/dataservice/background_task_manager.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('de_DE', null);
+
+  // Initialize local notifications (works on iOS/Android, no-op on web)
+  if (!kIsWeb) {
+    await LocalNotificationManager().init();
+  }
+
   runApp(
     MultiProvider(
       providers: [
@@ -36,7 +45,18 @@ void main() async {
       child: const MyApp(),
     ),
   );
+
+  // WebSocket-based real-time notifications (was already there)
   NotificationService().init();
+
+  // Background work for offline reminders. Init AFTER runApp so the UI
+  // shows up immediately even if the platform plugin is slow.
+  if (!kIsWeb) {
+    // Ask the user for permission once at startup. If they decline, they can
+    // re-enable from the settings page later.
+    LocalNotificationManager().requestPermissions();
+    BackgroundTaskManager.init();
+  }
 }
 
 class MyApp extends StatelessWidget {

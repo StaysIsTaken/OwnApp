@@ -66,5 +66,36 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<!-- ─────────────────────────────────────────────
+	     Background Modes
+	     - fetch:      iOS startet die App periodisch im Hintergrund (~ alle paar Stunden)
+	     - processing: erlaubt längere Background-Tasks (BGProcessingTask, iOS 13+)
+	     - remote-notification: erlaubt silent push notifications später (FCM)
+	     ───────────────────────────────────────────── -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>remote-notification</string>
+	</array>
+
+	<!-- ─────────────────────────────────────────────
+	     BGTaskScheduler Identifier (iOS 13+)
+	     Diese müssen mit den IDs übereinstimmen, die in AppDelegate.swift
+	     registriert werden. Sie sind die Standard-IDs des `workmanager`
+	     Plugins – nicht ändern, sonst funktioniert nichts.
+	     ───────────────────────────────────────────── -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>be.tramckrijte.workmanagerExample.iOSBackgroundAppRefresh</string>
+		<string>be.tramckrijte.workmanagerExample.iOSBackgroundProcessingTask</string>
+	</array>
+
+	<!-- ─────────────────────────────────────────────
+	     Erlaubt Background Refresh in Apple Watch / etc. (rein optional)
+	     ───────────────────────────────────────────── -->
+	<key>MinimumOSVersion</key>
+	<string>12.0</string>
 </dict>
 </plist>
