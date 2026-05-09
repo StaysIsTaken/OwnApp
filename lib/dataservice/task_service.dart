@@ -1,5 +1,6 @@
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataservice/api_client.dart';
+import 'package:productivity/dataservice/task_notification_scheduler.dart';
 
 class TaskService {
   TaskService._();
@@ -50,7 +51,10 @@ class TaskService {
     };
 
     final response = await ApiClient.dio.post(_path, data: payload);
-    return Task.fromJson(response.data as Map<String, dynamic>);
+    final created = Task.fromJson(response.data as Map<String, dynamic>);
+    // Schedule local reminders for the new task
+    await TaskNotificationScheduler.schedule(created);
+    return created;
   }
 
   static Future<Task> update(Task task) async {
@@ -65,11 +69,16 @@ class TaskService {
     };
 
     final response = await ApiClient.dio.put('$_path/${task.id}', data: payload);
-    return Task.fromJson(response.data as Map<String, dynamic>);
+    final updated = Task.fromJson(response.data as Map<String, dynamic>);
+    // Re-schedule (or cancel, if completed/no due date) reminders
+    await TaskNotificationScheduler.schedule(updated);
+    return updated;
   }
 
   static Future<void> delete(String taskId) async {
     await ApiClient.dio.delete('$_path/$taskId');
+    // Cancel any pending reminders for this task
+    await TaskNotificationScheduler.cancel(taskId);
   }
 
   static Future<Task> toggleCompleted(String taskId, String kanbanState) async {
@@ -77,6 +86,9 @@ class TaskService {
       '$_path/$taskId/toggle',
       data: {'kanbanState': kanbanState},
     );
-    return Task.fromJson(response.data as Map<String, dynamic>);
+    final updated = Task.fromJson(response.data as Map<String, dynamic>);
+    // If task is now completed, cancel reminders; if uncompleted, re-schedule
+    await TaskNotificationScheduler.schedule(updated);
+    return updated;
   }
 }
