@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:productivity/main.dart';
+import 'package:productivity/dataclasses/ai_model.dart';
+import 'package:productivity/dataservice/ai_service.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/widgets/settings_tile.dart';
 
@@ -28,11 +30,33 @@ class _SettingsBodyState extends State<_SettingsBody> {
   bool _notifPantry = true;
   bool _notifPermitted = true;
   bool _loaded = false;
+  List<AIModel> _aiModels = [];
+  bool _aiModelsLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadNotifSettings();
+    _loadAIModels();
+  }
+
+  Future<void> _loadAIModels() async {
+    try {
+      final models = await AIService.getAvailableModels();
+      if (mounted) {
+        setState(() {
+          _aiModels = models;
+          _aiModelsLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _aiModels = [];
+          _aiModelsLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadNotifSettings() async {
@@ -231,21 +255,41 @@ class _SettingsBodyState extends State<_SettingsBody> {
                   children: [
                     Text('Modell', style: Theme.of(context).textTheme.labelMedium),
                     const SizedBox(height: 8),
-                    DropdownButton<String>(
-                      isExpanded: true,
-                      value: settings.selectedAIModel,
-                      items: ['llama2', 'mistral', 'neural-chat']
-                          .map((model) => DropdownMenuItem(
-                                value: model,
-                                child: Text(model),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          settings.setSelectedAIModel(value);
-                        }
-                      },
-                    ),
+                    if (_aiModelsLoading)
+                      const SizedBox(
+                        height: 40,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_aiModels.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.errorContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Keine Modelle verfügbar. Ollama API erreichbar?',
+                          style: TextStyle(color: colors.onErrorContainer),
+                        ),
+                      )
+                    else
+                      DropdownButton<String>(
+                        isExpanded: true,
+                        value: _aiModels.any((m) => m.name == settings.selectedAIModel)
+                            ? settings.selectedAIModel
+                            : _aiModels.first.name,
+                        items: _aiModels
+                            .map((model) => DropdownMenuItem(
+                                  value: model.name,
+                                  child: Text(model.name),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            settings.setSelectedAIModel(value);
+                          }
+                        },
+                      ),
                     const SizedBox(height: 24),
                     Text('Temperatur: ${settings.aiTemperature.toStringAsFixed(2)}',
                         style: Theme.of(context).textTheme.labelMedium),

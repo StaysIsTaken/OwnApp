@@ -9,6 +9,28 @@ class NotesPage extends BasePage {
 
   @override
   Widget buildBody(BuildContext context) => const _NotesPageContent();
+
+  @override
+  Widget buildFAB(BuildContext context) {
+    return FloatingActionButton.extended(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => NoteEditorPage(
+              onSaved: () {
+                // Refresh notes list after saving
+                (context.findAncestorStateOfType<_NotesPageContentState>())
+                    ?._loadNotes();
+              },
+            ),
+          ),
+        );
+      },
+      icon: const Icon(Icons.add),
+      label: const Text('Neue Notiz'),
+    );
+  }
 }
 
 class _NotesPageContent extends StatefulWidget {
