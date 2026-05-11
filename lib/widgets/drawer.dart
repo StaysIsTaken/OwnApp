@@ -26,6 +26,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
       route: AppRoutes.home,
     ),
     NavItem(
+      icon: Icons.calendar_today_outlined,
+      iconActive: Icons.calendar_today_rounded,
+      label: 'Kalender',
+      route: AppRoutes.calendar,
+    ),
+    NavItem(
       icon: Icons.menu_book_outlined,
       iconActive: Icons.menu_book_rounded,
       label: 'Rezepte',
@@ -69,6 +75,21 @@ class _DrawerWidgetState extends State<DrawerWidget>
       iconActive: Icons.calendar_month_rounded,
       label: 'Essensplaner',
       route: AppRoutes.mealPlan,
+    ),
+  ];
+
+  static const _knowledgeItems = [
+    NavItem(
+      icon: Icons.note_outlined,
+      iconActive: Icons.note_rounded,
+      label: 'Notizen',
+      route: AppRoutes.notes,
+    ),
+    NavItem(
+      icon: Icons.book_outlined,
+      iconActive: Icons.book_rounded,
+      label: 'Journal',
+      route: AppRoutes.journal,
     ),
   ];
 
@@ -149,7 +170,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
                   const DrawerSectionLabel(label: 'NAVIGATION'),
                   const SizedBox(height: 4),
                   ..._mainItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
-                  
+
+                  const SizedBox(height: 24),
+                  const DrawerSectionLabel(label: 'WISSENSMANAGEMENT'),
+                  const SizedBox(height: 4),
+                  ..._knowledgeItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
+
                   const SizedBox(height: 24),
                   const DrawerSectionLabel(label: 'VORRÄTE'),
                   const SizedBox(height: 4),
