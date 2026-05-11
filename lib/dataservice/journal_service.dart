@@ -65,7 +65,7 @@ class JournalService {
         _path,
         data: {
           'content': entry.content,
-          'date': entry.date.toIso8601String().split('T')[0],
+          'date': entry.date.toIso8601String(),
         },
       );
       return JournalEntry.fromJson(response.data);
