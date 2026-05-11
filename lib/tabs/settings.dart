@@ -220,6 +220,63 @@ class _SettingsBodyState extends State<_SettingsBody> {
         ],
 
         const SizedBox(height: 16),
+        _SectionTitle('KI-Assistent'),
+        Card(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Modell', style: Theme.of(context).textTheme.labelMedium),
+                    const SizedBox(height: 8),
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      value: settings.selectedAIModel,
+                      items: ['llama2', 'mistral', 'neural-chat']
+                          .map((model) => DropdownMenuItem(
+                                value: model,
+                                child: Text(model),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          settings.setSelectedAIModel(value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    Text('Temperatur: ${settings.aiTemperature.toStringAsFixed(2)}',
+                        style: Theme.of(context).textTheme.labelMedium),
+                    Slider(
+                      value: settings.aiTemperature,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 10,
+                      label: settings.aiTemperature.toStringAsFixed(2),
+                      onChanged: (value) => settings.setAITemperature(value),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Max Tokens: ${settings.aiMaxTokens}',
+                        style: Theme.of(context).textTheme.labelMedium),
+                    Slider(
+                      value: settings.aiMaxTokens.toDouble(),
+                      min: 100,
+                      max: 4096,
+                      divisions: 40,
+                      label: settings.aiMaxTokens.toString(),
+                      onChanged: (value) =>
+                          settings.setAIMaxTokens(value.toInt()),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
         _SectionTitle('Sonstiges'),
         SettingsTile(
           icon: Icons.info_outline,

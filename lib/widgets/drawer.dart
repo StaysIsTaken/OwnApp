@@ -72,6 +72,21 @@ class _DrawerWidgetState extends State<DrawerWidget>
     ),
   ];
 
+  static const _knowledgeItems = [
+    NavItem(
+      icon: Icons.note_outlined,
+      iconActive: Icons.note_rounded,
+      label: 'Notizen',
+      route: AppRoutes.notes,
+    ),
+    NavItem(
+      icon: Icons.book_outlined,
+      iconActive: Icons.book_rounded,
+      label: 'Journal',
+      route: AppRoutes.journal,
+    ),
+  ];
+
   static const _managementItems = [
     NavItem(
       icon: Icons.category_outlined,
@@ -149,7 +164,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
                   const DrawerSectionLabel(label: 'NAVIGATION'),
                   const SizedBox(height: 4),
                   ..._mainItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
-                  
+
+                  const SizedBox(height: 24),
+                  const DrawerSectionLabel(label: 'WISSENSMANAGEMENT'),
+                  const SizedBox(height: 4),
+                  ..._knowledgeItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
+
                   const SizedBox(height: 24),
                   const DrawerSectionLabel(label: 'VORRÄTE'),
                   const SizedBox(height: 4),

@@ -19,6 +19,8 @@ import 'package:productivity/tabs/chat/chat_page.dart';
 import 'package:productivity/tabs/tasks.dart';
 
 import 'package:productivity/tabs/time.dart';
+import 'package:productivity/tabs/notes/notes_page.dart';
+import 'package:productivity/tabs/journal/journal_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:productivity/widgets/drawer.dart';
 import 'package:productivity/widgets/auth_wrapper.dart';
@@ -129,6 +131,10 @@ class AppRoutes {
   static const String chat = '/chat';
   static const String storageLocations = '/storage-locations';
 
+  // Knowledge Management
+  static const String notes = '/notes';
+  static const String journal = '/journal';
+
   static final Map<String, WidgetBuilder> routes = {
     login: (_) => const Login(),
     register: (_) => const RegisterPage(),
@@ -149,6 +155,10 @@ class AppRoutes {
     shoppingList: (_) => const ShoppingListPage(),
     mealPlan: (_) => const MealPlanPage(),
     chat: (_) => const ChatPage(),
+
+    // Knowledge Management
+    notes: (_) => const NotesPage(),
+    journal: (_) => const JournalPage(),
   };
 }
 
