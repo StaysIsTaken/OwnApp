@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:productivity/dataclasses/journal_entry.dart';
 import 'package:productivity/dataclasses/journal_analysis.dart';
 import 'package:productivity/dataservice/journal_service.dart';
+import 'package:productivity/dataservice/journal_analysis_service.dart';
 import 'package:productivity/dataservice/login_service.dart';
 
 class JournalEntryPage extends StatefulWidget {
@@ -44,15 +45,20 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
   }
 
   Future<void> _loadAnalysis() async {
+    if (widget.entry == null) return;
+
     setState(() => _loadingAnalysis = true);
     try {
-      // TODO: Implement analysis loading from backend
-      // final analysis = await JournalAnalysisService.getAnalysis(widget.entry!.id);
-      // setState(() => _analysis = analysis);
+      final analysis = await JournalAnalysisService.getAnalysis(widget.entry!.id);
+      if (mounted) {
+        setState(() => _analysis = analysis);
+      }
     } catch (e) {
-      // Handle error silently
+      // Handle error silently - analysis may not be available yet
     } finally {
-      setState(() => _loadingAnalysis = false);
+      if (mounted) {
+        setState(() => _loadingAnalysis = false);
+      }
     }
   }
 
