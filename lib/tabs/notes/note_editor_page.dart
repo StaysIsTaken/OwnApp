@@ -25,6 +25,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   late TextEditingController _titleController;
   late TextEditingController _tagsController;
   late TextEditingController _textController;
+  late TextEditingController _promptController;
 
   String _generatedText = '';
   bool _isGenerating = false;
@@ -38,6 +39,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
       text: widget.note != null ? widget.note!.formatTags() : '',
     );
     _textController = TextEditingController(text: widget.note?.text ?? '');
+    _promptController = TextEditingController();
   }
 
   @override
@@ -45,6 +47,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     _titleController.dispose();
     _tagsController.dispose();
     _textController.dispose();
+    _promptController.dispose();
     super.dispose();
   }
 
@@ -94,8 +97,13 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     }
   }
 
-  Future<void> _generateText(String prompt) async {
+  Future<void> _generateText(String defaultPrompt) async {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
+
+    // Verwende custom Prompt wenn eingegeben, sonst default
+    final prompt = _promptController.text.isNotEmpty
+        ? _promptController.text
+        : defaultPrompt;
 
     setState(() {
       _isGenerating = true;
@@ -262,6 +270,24 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Prompt input
+        TextField(
+          controller: _promptController,
+          decoration: InputDecoration(
+            labelText: 'Eigener Prompt (optional)',
+            hintText: 'Schreibe einen Text über: ${_titleController.text}',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            filled: true,
+            fillColor: colors.surface,
+            helperText: 'Leer lassen für automatischen Prompt',
+          ),
+          maxLines: 3,
+          enabled: !_isGenerating,
+        ),
+        const SizedBox(height: 12),
+
         // Generate button
         ElevatedButton.icon(
           onPressed: _isGenerating
