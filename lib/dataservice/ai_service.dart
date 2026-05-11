@@ -26,8 +26,6 @@ class AIService {
   static Future<String> generateTextComplete({
     required String model,
     required String prompt,
-    double temperature = 0.7,
-    int maxTokens = 500,
   }) async {
     try {
       final response = await ApiClient.dio.post(
@@ -36,8 +34,6 @@ class AIService {
           'model': model,
           'prompt': prompt,
           'stream': false,
-          'temperature': temperature,
-          'num_predict': maxTokens,
         },
       );
 
@@ -56,8 +52,6 @@ class AIService {
   static Future<void> generateText({
     required String model,
     required String prompt,
-    double temperature = 0.7,
-    int maxTokens = 500,
     required Function(String) onChunk,
   }) async {
     try {
@@ -67,8 +61,6 @@ class AIService {
           'model': model,
           'prompt': prompt,
           'stream': true,
-          'temperature': temperature,
-          'num_predict': maxTokens,
         },
         options: Options(
           responseType: ResponseType.stream,
@@ -106,8 +98,6 @@ class AIService {
     required String model,
     required String text,
     required String instruction,
-    double temperature = 0.7,
-    int maxTokens = 500,
     required Function(String) onChunk,
   }) async {
     try {
@@ -117,8 +107,6 @@ class AIService {
       await generateText(
         model: model,
         prompt: prompt,
-        temperature: temperature,
-        maxTokens: maxTokens,
         onChunk: onChunk,
       );
     } catch (e) {
@@ -130,8 +118,6 @@ class AIService {
   static Future<void> chatStream({
     required String model,
     required List<Map<String, String>> messages,
-    double temperature = 0.7,
-    int maxTokens = 500,
     required Function(String) onChunk,
   }) async {
     try {
@@ -141,8 +127,6 @@ class AIService {
           'model': model,
           'messages': messages,
           'stream': true,
-          'temperature': temperature,
-          'num_predict': maxTokens,
         },
         options: Options(
           responseType: ResponseType.stream,
@@ -160,7 +144,8 @@ class AIService {
           if (line.isNotEmpty) {
             try {
               final json = jsonDecode(line) as Map<String, dynamic>;
-              final text = json['response'] ?? '';
+              final message = json['message'] as Map<String, dynamic>?;
+              final text = message?['content'] ?? '';
               if (text.isNotEmpty) {
                 onChunk(text);
               }

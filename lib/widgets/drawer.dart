@@ -26,6 +26,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
       route: AppRoutes.home,
     ),
     NavItem(
+      icon: Icons.calendar_today_outlined,
+      iconActive: Icons.calendar_today_rounded,
+      label: 'Kalender',
+      route: AppRoutes.calendar,
+    ),
+    NavItem(
       icon: Icons.menu_book_outlined,
       iconActive: Icons.menu_book_rounded,
       label: 'Rezepte',

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
 import 'package:productivity/dataclasses/journal_entry.dart';
 import 'package:productivity/dataclasses/journal_analysis.dart';
 import 'package:productivity/dataservice/journal_service.dart';
 import 'package:productivity/dataservice/journal_analysis_service.dart';
 import 'package:productivity/dataservice/login_service.dart';
+import 'package:productivity/dataservice/ai_service.dart';
+import 'package:productivity/provider/settings_provider.dart';
+import 'package:provider/provider.dart';
 
 class JournalEntryPage extends StatefulWidget {
   final JournalEntry? entry;
@@ -50,7 +54,7 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
     setState(() => _loadingAnalysis = true);
     try {
       final analysis = await JournalAnalysisService.getAnalysis(widget.entry!.id);
-      if (mounted) {
+      if (mounted && analysis != null) {
         setState(() => _analysis = analysis);
       }
     } catch (e) {
@@ -72,6 +76,7 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
 
     try {
       final user = await LoginService.currentUser;
+      JournalEntry savedEntry;
 
       if (widget.entry != null) {
         final updated = widget.entry!.copyWith(
@@ -79,6 +84,7 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
           updatedAt: DateTime.now(),
         );
         await JournalService.update(updated);
+        savedEntry = updated;
       } else {
         final newEntry = JournalEntry(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -87,7 +93,7 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
           date: widget.date,
           createdAt: DateTime.now(),
         );
-        await JournalService.create(newEntry);
+        savedEntry = await JournalService.create(newEntry);
       }
 
       if (mounted) {
@@ -96,6 +102,9 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Eintrag gespeichert')),
         );
+
+        // Analysiere im Hintergrund
+        _analyzeJournalEntry(savedEntry);
       }
     } catch (e) {
       if (mounted) {
@@ -103,6 +112,64 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
           SnackBar(content: Text('Fehler: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _analyzeJournalEntry(JournalEntry entry) async {
+    try {
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+
+      final prompt = '''Analysiere den folgenden Journal-Eintrag und antworte mit gültigen JSON (nur das JSON-Objekt, nichts anderes):
+
+Journal-Eintrag:
+"${entry.content}"
+
+Antworte mit diesem JSON-Format (genau so, kein zusätzlicher Text davor oder danach):
+{
+  "sentimentScore": 0.5,
+  "sentimentLabel": "positive",
+  "detectedTopics": ["Thema1", "Thema2"],
+  "summary": "Kurze Zusammenfassung"
+}''';
+
+      final result = await AIService.generateTextComplete(
+        model: settings.selectedAIModel,
+        prompt: prompt,
+      );
+
+      debugPrint('KI-Antwort für Analyse: $result');
+
+      // Parse JSON response - entferne Code-Block Formatierung falls vorhanden
+      var jsonStr = result.trim();
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replaceAll(RegExp(r'^```json\n?'), '').replaceAll(RegExp(r'\n?```$'), '');
+      }
+      jsonStr = jsonStr.trim();
+
+      final jsonData = jsonDecode(jsonStr);
+
+      double sentimentScore = (jsonData['sentimentScore'] as num?)?.toDouble() ?? 0.0;
+      sentimentScore = sentimentScore.clamp(-1.0, 1.0);
+
+      final sentimentLabel = jsonData['sentimentLabel'] as String? ?? 'neutral';
+      final detectedTopics = (jsonData['detectedTopics'] as List?)?.cast<String>() ?? [];
+      final summary = jsonData['summary'] as String?;
+
+      debugPrint('Analyseergebnisse: score=$sentimentScore, label=$sentimentLabel, topics=$detectedTopics');
+
+      // Speichere die Analyse
+      final analysis = await JournalAnalysisService.saveAnalysis(
+        journalEntryId: entry.id,
+        sentimentScore: sentimentScore,
+        sentimentLabel: sentimentLabel,
+        detectedTopics: detectedTopics,
+        summary: summary,
+        rawAnalysis: result,
+      );
+
+      debugPrint('Analyse gespeichert mit ID: ${analysis.id}');
+    } catch (e) {
+      debugPrint('Fehler bei Journal-Analyse: $e');
     }
   }
 

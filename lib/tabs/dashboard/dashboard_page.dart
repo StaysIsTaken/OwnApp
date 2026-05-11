@@ -28,6 +28,13 @@ import 'package:productivity/tabs/dashboard/widgets/pantry_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/time_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/shopping_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/mealplan_widget.dart';
+import 'package:productivity/tabs/dashboard/widgets/journal_widget.dart';
+import 'package:productivity/tabs/dashboard/widgets/notes_widget.dart';
+import 'package:productivity/dataclasses/note.dart';
+import 'package:productivity/dataclasses/journal_entry.dart';
+import 'package:productivity/dataservice/note_service.dart';
+import 'package:productivity/dataservice/journal_service.dart';
+import 'package:productivity/dataservice/journal_analysis_service.dart';
 
 class DashboardPage extends BasePage {
   const DashboardPage({super.key}) : super(title: 'Dashboard');
@@ -62,6 +69,9 @@ class _DashboardContentState extends State<_DashboardContent> {
   List<Shop> _shops = [];
   Map<String, Ingredient> _ingredientMap = {};
   Map<String, List<ShoppingListItemPrice>> _pricesByItemId = {};
+  List<Note> _notes = [];
+  List<JournalEntry> _journalEntries = [];
+  Map<String, dynamic> _sentimentStats = {};
 
   bool _loading = true;
   String? _error;
@@ -93,15 +103,26 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
     try {
       final results = await Future.wait([
-        TaskService.loadAll(),
-        ShoppingListService.loadAll(),
-        PantryService.loadAll(),
-        IngredientService.loadAll(),
-        TimeEntryService.loadAll(),
-        MealPlanService.loadAll(),
-        RecipeService.loadAll(),
-        ShopService.loadAll(),
+        TaskService.loadAll(),          // 0
+        ShoppingListService.loadAll(),  // 1
+        PantryService.loadAll(),        // 2
+        IngredientService.loadAll(),    // 3
+        TimeEntryService.loadAll(),     // 4
+        MealPlanService.loadAll(),      // 5
+        RecipeService.loadAll(),        // 6
+        ShopService.loadAll(),          // 7
+        NoteService.loadAll(),          // 8
+        JournalService.loadAll(),       // 9
       ]);
+
+      Map<String, dynamic> sentimentStats = {};
+      try {
+        final now = DateTime.now();
+        sentimentStats = await JournalAnalysisService.getSentimentStatistics(
+          dateFrom: now.subtract(const Duration(days: 30)),
+          dateTo: now,
+        );
+      } catch (_) {}
 
       final shoppingItems = results[1] as List<ShoppingListItem>;
 
@@ -129,7 +150,10 @@ class _DashboardContentState extends State<_DashboardContent> {
         _mealPlanEntries = results[5] as List<MealPlanEntry>;
         _recipes = results[6] as List<Recipe>;
         _shops = results[7] as List<Shop>;
+        _notes = results[8] as List<Note>;
+        _journalEntries = results[9] as List<JournalEntry>;
         _pricesByItemId = priceMap;
+        _sentimentStats = sentimentStats;
         _loading = false;
       });
     } catch (e) {
@@ -233,6 +257,23 @@ class _DashboardContentState extends State<_DashboardContent> {
       MealplanWidget(
         mealPlanEntries: _mealPlanEntries,
         recipes: _recipes,
+      ),
+      JournalWidget(
+        journalEntries: _journalEntries,
+        averageSentiment: _sentimentStats['averageSentiment'] != null
+            ? (_sentimentStats['averageSentiment'] as num).toDouble()
+            : null,
+        positiveCount: (_sentimentStats['distribution'] as Map?)?['positive'] ?? 0,
+        neutralCount: (_sentimentStats['distribution'] as Map?)?['neutral'] ?? 0,
+        negativeCount: (_sentimentStats['distribution'] as Map?)?['negative'] ?? 0,
+        topTopics: (_sentimentStats['topTopics'] as List?)
+                ?.map((t) => t as Map<String, dynamic>)
+                .toList() ??
+            [],
+      ),
+      NotesWidget(
+        notes: _notes,
+        onRefresh: () => _loadData(silent: true),
       ),
     ];
 

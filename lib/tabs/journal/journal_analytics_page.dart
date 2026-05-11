@@ -11,7 +11,7 @@ class JournalAnalyticsPage extends StatefulWidget {
 }
 
 class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
-  List<JournalAnalysis> _analyses = [];
+  Map<String, dynamic> _stats = {};
   bool _isLoading = true;
   String? _error;
   DateTimeRange? _selectedRange;
@@ -34,12 +34,12 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
     });
 
     try {
-      final analyses = await JournalAnalysisService.getAnalysesByDateRange(
+      final stats = await JournalAnalysisService.getSentimentStatistics(
         dateFrom: _selectedRange?.start,
         dateTo: _selectedRange?.end,
       );
       setState(() {
-        _analyses = analyses;
+        _stats = stats;
         _isLoading = false;
       });
     } catch (e) {
@@ -51,21 +51,23 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
   }
 
   Map<String, int> _getTopics() {
-    final topics = <String, int>{};
-    for (final analysis in _analyses) {
-      for (final topic in analysis.detectedTopics) {
-        topics[topic] = (topics[topic] ?? 0) + 1;
+    final topics = _stats['topTopics'] as List?;
+    if (topics == null || topics.isEmpty) return {};
+
+    final result = <String, int>{};
+    for (int i = 0; i < topics.length; i++) {
+      final topic = topics[i];
+      if (topic is Map<String, dynamic>) {
+        result[topic['name'] ?? topic['topic'] ?? ''] = topic['count'] ?? 1;
+      } else if (topic is String) {
+        result[topic] = 1;
       }
     }
-    return Map.fromEntries(
-      topics.entries.toList()..sort((a, b) => b.value.compareTo(a.value)),
-    );
+    return result;
   }
 
   double _getAverageSentiment() {
-    if (_analyses.isEmpty) return 0;
-    final sum = _analyses.fold<double>(0, (acc, a) => acc + (a.sentimentScore ?? 0));
-    return sum / _analyses.length;
+    return (_stats['averageSentiment'] as num?)?.toDouble() ?? 0.0;
   }
 
   @override
@@ -144,7 +146,7 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
                     ],
                   ),
                 )
-              else if (_analyses.isEmpty)
+              else if (_stats.isEmpty)
                 Center(
                   child: Text(
                     'Keine Analysen verfügbar',
@@ -264,10 +266,11 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
   }
 
   Widget _buildSentimentStats(ColorScheme colors, TextTheme text) {
-    final positive = _analyses.where((a) => (a.sentimentScore ?? 0) > 0.3).length;
-    final neutral = _analyses.where((a) => (a.sentimentScore ?? 0) >= -0.3 && (a.sentimentScore ?? 0) <= 0.3).length;
-    final negative = _analyses.where((a) => (a.sentimentScore ?? 0) < -0.3).length;
-    final total = _analyses.length;
+    final distribution = _stats['distribution'] as Map<String, dynamic>? ?? {};
+    final positive = distribution['positive'] as int? ?? 0;
+    final neutral = distribution['neutral'] as int? ?? 0;
+    final negative = distribution['negative'] as int? ?? 0;
+    final total = positive + neutral + negative;
 
     return Column(
       children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/dataservice/note_service.dart';
 import 'package:productivity/dataservice/ai_service.dart';
@@ -9,11 +10,13 @@ import 'package:productivity/dataservice/login_service.dart';
 
 class NoteEditorPage extends StatefulWidget {
   final Note? note;
+  final String? folderId;
   final VoidCallback onSaved;
 
   const NoteEditorPage({
     super.key,
     this.note,
+    this.folderId,
     required this.onSaved,
   });
 
@@ -75,6 +78,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
           userId: user.id,
           title: _titleController.text,
           text: _textController.text,
+          folderId: widget.folderId,
           tags: Note.parseTags(_tagsController.text),
           createdAt: DateTime.now(),
         );
@@ -100,7 +104,13 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   Future<void> _generateText(String defaultPrompt) async {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
 
-    // Verwende custom Prompt wenn eingegeben, sonst default
+    if (settings.selectedAIModel.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kein KI-Modell ausgewählt. Bitte in den Einstellungen ein Modell wählen.')),
+      );
+      return;
+    }
+
     final prompt = _promptController.text.isNotEmpty
         ? _promptController.text
         : defaultPrompt;
@@ -115,8 +125,6 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
       final result = await AIService.generateTextComplete(
         model: settings.selectedAIModel,
         prompt: prompt,
-        temperature: settings.aiTemperature,
-        maxTokens: settings.aiMaxTokens,
       );
 
       if (mounted) {
@@ -167,101 +175,184 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Title
-              TextField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  labelText: 'Titel',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  filled: true,
-                  fillColor: colors.surface,
-                ),
-                style: text.headlineSmall,
-              ),
-              const SizedBox(height: 16),
+      body: isMobile ? _buildMobileLayout(colors, text) : _buildDesktopLayout(colors, text),
+    );
+  }
 
-              // Tags
-              TextField(
-                controller: _tagsController,
-                decoration: InputDecoration(
-                  labelText: 'Tags (kommagetrennt)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  filled: true,
-                  fillColor: colors.surface,
-                  hintText: 'Tag1, Tag2, Tag3',
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Editor with toolbar
-              Container(
-                height: 400,
-                decoration: BoxDecoration(
-                  border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
+  Widget _buildMobileLayout(ColorScheme colors, TextTheme text) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Title
+            TextField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                labelText: 'Titel',
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: MarkdownEditor(
-                  initialText: widget.note?.text ?? '',
-                  onChanged: (text) => _textController.text = text,
-                  controller: _textController,
-                ),
+                filled: true,
+                fillColor: colors.surface,
               ),
-              const SizedBox(height: 16),
+              style: text.headlineSmall,
+            ),
+            const SizedBox(height: 16),
 
-              // AI Generation Panel
-              if (!isMobile)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colors.primaryContainer.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: colors.primary.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'KI-Assistent',
-                        style: text.titleSmall?.copyWith(color: colors.primary),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildAIPanel(colors, text),
-                    ],
-                  ),
-                )
-              else
-                ExpansionTile(
-                  title: Text(
-                    'KI-Assistent',
-                    style: text.titleSmall?.copyWith(color: colors.primary),
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: _buildAIPanel(colors, text),
-                    ),
-                  ],
+            // Tags
+            TextField(
+              controller: _tagsController,
+              decoration: InputDecoration(
+                labelText: 'Tags (kommagetrennt)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                filled: true,
+                fillColor: colors.surface,
+                hintText: 'Tag1, Tag2, Tag3',
+              ),
+            ),
+            const SizedBox(height: 16),
 
-              const SizedBox(height: 16),
+            // Editor with toolbar
+            Container(
+              height: 400,
+              decoration: BoxDecoration(
+                border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: MarkdownEditor(
+                onChanged: (_) {},
+                controller: _textController,
+              ),
+            ),
+            const SizedBox(height: 16),
 
-              // TODO: Backlinks werden später implementiert
-              // Die API gibt Links zurück, die wir zu vollständigen Notizen auflösen müssten
-            ],
-          ),
+            // AI Generation Panel
+            ExpansionTile(
+              title: Text(
+                'KI-Assistent',
+                style: text.titleSmall?.copyWith(color: colors.primary),
+              ),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: _buildAIPanel(colors, text),
+                ),
+              ],
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout(ColorScheme colors, TextTheme text) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Title
+          TextField(
+            controller: _titleController,
+            decoration: InputDecoration(
+              labelText: 'Titel',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: colors.surface,
+            ),
+            style: text.headlineSmall,
+          ),
+          const SizedBox(height: 12),
+          // Tags
+          TextField(
+            controller: _tagsController,
+            decoration: InputDecoration(
+              labelText: 'Tags (kommagetrennt)',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: colors.surface,
+              hintText: 'Tag1, Tag2, Tag3',
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Split view: Editor left, Preview right
+          SizedBox(
+            height: 500,
+            child: Row(
+              children: [
+                // Editor
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: MarkdownEditor(
+                      onChanged: (_) {},
+                      controller: _textController,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Preview
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ValueListenableBuilder(
+                      valueListenable: _textController,
+                      builder: (context, value, child) {
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: MarkdownBody(
+                            data: value.text,
+                            selectable: true,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // AI Assistant
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.primaryContainer.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: colors.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'KI-Assistent',
+                  style: text.titleSmall?.copyWith(color: colors.primary),
+                ),
+                const SizedBox(height: 12),
+                _buildAIPanel(colors, text),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

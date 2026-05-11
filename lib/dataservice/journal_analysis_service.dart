@@ -3,18 +3,55 @@ import 'package:productivity/dataservice/api_client.dart';
 
 class JournalAnalysisService {
   JournalAnalysisService._();
-  static const String _path = '/journal-analyses';
 
-  static Future<JournalAnalysis> getAnalysis(String journalEntryId) async {
+  /// Speichert eine Analyse für einen Journal-Eintrag
+  /// POST /api/journal/{entry_id}/analysis
+  static Future<JournalAnalysis> saveAnalysis({
+    required String journalEntryId,
+    required double sentimentScore,
+    required String sentimentLabel,
+    List<String>? detectedTopics,
+    String? summary,
+    String? rawAnalysis,
+  }) async {
     try {
-      final response = await ApiClient.dio.get('$_path/$journalEntryId');
+      final response = await ApiClient.dio.post(
+        '/journal/$journalEntryId/analysis',
+        data: {
+          'sentimentScore': sentimentScore,
+          'sentimentLabel': sentimentLabel,
+          if (detectedTopics != null) 'detectedTopics': detectedTopics,
+          if (summary != null) 'summary': summary,
+          if (rawAnalysis != null) 'rawAnalysis': rawAnalysis,
+        },
+      );
       return JournalAnalysis.fromJson(response.data);
     } catch (e) {
-      throw Exception('Fehler beim Laden der Analyse: $e');
+      throw Exception('Fehler beim Speichern der Analyse: $e');
     }
   }
 
-  static Future<List<JournalAnalysis>> getAnalysesByDateRange({
+  /// Ruft die Analyse für einen Journal-Eintrag ab
+  /// GET /api/journal/{entry_id}/analysis
+  static Future<JournalAnalysis?> getAnalysis(String journalEntryId) async {
+    try {
+      final response = await ApiClient.dio.get(
+        '/journal/$journalEntryId/analysis',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        return JournalAnalysis.fromJson(response.data);
+      }
+      return null;
+    } catch (e) {
+      // Stille Fehler - Analyse existiert möglicherweise nicht
+      return null;
+    }
+  }
+
+  /// Ruft Sentiment-Statistiken ab
+  /// GET /api/journal/statistics/sentiment
+  static Future<Map<String, dynamic>> getSentimentStatistics({
     DateTime? dateFrom,
     DateTime? dateTo,
   }) async {
@@ -28,19 +65,13 @@ class JournalAnalysisService {
       }
 
       final response = await ApiClient.dio.get(
-        _path,
-        queryParameters: queryParams,
+        '/journal/statistics/sentiment',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
 
-      if (response.statusCode == 200) {
-        final List<dynamic> items = response.data is List ? response.data : [];
-        return items
-            .map((item) => JournalAnalysis.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-      return [];
+      return response.data ?? {};
     } catch (e) {
-      throw Exception('Fehler beim Laden der Analysen: $e');
+      throw Exception('Fehler beim Laden der Statistiken: $e');
     }
   }
 }

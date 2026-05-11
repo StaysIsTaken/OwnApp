@@ -45,7 +45,10 @@ class NoteFolderService {
     try {
       final response = await ApiClient.dio.post(
         _path,
-        data: folder.toJson(),
+        data: {
+          'name': folder.name,
+          if (folder.parentFolderId != null) 'parentFolderId': folder.parentFolderId,
+        },
       );
       return NoteFolder.fromJson(response.data);
     } catch (e) {
@@ -57,7 +60,10 @@ class NoteFolderService {
     try {
       final response = await ApiClient.dio.put(
         '$_path/${folder.id}',
-        data: folder.toJson(),
+        data: {
+          'name': folder.name,
+          'parentFolderId': folder.parentFolderId,
+        },
       );
       return NoteFolder.fromJson(response.data);
     } catch (e) {

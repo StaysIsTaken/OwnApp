@@ -78,7 +78,9 @@ class JournalService {
     try {
       final response = await ApiClient.dio.put(
         '$_path/${entry.id}',
-        data: entry.toJson(),
+        data: {
+          'content': entry.content,
+        },
       );
       return JournalEntry.fromJson(response.data);
     } catch (e) {
