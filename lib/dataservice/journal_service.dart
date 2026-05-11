@@ -63,7 +63,10 @@ class JournalService {
     try {
       final response = await ApiClient.dio.post(
         _path,
-        data: entry.toJson(),
+        data: {
+          'content': entry.content,
+          'date': entry.date.toIso8601String().split('T')[0],
+        },
       );
       return JournalEntry.fromJson(response.data);
     } catch (e) {
