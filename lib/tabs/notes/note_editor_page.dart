@@ -104,25 +104,30 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     });
 
     try {
-      await AIService.generateText(
+      final result = await AIService.generateTextComplete(
         model: settings.selectedAIModel,
         prompt: prompt,
         temperature: settings.aiTemperature,
         maxTokens: settings.aiMaxTokens,
-        onChunk: (chunk) {
-          setState(() {
-            _generatedText += chunk;
-          });
-        },
       );
+
+      if (mounted) {
+        setState(() {
+          _generatedText = result;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _generationError = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _generationError = e.toString();
+        });
+      }
     } finally {
-      setState(() {
-        _isGenerating = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+        });
+      }
     }
   }
 

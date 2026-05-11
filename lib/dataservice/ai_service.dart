@@ -21,9 +21,38 @@ class AIService {
     }
   }
 
-  /// Generate text with streaming
+  /// Generate text without streaming - wartet bis komplette Antwort da ist
+  /// stream: false in der API - gibt kompletten Text auf einmal zurück
+  static Future<String> generateTextComplete({
+    required String model,
+    required String prompt,
+    double temperature = 0.7,
+    int maxTokens = 500,
+  }) async {
+    try {
+      final response = await ApiClient.dio.post(
+        '$_path/generate',
+        data: {
+          'model': model,
+          'prompt': prompt,
+          'stream': false,
+          'temperature': temperature,
+          'num_predict': maxTokens,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final text = response.data['response'] ?? '';
+        return text;
+      }
+      return '';
+    } catch (e) {
+      throw Exception('Fehler beim Generieren von Text: $e');
+    }
+  }
+
+  /// Generate text with streaming (optional - für Live-Text Ansicht)
   /// Calls onChunk(text) for each chunk of generated text
-  /// Returns when generation is complete (done: true)
   static Future<void> generateText({
     required String model,
     required String prompt,
