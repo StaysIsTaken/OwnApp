@@ -199,7 +199,6 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                 child: MarkdownEditor(
                   initialText: widget.note?.text ?? '',
                   onChanged: (text) => _textController.text = text,
-                  maxLines: 0,
                 ),
               ),
               const SizedBox(height: 16),

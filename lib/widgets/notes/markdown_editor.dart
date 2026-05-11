@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 class MarkdownEditor extends StatefulWidget {
   final String initialText;
   final Function(String) onChanged;
-  final int maxLines;
+  final int? maxLines;
   final bool showToolbar;
 
   const MarkdownEditor({
     super.key,
     this.initialText = '',
     required this.onChanged,
-    this.maxLines = 0,
+    this.maxLines,
     this.showToolbar = true,
   });
 
