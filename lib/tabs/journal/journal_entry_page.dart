@@ -9,12 +9,14 @@ class JournalEntryPage extends StatefulWidget {
   final JournalEntry? entry;
   final DateTime date;
   final VoidCallback onSaved;
+  final bool readOnly;
 
   const JournalEntryPage({
     super.key,
     this.entry,
     required this.date,
     required this.onSaved,
+    this.readOnly = false,
   });
 
   @override
@@ -110,11 +112,12 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
           DateFormat('dd. MMMM yyyy', 'de_DE').format(widget.date),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveEntry,
-            tooltip: 'Speichern',
-          ),
+          if (!widget.readOnly)
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _saveEntry,
+              tooltip: 'Speichern',
+            ),
         ],
       ),
       body: isMobile
@@ -139,10 +142,13 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
               ),
               child: TextField(
                 controller: _contentController,
-                decoration: const InputDecoration(
+                readOnly: widget.readOnly,
+                decoration: InputDecoration(
                   hintText: 'Schreibe auf, wie du dich fühlst...',
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(12),
+                  contentPadding: const EdgeInsets.all(12),
+                  filled: widget.readOnly,
+                  fillColor: widget.readOnly ? colors.surfaceContainerHighest : null,
                 ),
                 maxLines: null,
                 expands: true,
@@ -174,10 +180,13 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
               ),
               child: TextField(
                 controller: _contentController,
-                decoration: const InputDecoration(
+                readOnly: widget.readOnly,
+                decoration: InputDecoration(
                   hintText: 'Schreibe auf, wie du dich fühlst...',
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(16),
+                  contentPadding: const EdgeInsets.all(16),
+                  filled: widget.readOnly,
+                  fillColor: widget.readOnly ? colors.surfaceContainerHighest : null,
                 ),
                 maxLines: null,
                 expands: true,

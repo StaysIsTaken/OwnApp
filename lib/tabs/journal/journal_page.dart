@@ -238,6 +238,22 @@ class _JournalPageContentState extends State<_JournalPageContent> {
               trailing: PopupMenuButton(
                 itemBuilder: (context) => [
                   PopupMenuItem(
+                    child: const Text('Lesen'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => JournalEntryPage(
+                            entry: entry,
+                            date: entry.date,
+                            onSaved: _loadEntries,
+                            readOnly: true,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  PopupMenuItem(
                     child: const Text('Bearbeiten'),
                     onTap: () {
                       Navigator.push(

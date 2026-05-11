@@ -3,6 +3,7 @@ import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/dataservice/note_service.dart';
 import 'package:productivity/main.dart';
 import 'note_editor_page.dart';
+import 'note_detail_page.dart';
 
 class NotesPage extends BasePage {
   const NotesPage({super.key}) : super(title: 'Notizen');
@@ -248,6 +249,17 @@ class _NotesPageContentState extends State<_NotesPageContent> {
               ),
               trailing: PopupMenuButton(
                 itemBuilder: (context) => [
+                  PopupMenuItem(
+                    child: const Text('Lesen'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => NoteDetailPage(note: note),
+                        ),
+                      );
+                    },
+                  ),
                   PopupMenuItem(
                     child: const Text('Bearbeiten'),
                     onTap: () {
