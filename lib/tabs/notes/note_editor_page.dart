@@ -134,7 +134,8 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   void _insertGeneratedText() {
     if (_generatedText.isNotEmpty) {
       final current = _textController.text;
-      _textController.text = '$current\n\n$_generatedText';
+      final newText = current.isEmpty ? _generatedText : '$current\n\n$_generatedText';
+      _textController.text = newText;
       setState(() {
         _generatedText = '';
       });
@@ -204,6 +205,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                 child: MarkdownEditor(
                   initialText: widget.note?.text ?? '',
                   onChanged: (text) => _textController.text = text,
+                  controller: _textController,
                 ),
               ),
               const SizedBox(height: 16),

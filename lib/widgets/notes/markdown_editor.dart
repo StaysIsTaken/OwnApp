@@ -5,6 +5,7 @@ class MarkdownEditor extends StatefulWidget {
   final Function(String) onChanged;
   final int? maxLines;
   final bool showToolbar;
+  final TextEditingController? controller;
 
   const MarkdownEditor({
     super.key,
@@ -12,6 +13,7 @@ class MarkdownEditor extends StatefulWidget {
     required this.onChanged,
     this.maxLines,
     this.showToolbar = true,
+    this.controller,
   });
 
   @override
@@ -24,7 +26,11 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialText);
+    if (widget.controller != null) {
+      _controller = widget.controller!;
+    } else {
+      _controller = TextEditingController(text: widget.initialText);
+    }
     _controller.addListener(() {
       widget.onChanged(_controller.text);
     });
@@ -32,7 +38,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (widget.controller == null) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
