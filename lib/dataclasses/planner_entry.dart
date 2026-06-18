@@ -3,8 +3,10 @@ class PlannerEntry {
   final String userId;
   final String title;
   final String? description;
-  final String type;
+  final int? typeId;
+  final String? type;
   final DateTime scheduledAt;
+  final DateTime endsAt;
   final int durationMin;
   final bool notified;
   final int notifyMinBefore;
@@ -19,8 +21,10 @@ class PlannerEntry {
     required this.userId,
     required this.title,
     this.description,
-    required this.type,
+    this.typeId,
+    this.type,
     required this.scheduledAt,
+    required this.endsAt,
     this.durationMin = 60,
     this.notified = false,
     this.notifyMinBefore = 10,
@@ -32,16 +36,22 @@ class PlannerEntry {
   });
 
   factory PlannerEntry.fromJson(Map<String, dynamic> json) {
+    final scheduledAt = json['scheduled_at'] != null
+        ? DateTime.parse(json['scheduled_at'])
+        : DateTime.now();
+    final durationMin = json['duration_min'] ?? 60;
     return PlannerEntry(
       id: json['id'] ?? 0,
       userId: json['user_id'] ?? '',
       title: json['title'] ?? '',
       description: json['description'],
-      type: json['type'] ?? 'task',
-      scheduledAt: json['scheduled_at'] != null
-          ? DateTime.parse(json['scheduled_at'])
-          : DateTime.now(),
-      durationMin: json['duration_min'] ?? 60,
+      typeId: json['type_id'],
+      type: json['type'],
+      scheduledAt: scheduledAt,
+      endsAt: json['ends_at'] != null
+          ? DateTime.parse(json['ends_at'])
+          : scheduledAt.add(Duration(minutes: durationMin)),
+      durationMin: durationMin,
       notified: json['notified'] ?? false,
       notifyMinBefore: json['notify_min_before'] ?? 10,
       orderIndex: json['order_index'] ?? 0,
@@ -64,8 +74,10 @@ class PlannerEntry {
       'user_id': userId,
       'title': title,
       'description': description,
+      'type_id': typeId,
       'type': type,
       'scheduled_at': scheduledAt.toIso8601String(),
+      'ends_at': endsAt.toIso8601String(),
       'duration_min': durationMin,
       'notified': notified,
       'notify_min_before': notifyMinBefore,
@@ -82,8 +94,10 @@ class PlannerEntry {
     String? userId,
     String? title,
     String? description,
+    int? typeId,
     String? type,
     DateTime? scheduledAt,
+    DateTime? endsAt,
     int? durationMin,
     bool? notified,
     int? notifyMinBefore,
@@ -98,8 +112,10 @@ class PlannerEntry {
       userId: userId ?? this.userId,
       title: title ?? this.title,
       description: description ?? this.description,
+      typeId: typeId ?? this.typeId,
       type: type ?? this.type,
       scheduledAt: scheduledAt ?? this.scheduledAt,
+      endsAt: endsAt ?? this.endsAt,
       durationMin: durationMin ?? this.durationMin,
       notified: notified ?? this.notified,
       notifyMinBefore: notifyMinBefore ?? this.notifyMinBefore,

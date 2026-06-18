@@ -1,4 +1,5 @@
 import 'package:productivity/dataclasses/planner_entry.dart';
+import 'package:productivity/dataclasses/planner_entry_type.dart';
 import 'package:productivity/dataservice/api_client.dart';
 
 class PlannerService {
@@ -32,9 +33,9 @@ class PlannerService {
   static Future<PlannerEntry> create({
     required String title,
     String? description,
-    required String type,
+    required int typeId,
     required DateTime scheduledAt,
-    int durationMin = 60,
+    required DateTime endsAt,
     int notifyMinBefore = 10,
     String color = '#3B82F6',
     int? parentId,
@@ -44,9 +45,9 @@ class PlannerService {
       final response = await ApiClient.dio.post(_path, data: {
         'title': title,
         'description': description,
-        'type': type,
+        'type_id': typeId,
         'scheduled_at': scheduledAt.toIso8601String(),
-        'duration_min': durationMin,
+        'ends_at': endsAt.toIso8601String(),
         'notify_min_before': notifyMinBefore,
         'color': color,
         'parent_id': parentId,
@@ -66,8 +67,9 @@ class PlannerService {
     int id, {
     String? title,
     String? description,
-    String? type,
+    int? typeId,
     DateTime? scheduledAt,
+    DateTime? endsAt,
     int? durationMin,
     int? notifyMinBefore,
     String? color,
@@ -79,8 +81,9 @@ class PlannerService {
       final Map<String, dynamic> data = {};
       if (title != null) data['title'] = title;
       if (description != null) data['description'] = description;
-      if (type != null) data['type'] = type;
+      if (typeId != null) data['type_id'] = typeId;
       if (scheduledAt != null) data['scheduled_at'] = scheduledAt.toIso8601String();
+      if (endsAt != null) data['ends_at'] = endsAt.toIso8601String();
       if (durationMin != null) data['duration_min'] = durationMin;
       if (notifyMinBefore != null) data['notify_min_before'] = notifyMinBefore;
       if (color != null) data['color'] = color;
@@ -133,6 +136,75 @@ class PlannerService {
       }
     } catch (e) {
       throw Exception('Fehler beim Markieren als benachrichtigt: $e');
+    }
+  }
+
+  // ── Stammdaten: Typen ──────────────────────────────────────────────────
+
+  static Future<List<PlannerEntryType>> loadTypes() async {
+    try {
+      final response = await ApiClient.dio.get('$_path/types');
+      if (response.statusCode == 200) {
+        final List<dynamic> items = response.data is List ? response.data : [];
+        return items
+            .map((item) =>
+                PlannerEntryType.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      throw Exception('Fehler beim Laden der Typen: $e');
+    }
+  }
+
+  static Future<PlannerEntryType> createType({
+    required String name,
+    String color = '#3B82F6',
+    String? icon,
+    int orderIndex = 0,
+  }) async {
+    try {
+      final response = await ApiClient.dio.post('$_path/types', data: {
+        'name': name,
+        'color': color,
+        'icon': icon,
+        'order_index': orderIndex,
+      });
+      return PlannerEntryType.fromJson(response.data);
+    } catch (e) {
+      throw Exception('Fehler beim Erstellen des Typs: $e');
+    }
+  }
+
+  static Future<PlannerEntryType> updateType(
+    int id, {
+    String? name,
+    String? color,
+    String? icon,
+    int? orderIndex,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {};
+      if (name != null) data['name'] = name;
+      if (color != null) data['color'] = color;
+      if (icon != null) data['icon'] = icon;
+      if (orderIndex != null) data['order_index'] = orderIndex;
+
+      final response = await ApiClient.dio.put('$_path/types/$id', data: data);
+      return PlannerEntryType.fromJson(response.data);
+    } catch (e) {
+      throw Exception('Fehler beim Aktualisieren des Typs: $e');
+    }
+  }
+
+  static Future<void> deleteType(int id) async {
+    try {
+      final response = await ApiClient.dio.delete('$_path/types/$id');
+      if (response.statusCode != 200) {
+        throw Exception('Fehler beim Löschen des Typs');
+      }
+    } catch (e) {
+      throw Exception('Fehler beim Löschen des Typs: $e');
     }
   }
 }

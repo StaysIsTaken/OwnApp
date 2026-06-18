@@ -5,6 +5,7 @@ import 'package:productivity/tabs/planner/views/week_view.dart';
 import 'package:productivity/tabs/planner/views/month_view.dart';
 import 'package:productivity/tabs/planner/views/day_view.dart';
 import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
+import 'package:productivity/widgets/drawer.dart';
 
 class PlannerTab extends StatefulWidget {
   const PlannerTab({Key? key}) : super(key: key);
@@ -25,6 +26,7 @@ class _PlannerTabState extends State<PlannerTab>
     _selectedDate = DateTime.now();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PlannerProvider>().loadEntries();
+      context.read<PlannerProvider>().loadTypes();
     });
   }
 
@@ -37,6 +39,7 @@ class _PlannerTabState extends State<PlannerTab>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const DrawerWidget(),
       appBar: AppBar(
         title: const Text('Planner'),
         elevation: 0,
@@ -68,14 +71,14 @@ class _PlannerTabState extends State<PlannerTab>
     showDialog(
       context: context,
       builder: (context) => PlannerEditDialog(
-        onSave: (title, description, type, scheduledAt, durationMin,
+        onSave: (title, description, typeId, scheduledAt, endsAt,
             notifyMinBefore, color, parentId, orderIndex) {
           context.read<PlannerProvider>().createEntry(
                 title: title,
                 description: description,
-                type: type,
+                typeId: typeId,
                 scheduledAt: scheduledAt,
-                durationMin: durationMin,
+                endsAt: endsAt,
                 notifyMinBefore: notifyMinBefore,
                 color: color,
                 parentId: parentId,

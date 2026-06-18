@@ -18,15 +18,16 @@ class _WeekViewState extends State<WeekView> {
   static const double _hourHeight = 64.0;
   static const double _timeColumnWidth = 54.0;
   static const double _headerHeight = 64.0;
+  static const int _snapMinutes = 15;
 
   late DateTime _weekStart;
   final ScrollController _scrollController = ScrollController();
+  final List<GlobalKey> _dayKeys = List.generate(7, (_) => GlobalKey());
 
   @override
   void initState() {
     super.initState();
     _weekStart = _getWeekStart(widget.selectedDate);
-    // Scroll to ~07:00 by default, like Teams/Google Calendar.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(
@@ -68,7 +69,7 @@ class _WeekViewState extends State<WeekView> {
 
         return Column(
           children: [
-            _buildNavHeader(theme, weekEnd, now),
+            _buildNavHeader(theme, weekEnd),
             _buildDayHeaders(theme, daysOfWeek, now),
             Expanded(
               child: SingleChildScrollView(
@@ -79,7 +80,8 @@ class _WeekViewState extends State<WeekView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildTimeColumn(theme, use24h),
-                      ...daysOfWeek.map((day) {
+                      ...List.generate(daysOfWeek.length, (index) {
+                        final day = daysOfWeek[index];
                         final dayEntries = entries
                             .where((e) => _isSameDay(e.scheduledAt, day))
                             .toList()
@@ -87,7 +89,7 @@ class _WeekViewState extends State<WeekView> {
                               a.scheduledAt.compareTo(b.scheduledAt));
                         return Expanded(
                           child: _buildDayColumn(
-                              context, theme, day, dayEntries, now),
+                              context, theme, day, index, dayEntries, now),
                         );
                       }),
                     ],
@@ -101,7 +103,7 @@ class _WeekViewState extends State<WeekView> {
     );
   }
 
-  Widget _buildNavHeader(ThemeData theme, DateTime weekEnd, DateTime now) {
+  Widget _buildNavHeader(ThemeData theme, DateTime weekEnd) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
       child: Row(
@@ -126,8 +128,8 @@ class _WeekViewState extends State<WeekView> {
               ),
               Text(
                 'KW ${_weekNumber(_weekStart)}',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.hintColor),
+                style:
+                    theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
               ),
             ],
           ),
@@ -246,104 +248,153 @@ class _WeekViewState extends State<WeekView> {
   }
 
   Widget _buildDayColumn(BuildContext context, ThemeData theme, DateTime day,
-      List<PlannerEntry> dayEntries, DateTime now) {
+      int dayIndex, List<PlannerEntry> dayEntries, DateTime now) {
     final isToday = _isSameDay(day, now);
     final lineColor = theme.dividerColor.withValues(alpha: 0.25);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isToday
-            ? theme.colorScheme.primary.withValues(alpha: 0.04)
-            : null,
-        border: Border(left: BorderSide(color: lineColor)),
-      ),
-      child: Stack(
-        children: [
-          // Tappable hour cells with full-hour and half-hour guides
-          Column(
-            children: List.generate(24, (hour) {
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _showCreateEntryDialog(
-                    context, DateTime(day.year, day.month, day.day, hour, 0)),
-                child: Container(
-                  height: _hourHeight,
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: lineColor),
-                    ),
-                  ),
-                ),
-              );
-            }),
+    return DragTarget<PlannerEntry>(
+      onAcceptWithDetails: (details) =>
+          _handleDrop(context, day, dayIndex, details.data, details.offset),
+      builder: (context, candidate, rejected) {
+        return Container(
+          key: _dayKeys[dayIndex],
+          decoration: BoxDecoration(
+            color: candidate.isNotEmpty
+                ? theme.colorScheme.primary.withValues(alpha: 0.10)
+                : (isToday
+                    ? theme.colorScheme.primary.withValues(alpha: 0.04)
+                    : null),
+            border: Border(left: BorderSide(color: lineColor)),
           ),
-          // Entries
-          ...dayEntries.map((entry) => _buildEntryCard(context, entry)),
-          // "Now" indicator
-          if (isToday) _buildNowIndicator(theme, now),
-        ],
-      ),
+          child: Stack(
+            children: [
+              Column(
+                children: List.generate(24, (hour) {
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _showCreateEntryDialog(
+                        context,
+                        DateTime(day.year, day.month, day.day, hour, 0)),
+                    child: Container(
+                      height: _hourHeight,
+                      decoration: BoxDecoration(
+                        border: Border(top: BorderSide(color: lineColor)),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              ...dayEntries
+                  .map((entry) => _buildEntryCard(context, theme, entry)),
+              if (isToday) _buildNowIndicator(now),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildEntryCard(BuildContext context, PlannerEntry entry) {
+  void _handleDrop(BuildContext context, DateTime day, int dayIndex,
+      PlannerEntry entry, Offset globalOffset) {
+    final box =
+        _dayKeys[dayIndex].currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final local = box.globalToLocal(globalOffset);
+    var minutes = (local.dy / _hourHeight * 60).round();
+    minutes = (minutes / _snapMinutes).round() * _snapMinutes;
+    minutes = minutes.clamp(0, 24 * 60 - _snapMinutes);
+
+    final newStart = DateTime(day.year, day.month, day.day)
+        .add(Duration(minutes: minutes));
+    final duration = entry.endsAt.difference(entry.scheduledAt);
+    final newEnd = newStart.add(duration);
+
+    context.read<PlannerProvider>().moveEntry(
+          entry.id,
+          scheduledAt: newStart,
+          endsAt: newEnd,
+        );
+  }
+
+  Widget _buildEntryCard(
+      BuildContext context, ThemeData theme, PlannerEntry entry) {
     final color = _getColorFromHex(entry.color);
     final start = entry.scheduledAt;
     final top = (start.hour + start.minute / 60.0) * _hourHeight;
+    final durationMin = entry.endsAt.difference(start).inMinutes;
     final height =
-        ((entry.durationMin / 60.0) * _hourHeight).clamp(22.0, double.infinity);
-    final end = start.add(Duration(minutes: entry.durationMin));
+        ((durationMin / 60.0) * _hourHeight).clamp(22.0, double.infinity);
     final isCompact = height < 40;
+    final colWidth =
+        (MediaQuery.of(context).size.width - _timeColumnWidth) / 7;
+
+    final cardContent = Container(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(7),
+        border: Border(left: BorderSide(color: color, width: 3.5)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            entry.title,
+            style: TextStyle(
+              color: Color.lerp(color, Colors.white, 0.65),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              height: 1.1,
+            ),
+            maxLines: isCompact ? 1 : 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (!isCompact) ...[
+            const SizedBox(height: 2),
+            Text(
+              '${_formatClock(start)} – ${_formatClock(entry.endsAt)}',
+              style: TextStyle(
+                color: Color.lerp(color, Colors.white, 0.4),
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      ),
+    );
 
     return Positioned(
       top: top + 1,
       left: 3,
       right: 3,
       height: height - 2,
-      child: GestureDetector(
-        onTap: () => _showEditEntryDialog(context, entry),
-        child: Container(
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.22),
-            borderRadius: BorderRadius.circular(7),
-            border: Border(left: BorderSide(color: color, width: 3.5)),
+      child: LongPressDraggable<PlannerEntry>(
+        data: entry,
+        dragAnchorStrategy: childDragAnchorStrategy,
+        feedback: Material(
+          color: Colors.transparent,
+          child: Opacity(
+            opacity: 0.9,
+            child: SizedBox(
+              width: colWidth - 6,
+              height: height - 2,
+              child: cardContent,
+            ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                entry.title,
-                style: TextStyle(
-                  color: Color.lerp(color, Colors.white, 0.65),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  height: 1.1,
-                ),
-                maxLines: isCompact ? 1 : 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (!isCompact) ...[
-                const SizedBox(height: 2),
-                Text(
-                  '${_formatClock(start)} – ${_formatClock(end)}',
-                  style: TextStyle(
-                    color: Color.lerp(color, Colors.white, 0.4),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
+        ),
+        childWhenDragging: Opacity(opacity: 0.3, child: cardContent),
+        child: GestureDetector(
+          onTap: () => _showEditEntryDialog(context, entry),
+          child: cardContent,
         ),
       ),
     );
   }
 
-  Widget _buildNowIndicator(ThemeData theme, DateTime now) {
+  Widget _buildNowIndicator(DateTime now) {
     final top = (now.hour + now.minute / 60.0) * _hourHeight;
     return Positioned(
       top: top - 4,
@@ -359,29 +410,21 @@ class _WeekViewState extends State<WeekView> {
               shape: BoxShape.circle,
             ),
           ),
-          Expanded(
-            child: Container(
-              height: 2,
-              color: const Color(0xFFE53935),
-            ),
-          ),
+          Expanded(child: Container(height: 2, color: const Color(0xFFE53935))),
         ],
       ),
     );
   }
 
   String _formatHour(int hour, bool use24h) {
-    if (use24h) {
-      return '${hour.toString().padLeft(2, '0')}:00';
-    }
+    if (use24h) return '${hour.toString().padLeft(2, '0')}:00';
     final h = hour % 12 == 0 ? 12 : hour % 12;
     final period = hour < 12 ? 'AM' : 'PM';
     return '$h $period';
   }
 
-  String _formatClock(DateTime dt) {
-    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
+  String _formatClock(DateTime dt) =>
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
   String _monthShort(int month) {
     const m = [
@@ -392,11 +435,8 @@ class _WeekViewState extends State<WeekView> {
   }
 
   int _weekNumber(DateTime date) {
-    final dayOfYear = int.parse(
-        DateTime(date.year, date.month, date.day)
-            .difference(DateTime(date.year, 1, 1))
-            .inDays
-            .toString());
+    final dayOfYear =
+        DateTime(date.year, date.month, date.day).difference(DateTime(date.year, 1, 1)).inDays;
     return ((dayOfYear - date.weekday + 10) / 7).floor();
   }
 
@@ -410,15 +450,15 @@ class _WeekViewState extends State<WeekView> {
       context: context,
       builder: (context) => PlannerEditDialog(
         initialScheduledAt: scheduledAt,
-        initialDurationMin: 60,
-        onSave: (title, description, type, time, durationMin, notifyMinBefore,
-            color, parentId, orderIndex) {
+        initialEndsAt: scheduledAt.add(const Duration(hours: 1)),
+        onSave: (title, description, typeId, start, end, notifyMinBefore, color,
+            parentId, orderIndex) {
           context.read<PlannerProvider>().createEntry(
                 title: title,
                 description: description,
-                type: type,
-                scheduledAt: time,
-                durationMin: durationMin,
+                typeId: typeId,
+                scheduledAt: start,
+                endsAt: end,
                 notifyMinBefore: notifyMinBefore,
                 color: color,
               );
@@ -428,22 +468,24 @@ class _WeekViewState extends State<WeekView> {
   }
 
   void _showEditEntryDialog(BuildContext context, PlannerEntry entry) {
+    final provider = context.read<PlannerProvider>();
     showDialog(
       context: context,
       builder: (context) => PlannerEditDialog(
         entry: entry,
-        onSave: (title, description, type, time, durationMin, notifyMinBefore,
-            color, parentId, orderIndex) {
-          context.read<PlannerProvider>().updateEntry(
-                entry.id,
-                title: title,
-                description: description,
-                type: type,
-                scheduledAt: time,
-                durationMin: durationMin,
-                notifyMinBefore: notifyMinBefore,
-                color: color,
-              );
+        onDelete: () => provider.deleteEntry(entry.id),
+        onSave: (title, description, typeId, start, end, notifyMinBefore, color,
+            parentId, orderIndex) {
+          provider.updateEntry(
+            entry.id,
+            title: title,
+            description: description,
+            typeId: typeId,
+            scheduledAt: start,
+            endsAt: end,
+            notifyMinBefore: notifyMinBefore,
+            color: color,
+          );
         },
       ),
     );

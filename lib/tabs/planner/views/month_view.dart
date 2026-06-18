@@ -44,7 +44,6 @@ class _MonthViewState extends State<MonthView> {
 
         return Column(
           children: [
-            // Navigation Header
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -71,9 +70,7 @@ class _MonthViewState extends State<MonthView> {
                 ],
               ),
             ),
-            // Weekday labels
             _buildWeekdayHeader(),
-            // Calendar grid (fills remaining height)
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
@@ -148,68 +145,76 @@ class _MonthViewState extends State<MonthView> {
 
   Widget _buildDayCell(BuildContext context, DateTime date, int dayNumber,
       List<PlannerEntry> dayEntries) {
+    final theme = Theme.of(context);
     final now = DateTime.now();
     final isToday =
         date.year == now.year && date.month == now.month && date.day == now.day;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _showCreateEntryDialog(context, date),
-      child: Container(
-        margin: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          color: isToday ? Colors.blue.withValues(alpha: 0.12) : null,
-          border: Border.all(
-            color: isToday ? Colors.blue : Colors.grey[800]!,
-            width: isToday ? 1.5 : 1,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        padding: const EdgeInsets.all(4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Day number
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                width: 22,
-                height: 22,
-                alignment: Alignment.center,
-                decoration: isToday
-                    ? const BoxDecoration(
-                        color: Colors.blue,
-                        shape: BoxShape.circle,
-                      )
-                    : null,
-                child: Text(
-                  dayNumber.toString(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                    color: isToday ? Colors.white : null,
+    return DragTarget<PlannerEntry>(
+      onAcceptWithDetails: (details) => _moveToDay(context, details.data, date),
+      builder: (context, candidate, rejected) {
+        final highlighted = candidate.isNotEmpty;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _showCreateEntryDialog(context, date),
+          child: Container(
+            margin: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: highlighted
+                  ? theme.colorScheme.primary.withValues(alpha: 0.18)
+                  : (isToday
+                      ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                      : null),
+              border: Border.all(
+                color: highlighted
+                    ? theme.colorScheme.primary
+                    : (isToday ? Colors.blue : Colors.grey[800]!),
+                width: (isToday || highlighted) ? 1.5 : 1,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: isToday
+                        ? const BoxDecoration(
+                            color: Colors.blue, shape: BoxShape.circle)
+                        : null,
+                    child: Text(
+                      dayNumber.toString(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            isToday ? FontWeight.bold : FontWeight.normal,
+                        color: isToday ? Colors.white : null,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                Expanded(child: _buildEntryList(context, dayEntries)),
+              ],
             ),
-            const SizedBox(height: 2),
-            // Entries
-            Expanded(
-              child: _buildEntryList(context, dayEntries),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildEntryList(BuildContext context, List<PlannerEntry> dayEntries) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // How many chips fit (each ~18px tall incl. spacing).
         const chipHeight = 18.0;
-        final maxVisible =
-            (constraints.maxHeight / chipHeight).floor().clamp(0, dayEntries.length);
+        final maxVisible = (constraints.maxHeight / chipHeight)
+            .floor()
+            .clamp(0, dayEntries.length);
         final showCount = dayEntries.length > maxVisible && maxVisible > 0
             ? maxVisible - 1
             : maxVisible;
@@ -218,9 +223,9 @@ class _MonthViewState extends State<MonthView> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ...dayEntries.take(showCount).map(
-                  (entry) => _buildEntryChip(context, entry),
-                ),
+            ...dayEntries
+                .take(showCount)
+                .map((entry) => _buildEntryChip(context, entry)),
             if (hiddenCount > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 1),
@@ -240,34 +245,63 @@ class _MonthViewState extends State<MonthView> {
   }
 
   Widget _buildEntryChip(BuildContext context, PlannerEntry entry) {
-    return GestureDetector(
-      onTap: () => _showEditEntryDialog(context, entry),
-      child: Container(
-        height: 16,
-        margin: const EdgeInsets.only(bottom: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color: _getColorFromHex(entry.color),
-          borderRadius: BorderRadius.circular(3),
+    final chip = Container(
+      height: 16,
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: _getColorFromHex(entry.color),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        '${_formatTime(entry.scheduledAt)} ${entry.title}',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
         ),
-        alignment: Alignment.centerLeft,
-        child: Text(
-          '${_formatTime(entry.scheduledAt)} ${entry.title}',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+
+    return LongPressDraggable<PlannerEntry>(
+      data: entry,
+      feedback: Material(
+        color: Colors.transparent,
+        child: Opacity(
+          opacity: 0.9,
+          child: SizedBox(width: 120, child: chip),
         ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: chip),
+      child: GestureDetector(
+        onTap: () => _showEditEntryDialog(context, entry),
+        child: chip,
       ),
     );
   }
 
-  String _formatTime(DateTime dt) {
-    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  void _moveToDay(BuildContext context, PlannerEntry entry, DateTime target) {
+    if (entry.scheduledAt.year == target.year &&
+        entry.scheduledAt.month == target.month &&
+        entry.scheduledAt.day == target.day) {
+      return; // same day, nothing to do
+    }
+    final newStart = DateTime(target.year, target.month, target.day,
+        entry.scheduledAt.hour, entry.scheduledAt.minute);
+    final duration = entry.endsAt.difference(entry.scheduledAt);
+    final newEnd = newStart.add(duration);
+    context.read<PlannerProvider>().moveEntry(
+          entry.id,
+          scheduledAt: newStart,
+          endsAt: newEnd,
+        );
   }
+
+  String _formatTime(DateTime dt) =>
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
   String _getMonthName(int month) {
     const months = [
@@ -288,15 +322,15 @@ class _MonthViewState extends State<MonthView> {
       context: context,
       builder: (context) => PlannerEditDialog(
         initialScheduledAt: scheduledAt,
-        initialDurationMin: 60,
-        onSave: (title, description, type, time, durationMin, notifyMinBefore,
-            color, parentId, orderIndex) {
+        initialEndsAt: scheduledAt.add(const Duration(hours: 1)),
+        onSave: (title, description, typeId, start, end, notifyMinBefore, color,
+            parentId, orderIndex) {
           context.read<PlannerProvider>().createEntry(
                 title: title,
                 description: description,
-                type: type,
-                scheduledAt: time,
-                durationMin: durationMin,
+                typeId: typeId,
+                scheduledAt: start,
+                endsAt: end,
                 notifyMinBefore: notifyMinBefore,
                 color: color,
               );
@@ -306,22 +340,24 @@ class _MonthViewState extends State<MonthView> {
   }
 
   void _showEditEntryDialog(BuildContext context, PlannerEntry entry) {
+    final provider = context.read<PlannerProvider>();
     showDialog(
       context: context,
       builder: (context) => PlannerEditDialog(
         entry: entry,
-        onSave: (title, description, type, time, durationMin, notifyMinBefore,
-            color, parentId, orderIndex) {
-          context.read<PlannerProvider>().updateEntry(
-                entry.id,
-                title: title,
-                description: description,
-                type: type,
-                scheduledAt: time,
-                durationMin: durationMin,
-                notifyMinBefore: notifyMinBefore,
-                color: color,
-              );
+        onDelete: () => provider.deleteEntry(entry.id),
+        onSave: (title, description, typeId, start, end, notifyMinBefore, color,
+            parentId, orderIndex) {
+          provider.updateEntry(
+            entry.id,
+            title: title,
+            description: description,
+            typeId: typeId,
+            scheduledAt: start,
+            endsAt: end,
+            notifyMinBefore: notifyMinBefore,
+            color: color,
+          );
         },
       ),
     );
