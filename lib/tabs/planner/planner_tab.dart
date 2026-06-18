@@ -8,7 +8,7 @@ import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
 import 'package:productivity/widgets/drawer.dart';
 
 class PlannerTab extends StatefulWidget {
-  const PlannerTab({Key? key}) : super(key: key);
+  const PlannerTab({super.key});
 
   @override
   State<PlannerTab> createState() => _PlannerTabState();
@@ -71,9 +71,19 @@ class _PlannerTabState extends State<PlannerTab>
     showDialog(
       context: context,
       builder: (context) => PlannerEditDialog(
-        onSave: (title, description, typeId, scheduledAt, endsAt,
-            notifyMinBefore, color, parentId, orderIndex) {
-          context.read<PlannerProvider>().createEntry(
+        onSave:
+            (
+              title,
+              description,
+              typeId,
+              scheduledAt,
+              endsAt,
+              notifyMinBefore,
+              color,
+              parentId,
+              orderIndex,
+            ) {
+              context.read<PlannerProvider>().createEntry(
                 title: title,
                 description: description,
                 typeId: typeId,
@@ -84,7 +94,7 @@ class _PlannerTabState extends State<PlannerTab>
                 parentId: parentId,
                 orderIndex: orderIndex,
               );
-        },
+            },
       ),
     );
   }

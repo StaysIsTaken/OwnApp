@@ -6,7 +6,7 @@ import 'package:productivity/tabs/planner/widgets/planner_entry_card.dart';
 class DayView extends StatefulWidget {
   final DateTime selectedDate;
 
-  const DayView({Key? key, required this.selectedDate}) : super(key: key);
+  const DayView({super.key, required this.selectedDate});
 
   @override
   State<DayView> createState() => _DayViewState();
@@ -22,7 +22,15 @@ class _DayViewState extends State<DayView> {
   }
 
   String _getDayName(int weekday) {
-    const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const days = [
+      'Montag',
+      'Dienstag',
+      'Mittwoch',
+      'Donnerstag',
+      'Freitag',
+      'Samstag',
+      'Sonntag',
+    ];
     return days[weekday - 1];
   }
 
@@ -61,14 +69,16 @@ class _DayViewState extends State<DayView> {
                     children: [
                       IconButton(
                         onPressed: () => setState(() {
-                          _selectedDay = _selectedDay.subtract(const Duration(days: 1));
+                          _selectedDay = _selectedDay.subtract(
+                            const Duration(days: 1),
+                          );
                         }),
                         icon: const Icon(Icons.chevron_left),
                       ),
                       Column(
                         children: [
                           Text(
-                            '${_getDayName(_selectedDay.weekday)}',
+                            _getDayName(_selectedDay.weekday),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Text(
@@ -91,7 +101,9 @@ class _DayViewState extends State<DayView> {
                       ),
                       IconButton(
                         onPressed: () => setState(() {
-                          _selectedDay = _selectedDay.add(const Duration(days: 1));
+                          _selectedDay = _selectedDay.add(
+                            const Duration(days: 1),
+                          );
                         }),
                         icon: const Icon(Icons.chevron_right),
                       ),
@@ -100,7 +112,10 @@ class _DayViewState extends State<DayView> {
                   const SizedBox(height: 8),
                   if (entries.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.orange[100],
                         borderRadius: BorderRadius.circular(8),

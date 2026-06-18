@@ -8,11 +8,7 @@ class PlannerEntryCard extends StatelessWidget {
   final PlannerEntry entry;
   final VoidCallback? onDelete;
 
-  const PlannerEntryCard({
-    Key? key,
-    required this.entry,
-    this.onDelete,
-  }) : super(key: key);
+  const PlannerEntryCard({super.key, required this.entry, this.onDelete});
 
   Color _getColorFromHex(String hexColor) {
     hexColor = hexColor.replaceFirst('#', '');
@@ -26,10 +22,7 @@ class PlannerEntryCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           border: Border(
-            left: BorderSide(
-              color: _getColorFromHex(entry.color),
-              width: 4,
-            ),
+            left: BorderSide(color: _getColorFromHex(entry.color), width: 4),
           ),
         ),
         child: ListTile(
@@ -42,28 +35,18 @@ class PlannerEntryCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     entry.description!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.access_time,
-                      size: 14,
-                      color: Colors.grey[500],
-                    ),
+                    Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
                     const SizedBox(width: 4),
                     Text(
                       '${entry.scheduledAt.hour.toString().padLeft(2, '0')}:${entry.scheduledAt.minute.toString().padLeft(2, '0')} – ${entry.endsAt.hour.toString().padLeft(2, '0')}:${entry.endsAt.minute.toString().padLeft(2, '0')}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -93,9 +76,19 @@ class PlannerEntryCard extends StatelessWidget {
       context: context,
       builder: (context) => PlannerEditDialog(
         entry: entry,
-        onSave: (title, description, typeId, scheduledAt, endsAt,
-            notifyMinBefore, color, parentId, orderIndex) {
-          context.read<PlannerProvider>().updateEntry(
+        onSave:
+            (
+              title,
+              description,
+              typeId,
+              scheduledAt,
+              endsAt,
+              notifyMinBefore,
+              color,
+              parentId,
+              orderIndex,
+            ) {
+              context.read<PlannerProvider>().updateEntry(
                 entry.id,
                 title: title,
                 description: description,
@@ -107,8 +100,8 @@ class PlannerEntryCard extends StatelessWidget {
                 parentId: parentId,
                 orderIndex: orderIndex,
               );
-          Navigator.of(context).pop();
-        },
+              Navigator.of(context).pop();
+            },
       ),
     );
   }
@@ -145,10 +138,7 @@ class PlannerEntryCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              entry.title,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+            Text(entry.title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
             if (entry.description != null && entry.description!.isNotEmpty)
               Padding(
@@ -159,10 +149,10 @@ class PlannerEntryCard extends StatelessWidget {
               children: [
                 Chip(
                   label: Text(entry.type ?? 'Ohne Typ'),
-                  backgroundColor: _getColorFromHex(entry.color).withOpacity(0.2),
-                  labelStyle: TextStyle(
-                    color: _getColorFromHex(entry.color),
-                  ),
+                  backgroundColor: _getColorFromHex(
+                    entry.color,
+                  ).withOpacity(0.2),
+                  labelStyle: TextStyle(color: _getColorFromHex(entry.color)),
                 ),
                 const SizedBox(width: 8),
                 Chip(

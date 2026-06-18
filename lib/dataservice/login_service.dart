@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:productivity/dataclasses/User.dart';
 import 'package:productivity/dataservice/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';

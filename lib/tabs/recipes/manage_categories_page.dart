@@ -4,7 +4,8 @@ import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/category.dart';
 
 class ManageCategoriesPage extends BasePage {
-  const ManageCategoriesPage({super.key}) : super(title: 'Kategorien verwalten');
+  const ManageCategoriesPage({super.key})
+    : super(title: 'Kategorien verwalten');
 
   @override
   Widget buildBody(BuildContext context) => const _ManageCategoriesContent();
@@ -14,7 +15,8 @@ class _ManageCategoriesContent extends StatefulWidget {
   const _ManageCategoriesContent();
 
   @override
-  State<_ManageCategoriesContent> createState() => _ManageCategoriesContentState();
+  State<_ManageCategoriesContent> createState() =>
+      _ManageCategoriesContentState();
 }
 
 class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
@@ -44,7 +46,10 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
         title: const Text('Kategorie löschen?'),
         content: Text('Möchtest du „${cat.name}“ wirklich löschen?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('Löschen', style: TextStyle(color: colors.error)),
@@ -63,7 +68,9 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLg),
+        ),
       ),
       builder: (_) => _CategoryForm(
         category: category,
@@ -93,9 +100,16 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.category_outlined, size: 64, color: colors.outline.withOpacity(0.5)),
+                  Icon(
+                    Icons.category_outlined,
+                    size: 64,
+                    color: colors.outline.withOpacity(0.5),
+                  ),
                   const SizedBox(height: 16),
-                  Text('Noch keine Kategorien', style: text.bodyLarge?.copyWith(color: colors.outline)),
+                  Text(
+                    'Noch keine Kategorien',
+                    style: text.bodyLarge?.copyWith(color: colors.outline),
+                  ),
                 ],
               ),
             )
@@ -109,15 +123,29 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: colors.outlineVariant.withOpacity(0.5)),
+                    side: BorderSide(
+                      color: colors.outlineVariant.withOpacity(0.5),
+                    ),
                   ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     leading: CircleAvatar(
                       backgroundColor: colors.primaryContainer,
-                      child: Icon(Icons.label_outline, color: colors.onPrimaryContainer, size: 20),
+                      child: Icon(
+                        Icons.label_outline,
+                        color: colors.onPrimaryContainer,
+                        size: 20,
+                      ),
                     ),
-                    title: Text(cat.name, style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    title: Text(
+                      cat.name,
+                      style: text.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -127,7 +155,11 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
                           tooltip: 'Bearbeiten',
                         ),
                         IconButton(
-                          icon: Icon(Icons.delete_outline, size: 20, color: colors.error),
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: colors.error,
+                          ),
                           onPressed: () => _confirmDelete(cat),
                           tooltip: 'Löschen',
                         ),
@@ -188,7 +220,9 @@ class _CategoryFormState extends State<_CategoryForm> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 24, right: 24, top: 24,
+        left: 24,
+        right: 24,
+        top: 24,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       child: Form(
@@ -210,20 +244,30 @@ class _CategoryFormState extends State<_CategoryForm> {
                 labelText: 'Name',
                 hintText: 'z.B. Frühstück',
                 filled: true,
-                fillColor: colors.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                fillColor: colors.surfaceContainerHighest.withOpacity(0.3),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Name eingeben' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Name eingeben' : null,
             ),
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: _saving ? null : _submit,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: _saving
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : Text(isEdit ? 'Speichern' : 'Kategorie anlegen'),
             ),
             const SizedBox(height: 16),

@@ -28,12 +28,12 @@ class RecipeService {
         getCategories(recipe.id),
       ]);
 
-      final ingsRaw = results[0] is List ? results[0] as List<dynamic> : [];
+      final ingsRaw = results[0] as List<dynamic>;
       final ings = ingsRaw
           .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      final catsRaw = results[1] is List ? results[1] as List<dynamic> : [];
+      final catsRaw = results[1] as List<dynamic>;
       final catIds = catsRaw
           .map((e) {
             final map = e as Map<String, dynamic>;

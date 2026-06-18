@@ -4,7 +4,7 @@ import 'package:productivity/dataclasses/planner_entry_type.dart';
 import 'package:productivity/provider/planner_provider.dart';
 
 class ManagePlannerTypesPage extends StatefulWidget {
-  const ManagePlannerTypesPage({Key? key}) : super(key: key);
+  const ManagePlannerTypesPage({super.key});
 
   @override
   State<ManagePlannerTypesPage> createState() => _ManagePlannerTypesPageState();
@@ -36,11 +36,16 @@ class _ManagePlannerTypesPageState extends State<ManagePlannerTypesPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.category_outlined,
-                      size: 64, color: Colors.grey[400]),
+                  Icon(
+                    Icons.category_outlined,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
                   const SizedBox(height: 16),
-                  Text('Noch keine Typen angelegt',
-                      style: TextStyle(color: Colors.grey[600])),
+                  Text(
+                    'Noch keine Typen angelegt',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
                 ],
               ),
             );
@@ -48,7 +53,7 @@ class _ManagePlannerTypesPageState extends State<ManagePlannerTypesPage> {
           return ListView.separated(
             padding: const EdgeInsets.all(12),
             itemCount: types.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 4),
+            separatorBuilder: (_, _) => const SizedBox(height: 4),
             itemBuilder: (context, index) {
               final t = types[index];
               return Card(
@@ -129,8 +134,14 @@ class _TypeEditDialogState extends State<_TypeEditDialog> {
   late String _color;
 
   final List<String> _colors = [
-    '#3B82F6', '#EF4444', '#10B981', '#F59E0B',
-    '#8B5CF6', '#EC4899', '#06B6D4', '#6366F1',
+    '#3B82F6',
+    '#EF4444',
+    '#10B981',
+    '#F59E0B',
+    '#8B5CF6',
+    '#EC4899',
+    '#06B6D4',
+    '#6366F1',
   ];
 
   @override
@@ -215,7 +226,9 @@ class _TypeEditDialogState extends State<_TypeEditDialog> {
             try {
               if (widget.type == null) {
                 await provider.createType(
-                    name: _nameController.text.trim(), color: _color);
+                  name: _nameController.text.trim(),
+                  color: _color,
+                );
               } else {
                 await provider.updateType(
                   widget.type!.id,
@@ -225,9 +238,7 @@ class _TypeEditDialogState extends State<_TypeEditDialog> {
               }
               navigator.pop();
             } catch (e) {
-              messenger.showSnackBar(
-                SnackBar(content: Text('Fehler: $e')),
-              );
+              messenger.showSnackBar(SnackBar(content: Text('Fehler: $e')));
             }
           },
           child: const Text('Speichern'),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/pantry_extras.dart';
@@ -248,7 +247,9 @@ class _HomePageContentState extends State<_HomePageContent> {
 
   Widget _buildTaskStatistics(ColorScheme colors, TextTheme text) {
     final todoCount = _tasks.where((t) => t.kanbanState == 'todo').length;
-    final inProgressCount = _tasks.where((t) => t.kanbanState == 'in_progress').length;
+    final inProgressCount = _tasks
+        .where((t) => t.kanbanState == 'in_progress')
+        .length;
     final doneCount = _tasks.where((t) => t.kanbanState == 'done').length;
 
     return Column(
@@ -341,12 +342,16 @@ class _HomePageContentState extends State<_HomePageContent> {
 
   Widget _buildTasksDueToday(ColorScheme colors, TextTheme text) {
     final today = DateTime.now();
-    final dueTodayTasks = _tasks.where((t) =>
-        t.dueDate != null &&
-        t.dueDate!.year == today.year &&
-        t.dueDate!.month == today.month &&
-        t.dueDate!.day == today.day &&
-        !t.completed).toList();
+    final dueTodayTasks = _tasks
+        .where(
+          (t) =>
+              t.dueDate != null &&
+              t.dueDate!.year == today.year &&
+              t.dueDate!.month == today.month &&
+              t.dueDate!.day == today.day &&
+              !t.completed,
+        )
+        .toList();
 
     if (dueTodayTasks.isEmpty) {
       return const SizedBox.shrink();
@@ -373,23 +378,27 @@ class _HomePageContentState extends State<_HomePageContent> {
             ],
           ),
           const SizedBox(height: 12),
-          ...dueTodayTasks.take(3).map((task) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Icon(Icons.circle, size: 8, color: colors.error),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    task.title,
-                    style: text.bodySmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+          ...dueTodayTasks
+              .take(3)
+              .map(
+                (task) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.circle, size: 8, color: colors.error),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          task.title,
+                          style: text.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          )),
+              ),
           if (dueTodayTasks.length > 3)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -413,10 +422,7 @@ class _HomePageContentState extends State<_HomePageContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Noch zu kaufen: ${openItems.length}',
-          style: text.titleMedium,
-        ),
+        Text('Noch zu kaufen: ${openItems.length}', style: text.titleMedium),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(12),
@@ -490,10 +496,7 @@ class _HomePageContentState extends State<_HomePageContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Niedrige Vorräte: ${lowItems.length}',
-          style: text.titleMedium,
-        ),
+        Text('Niedrige Vorräte: ${lowItems.length}', style: text.titleMedium),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(12),

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:productivity/dataclasses/chat.dart';
 import 'package:productivity/dataclasses/User.dart';
 import 'package:productivity/dataservice/api_client.dart';

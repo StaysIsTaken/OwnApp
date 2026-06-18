@@ -7,7 +7,7 @@ import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
 class MonthView extends StatefulWidget {
   final DateTime selectedDate;
 
-  const MonthView({Key? key, required this.selectedDate}) : super(key: key);
+  const MonthView({super.key, required this.selectedDate});
 
   @override
   State<MonthView> createState() => _MonthViewState();
@@ -19,7 +19,10 @@ class _MonthViewState extends State<MonthView> {
   @override
   void initState() {
     super.initState();
-    _currentMonth = DateTime(widget.selectedDate.year, widget.selectedDate.month);
+    _currentMonth = DateTime(
+      widget.selectedDate.year,
+      widget.selectedDate.month,
+    );
   }
 
   int _daysInMonth(DateTime date) {
@@ -51,8 +54,10 @@ class _MonthViewState extends State<MonthView> {
                 children: [
                   IconButton(
                     onPressed: () => setState(() {
-                      _currentMonth =
-                          DateTime(_currentMonth.year, _currentMonth.month - 1);
+                      _currentMonth = DateTime(
+                        _currentMonth.year,
+                        _currentMonth.month - 1,
+                      );
                     }),
                     icon: const Icon(Icons.chevron_left),
                   ),
@@ -62,8 +67,10 @@ class _MonthViewState extends State<MonthView> {
                   ),
                   IconButton(
                     onPressed: () => setState(() {
-                      _currentMonth =
-                          DateTime(_currentMonth.year, _currentMonth.month + 1);
+                      _currentMonth = DateTime(
+                        _currentMonth.year,
+                        _currentMonth.month + 1,
+                      );
                     }),
                     icon: const Icon(Icons.chevron_right),
                   ),
@@ -75,7 +82,11 @@ class _MonthViewState extends State<MonthView> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
                 child: _buildCalendarGrid(
-                    context, daysInMonth, firstWeekday, entries),
+                  context,
+                  daysInMonth,
+                  firstWeekday,
+                  entries,
+                ),
               ),
             ),
           ],
@@ -109,8 +120,12 @@ class _MonthViewState extends State<MonthView> {
     );
   }
 
-  Widget _buildCalendarGrid(BuildContext context, int daysInMonth,
-      int firstWeekday, List<PlannerEntry> entries) {
+  Widget _buildCalendarGrid(
+    BuildContext context,
+    int daysInMonth,
+    int firstWeekday,
+    List<PlannerEntry> entries,
+  ) {
     final totalCells = ((daysInMonth + firstWeekday - 1) / 7).ceil() * 7;
     final weeks = totalCells ~/ 7;
 
@@ -125,14 +140,20 @@ class _MonthViewState extends State<MonthView> {
                 return const Expanded(child: SizedBox());
               }
               final date = DateTime(
-                  _currentMonth.year, _currentMonth.month, dayNumber);
-              final dayEntries = entries
-                  .where((e) =>
-                      e.scheduledAt.year == date.year &&
-                      e.scheduledAt.month == date.month &&
-                      e.scheduledAt.day == date.day)
-                  .toList()
-                ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+                _currentMonth.year,
+                _currentMonth.month,
+                dayNumber,
+              );
+              final dayEntries =
+                  entries
+                      .where(
+                        (e) =>
+                            e.scheduledAt.year == date.year &&
+                            e.scheduledAt.month == date.month &&
+                            e.scheduledAt.day == date.day,
+                      )
+                      .toList()
+                    ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
               return Expanded(
                 child: _buildDayCell(context, date, dayNumber, dayEntries),
               );
@@ -143,8 +164,12 @@ class _MonthViewState extends State<MonthView> {
     );
   }
 
-  Widget _buildDayCell(BuildContext context, DateTime date, int dayNumber,
-      List<PlannerEntry> dayEntries) {
+  Widget _buildDayCell(
+    BuildContext context,
+    DateTime date,
+    int dayNumber,
+    List<PlannerEntry> dayEntries,
+  ) {
     final theme = Theme.of(context);
     final now = DateTime.now();
     final isToday =
@@ -163,8 +188,8 @@ class _MonthViewState extends State<MonthView> {
               color: highlighted
                   ? theme.colorScheme.primary.withValues(alpha: 0.18)
                   : (isToday
-                      ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                      : null),
+                        ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                        : null),
               border: Border.all(
                 color: highlighted
                     ? theme.colorScheme.primary
@@ -185,14 +210,17 @@ class _MonthViewState extends State<MonthView> {
                     alignment: Alignment.center,
                     decoration: isToday
                         ? const BoxDecoration(
-                            color: Colors.blue, shape: BoxShape.circle)
+                            color: Colors.blue,
+                            shape: BoxShape.circle,
+                          )
                         : null,
                     child: Text(
                       dayNumber.toString(),
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight:
-                            isToday ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isToday
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                         color: isToday ? Colors.white : null,
                       ),
                     ),
@@ -212,9 +240,10 @@ class _MonthViewState extends State<MonthView> {
     return LayoutBuilder(
       builder: (context, constraints) {
         const chipHeight = 18.0;
-        final maxVisible = (constraints.maxHeight / chipHeight)
-            .floor()
-            .clamp(0, dayEntries.length);
+        final maxVisible = (constraints.maxHeight / chipHeight).floor().clamp(
+          0,
+          dayEntries.length,
+        );
         final showCount = dayEntries.length > maxVisible && maxVisible > 0
             ? maxVisible - 1
             : maxVisible;
@@ -270,10 +299,7 @@ class _MonthViewState extends State<MonthView> {
       data: entry,
       feedback: Material(
         color: Colors.transparent,
-        child: Opacity(
-          opacity: 0.9,
-          child: SizedBox(width: 120, child: chip),
-        ),
+        child: Opacity(opacity: 0.9, child: SizedBox(width: 120, child: chip)),
       ),
       childWhenDragging: Opacity(opacity: 0.3, child: chip),
       child: GestureDetector(
@@ -289,15 +315,20 @@ class _MonthViewState extends State<MonthView> {
         entry.scheduledAt.day == target.day) {
       return; // same day, nothing to do
     }
-    final newStart = DateTime(target.year, target.month, target.day,
-        entry.scheduledAt.hour, entry.scheduledAt.minute);
+    final newStart = DateTime(
+      target.year,
+      target.month,
+      target.day,
+      entry.scheduledAt.hour,
+      entry.scheduledAt.minute,
+    );
     final duration = entry.endsAt.difference(entry.scheduledAt);
     final newEnd = newStart.add(duration);
     context.read<PlannerProvider>().moveEntry(
-          entry.id,
-          scheduledAt: newStart,
-          endsAt: newEnd,
-        );
+      entry.id,
+      scheduledAt: newStart,
+      endsAt: newEnd,
+    );
   }
 
   String _formatTime(DateTime dt) =>
@@ -305,8 +336,18 @@ class _MonthViewState extends State<MonthView> {
 
   String _getMonthName(int month) {
     const months = [
-      'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-      'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
+      'Januar',
+      'Februar',
+      'März',
+      'April',
+      'Mai',
+      'Juni',
+      'Juli',
+      'August',
+      'September',
+      'Oktober',
+      'November',
+      'Dezember',
     ];
     return months[month - 1];
   }
@@ -323,9 +364,19 @@ class _MonthViewState extends State<MonthView> {
       builder: (context) => PlannerEditDialog(
         initialScheduledAt: scheduledAt,
         initialEndsAt: scheduledAt.add(const Duration(hours: 1)),
-        onSave: (title, description, typeId, start, end, notifyMinBefore, color,
-            parentId, orderIndex) {
-          context.read<PlannerProvider>().createEntry(
+        onSave:
+            (
+              title,
+              description,
+              typeId,
+              start,
+              end,
+              notifyMinBefore,
+              color,
+              parentId,
+              orderIndex,
+            ) {
+              context.read<PlannerProvider>().createEntry(
                 title: title,
                 description: description,
                 typeId: typeId,
@@ -334,7 +385,7 @@ class _MonthViewState extends State<MonthView> {
                 notifyMinBefore: notifyMinBefore,
                 color: color,
               );
-        },
+            },
       ),
     );
   }
@@ -346,19 +397,29 @@ class _MonthViewState extends State<MonthView> {
       builder: (context) => PlannerEditDialog(
         entry: entry,
         onDelete: () => provider.deleteEntry(entry.id),
-        onSave: (title, description, typeId, start, end, notifyMinBefore, color,
-            parentId, orderIndex) {
-          provider.updateEntry(
-            entry.id,
-            title: title,
-            description: description,
-            typeId: typeId,
-            scheduledAt: start,
-            endsAt: end,
-            notifyMinBefore: notifyMinBefore,
-            color: color,
-          );
-        },
+        onSave:
+            (
+              title,
+              description,
+              typeId,
+              start,
+              end,
+              notifyMinBefore,
+              color,
+              parentId,
+              orderIndex,
+            ) {
+              provider.updateEntry(
+                entry.id,
+                title: title,
+                description: description,
+                typeId: typeId,
+                scheduledAt: start,
+                endsAt: end,
+                notifyMinBefore: notifyMinBefore,
+                color: color,
+              );
+            },
       ),
     );
   }

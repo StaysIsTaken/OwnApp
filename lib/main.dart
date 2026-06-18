@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
-import 'package:productivity/tabs/home.dart';
 import 'package:productivity/tabs/dashboard/dashboard_page.dart';
 import 'package:productivity/tabs/login.dart';
 import 'package:productivity/tabs/recipes/manage_categories_page.dart';

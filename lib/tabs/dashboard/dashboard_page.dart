@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/pantry_extras.dart';
@@ -41,11 +40,11 @@ class DashboardPage extends BasePage {
 
   @override
   List<Widget> buildActions(BuildContext context) => [
-        IconButton(
-          icon: const Icon(Icons.settings_outlined),
-          onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
-        ),
-      ];
+    IconButton(
+      icon: const Icon(Icons.settings_outlined),
+      onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
+    ),
+  ];
 
   @override
   Widget buildBody(BuildContext context) => const _DashboardContent();
@@ -103,16 +102,16 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
     try {
       final results = await Future.wait([
-        TaskService.loadAll(),          // 0
-        ShoppingListService.loadAll(),  // 1
-        PantryService.loadAll(),        // 2
-        IngredientService.loadAll(),    // 3
-        TimeEntryService.loadAll(),     // 4
-        MealPlanService.loadAll(),      // 5
-        RecipeService.loadAll(),        // 6
-        ShopService.loadAll(),          // 7
-        NoteService.loadAll(),          // 8
-        JournalService.loadAll(),       // 9
+        TaskService.loadAll(), // 0
+        ShoppingListService.loadAll(), // 1
+        PantryService.loadAll(), // 2
+        IngredientService.loadAll(), // 3
+        TimeEntryService.loadAll(), // 4
+        MealPlanService.loadAll(), // 5
+        RecipeService.loadAll(), // 6
+        ShopService.loadAll(), // 7
+        NoteService.loadAll(), // 8
+        JournalService.loadAll(), // 9
       ]);
 
       Map<String, dynamic> sentimentStats = {};
@@ -131,7 +130,9 @@ class _DashboardContentState extends State<_DashboardContent> {
       await Future.wait(
         shoppingItems.where((i) => !i.isBought).map((item) async {
           try {
-            final prices = await ShoppingListItemPriceService.loadByItemId(item.id);
+            final prices = await ShoppingListItemPriceService.loadByItemId(
+              item.id,
+            );
             priceMap[item.id] = prices;
           } catch (e) {
             priceMap[item.id] = [];
@@ -175,10 +176,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
 
     if (_error != null) {
-      return _ErrorView(
-        error: _error!,
-        onRetry: _loadData,
-      );
+      return _ErrorView(error: _error!, onRetry: _loadData);
     }
 
     return RefreshIndicator(
@@ -186,7 +184,8 @@ class _DashboardContentState extends State<_DashboardContent> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isDesktop = constraints.maxWidth >= 1200;
-          final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1200;
+          final isTablet =
+              constraints.maxWidth >= 600 && constraints.maxWidth < 1200;
           final padding = isDesktop ? 32.0 : 16.0;
 
           return SingleChildScrollView(
@@ -230,10 +229,7 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   Widget _buildWidgetGrid(bool isDesktop, bool isTablet) {
     final widgets = <Widget>[
-      TasksWidget(
-        tasks: _tasks,
-        tasksDueToday: _getTasksDueToday(),
-      ),
+      TasksWidget(tasks: _tasks, tasksDueToday: _getTasksDueToday()),
       PantryWidget(
         pantryItems: _pantryItems,
         ingredientMap: _ingredientMap,
@@ -254,27 +250,25 @@ class _DashboardContentState extends State<_DashboardContent> {
         estimatedCost: _getEstimatedShoppingCost(),
         onItemBought: _onShoppingItemBought,
       ),
-      MealplanWidget(
-        mealPlanEntries: _mealPlanEntries,
-        recipes: _recipes,
-      ),
+      MealplanWidget(mealPlanEntries: _mealPlanEntries, recipes: _recipes),
       JournalWidget(
         journalEntries: _journalEntries,
         averageSentiment: _sentimentStats['averageSentiment'] != null
             ? (_sentimentStats['averageSentiment'] as num).toDouble()
             : null,
-        positiveCount: (_sentimentStats['distribution'] as Map?)?['positive'] ?? 0,
-        neutralCount: (_sentimentStats['distribution'] as Map?)?['neutral'] ?? 0,
-        negativeCount: (_sentimentStats['distribution'] as Map?)?['negative'] ?? 0,
-        topTopics: (_sentimentStats['topTopics'] as List?)
+        positiveCount:
+            (_sentimentStats['distribution'] as Map?)?['positive'] ?? 0,
+        neutralCount:
+            (_sentimentStats['distribution'] as Map?)?['neutral'] ?? 0,
+        negativeCount:
+            (_sentimentStats['distribution'] as Map?)?['negative'] ?? 0,
+        topTopics:
+            (_sentimentStats['topTopics'] as List?)
                 ?.map((t) => t as Map<String, dynamic>)
                 .toList() ??
             [],
       ),
-      NotesWidget(
-        notes: _notes,
-        onRefresh: () => _loadData(silent: true),
-      ),
+      NotesWidget(notes: _notes, onRefresh: () => _loadData(silent: true)),
     ];
 
     if (isDesktop) {
@@ -288,10 +282,10 @@ class _DashboardContentState extends State<_DashboardContent> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: widgets
-            .map((w) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: w,
-                ))
+            .map(
+              (w) =>
+                  Padding(padding: const EdgeInsets.only(bottom: 16), child: w),
+            )
             .toList(),
       );
     }
@@ -311,15 +305,17 @@ class _DashboardContentState extends State<_DashboardContent> {
           rowWidgets.add(const Expanded(child: SizedBox.shrink()));
         }
       }
-      rows.add(Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: rowWidgets,
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: rowWidgets,
+            ),
           ),
         ),
-      ));
+      );
     }
     return Column(children: rows);
   }
@@ -329,12 +325,14 @@ class _DashboardContentState extends State<_DashboardContent> {
   List<Task> _getTasksDueToday() {
     final today = DateTime.now();
     return _tasks
-        .where((t) =>
-            t.dueDate != null &&
-            t.dueDate!.year == today.year &&
-            t.dueDate!.month == today.month &&
-            t.dueDate!.day == today.day &&
-            !t.completed)
+        .where(
+          (t) =>
+              t.dueDate != null &&
+              t.dueDate!.year == today.year &&
+              t.dueDate!.month == today.month &&
+              t.dueDate!.day == today.day &&
+              !t.completed,
+        )
         .toList();
   }
 
@@ -346,20 +344,24 @@ class _DashboardContentState extends State<_DashboardContent> {
     final now = DateTime.now();
     final inSevenDays = now.add(const Duration(days: 7));
     return _pantryItems
-        .where((i) =>
-            i.expiryDate != null &&
-            i.expiryDate!.isAfter(now.subtract(const Duration(days: 1))) &&
-            i.expiryDate!.isBefore(inSevenDays))
+        .where(
+          (i) =>
+              i.expiryDate != null &&
+              i.expiryDate!.isAfter(now.subtract(const Duration(days: 1))) &&
+              i.expiryDate!.isBefore(inSevenDays),
+        )
         .toList()
       ..sort((a, b) => a.expiryDate!.compareTo(b.expiryDate!));
   }
 
   Duration _getTimeTrackedToday() {
     final today = DateTime.now();
-    final todayEntries = _timeEntries.where((e) =>
-        e.date.year == today.year &&
-        e.date.month == today.month &&
-        e.date.day == today.day);
+    final todayEntries = _timeEntries.where(
+      (e) =>
+          e.date.year == today.year &&
+          e.date.month == today.month &&
+          e.date.day == today.day,
+    );
 
     Duration total = Duration.zero;
     for (final entry in todayEntries) {
@@ -373,7 +375,11 @@ class _DashboardContentState extends State<_DashboardContent> {
   Duration _getTimeTrackedThisWeek() {
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final startOfDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final startOfDay = DateTime(
+      startOfWeek.year,
+      startOfWeek.month,
+      startOfWeek.day,
+    );
 
     Duration total = Duration.zero;
     for (final entry in _timeEntries) {
@@ -396,10 +402,12 @@ class _DashboardContentState extends State<_DashboardContent> {
   List<MealPlanEntry> _getTodayMealPlan() {
     final today = DateTime.now();
     return _mealPlanEntries
-        .where((e) =>
-            e.date.year == today.year &&
-            e.date.month == today.month &&
-            e.date.day == today.day)
+        .where(
+          (e) =>
+              e.date.year == today.year &&
+              e.date.month == today.month &&
+              e.date.day == today.day,
+        )
         .toList();
   }
 
@@ -426,9 +434,9 @@ class _DashboardContentState extends State<_DashboardContent> {
       _loadData(silent: true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
       }
     }
   }

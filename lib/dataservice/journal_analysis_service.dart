@@ -20,9 +20,9 @@ class JournalAnalysisService {
         data: {
           'sentimentScore': sentimentScore,
           'sentimentLabel': sentimentLabel,
-          if (detectedTopics != null) 'detectedTopics': detectedTopics,
-          if (summary != null) 'summary': summary,
-          if (rawAnalysis != null) 'rawAnalysis': rawAnalysis,
+          'detectedTopics': ?detectedTopics,
+          'summary': ?summary,
+          'rawAnalysis': ?rawAnalysis,
         },
       );
       return JournalAnalysis.fromJson(response.data);

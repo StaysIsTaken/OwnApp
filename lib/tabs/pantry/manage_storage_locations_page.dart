@@ -4,7 +4,8 @@ import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 
 class ManageStorageLocationsPage extends BasePage {
-  const ManageStorageLocationsPage({super.key}) : super(title: 'Lagerorte verwalten');
+  const ManageStorageLocationsPage({super.key})
+    : super(title: 'Lagerorte verwalten');
 
   @override
   Widget buildBody(BuildContext context) {
@@ -49,12 +50,16 @@ class _LocationListState extends State<_LocationList> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLg),
+        ),
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 24, right: 24, top: 24,
+          left: 24,
+          right: 24,
+          top: 24,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -62,7 +67,9 @@ class _LocationListState extends State<_LocationList> {
           children: [
             Text(
               loc == null ? 'Neuer Lagerort' : 'Lagerort bearbeiten',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -72,8 +79,13 @@ class _LocationListState extends State<_LocationList> {
                 labelText: 'Name des Ortes',
                 hintText: 'z.B. Kühlschrank, Keller...',
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
               autofocus: true,
             ),
@@ -91,7 +103,10 @@ class _LocationListState extends State<_LocationList> {
                   child: ElevatedButton(
                     onPressed: () async {
                       if (ctrl.text.trim().isEmpty) return;
-                      final newLoc = StorageLocation(id: loc?.id ?? '', name: ctrl.text.trim());
+                      final newLoc = StorageLocation(
+                        id: loc?.id ?? '',
+                        name: ctrl.text.trim(),
+                      );
                       await PantryService.upsertLocation(newLoc);
                       if (!mounted) return;
                       Navigator.pop(context);
@@ -99,7 +114,9 @@ class _LocationListState extends State<_LocationList> {
                     },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: const Text('Speichern'),
                   ),
@@ -131,9 +148,16 @@ class _LocationListState extends State<_LocationList> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.warehouse_outlined, size: 64, color: colors.outline.withOpacity(0.5)),
+                  Icon(
+                    Icons.warehouse_outlined,
+                    size: 64,
+                    color: colors.outline.withOpacity(0.5),
+                  ),
                   const SizedBox(height: 16),
-                  Text('Noch keine Lagerorte', style: text.bodyLarge?.copyWith(color: colors.outline)),
+                  Text(
+                    'Noch keine Lagerorte',
+                    style: text.bodyLarge?.copyWith(color: colors.outline),
+                  ),
                 ],
               ),
             )
@@ -147,15 +171,29 @@ class _LocationListState extends State<_LocationList> {
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: colors.outlineVariant.withOpacity(0.5)),
+                    side: BorderSide(
+                      color: colors.outlineVariant.withOpacity(0.5),
+                    ),
                   ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     leading: CircleAvatar(
                       backgroundColor: colors.secondaryContainer,
-                      child: Icon(Icons.location_on_outlined, color: colors.onSecondaryContainer, size: 20),
+                      child: Icon(
+                        Icons.location_on_outlined,
+                        color: colors.onSecondaryContainer,
+                        size: 20,
+                      ),
                     ),
-                    title: Text(loc.name, style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    title: Text(
+                      loc.name,
+                      style: text.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -165,18 +203,32 @@ class _LocationListState extends State<_LocationList> {
                           tooltip: 'Bearbeiten',
                         ),
                         IconButton(
-                          icon: Icon(Icons.delete_outline, size: 20, color: colors.error),
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: colors.error,
+                          ),
                           onPressed: () async {
                             final confirm = await showDialog<bool>(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('Löschen?'),
-                                content: Text('Möchtest du "${loc.name}" wirklich löschen?'),
+                                content: Text(
+                                  'Möchtest du "${loc.name}" wirklich löschen?',
+                                ),
                                 actions: [
-                                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
                                   TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: Text('Löschen', style: TextStyle(color: colors.error)),
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('Abbrechen'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: Text(
+                                      'Löschen',
+                                      style: TextStyle(color: colors.error),
+                                    ),
                                   ),
                                 ],
                               ),

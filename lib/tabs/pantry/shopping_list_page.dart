@@ -65,7 +65,9 @@ class _ShoppingListState extends State<_ShoppingList> {
       await Future.wait(
         items.map((item) async {
           try {
-            final prices = await ShoppingListItemPriceService.loadByItemId(item.id);
+            final prices = await ShoppingListItemPriceService.loadByItemId(
+              item.id,
+            );
             priceMap[item.id] = prices;
           } catch (e) {
             priceMap[item.id] = [];
@@ -96,25 +98,27 @@ class _ShoppingListState extends State<_ShoppingList> {
       await ShoppingListService.upsert(updated);
       _load();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
     }
   }
 
   Future<void> _createShop(String name) async {
     try {
-      final newShop = Shop(
-        id: '',
-        name: name,
-        createdAt: DateTime.now(),
-      );
+      final newShop = Shop(id: '', name: name, createdAt: DateTime.now());
       final result = await ShopService.create(newShop);
       setState(() {
         _shops.add(result);
         _shopMap[result.id] = result;
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Shop erstellt')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Shop erstellt')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
     }
   }
 
@@ -125,9 +129,13 @@ class _ShoppingListState extends State<_ShoppingList> {
         _shops.removeWhere((s) => s.id == shopId);
         _shopMap.remove(shopId);
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Shop gelöscht')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Shop gelöscht')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
     }
   }
 
@@ -147,9 +155,13 @@ class _ShoppingListState extends State<_ShoppingList> {
         }
         _pricesByItemId[itemId]!.add(result);
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Preis hinzugefügt')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Preis hinzugefügt')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
     }
   }
 
@@ -161,9 +173,13 @@ class _ShoppingListState extends State<_ShoppingList> {
           _pricesByItemId[itemId]!.removeWhere((p) => p.id == priceId);
         }
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Preis gelöscht')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Preis gelöscht')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
     }
   }
 
@@ -207,7 +223,9 @@ class _ShoppingListState extends State<_ShoppingList> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLg),
+        ),
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Padding(
@@ -222,7 +240,10 @@ class _ShoppingListState extends State<_ShoppingList> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Shops verwalten', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'Shops verwalten',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 20),
                 if (_shops.isEmpty)
                   Padding(
@@ -231,8 +252,8 @@ class _ShoppingListState extends State<_ShoppingList> {
                       child: Text(
                         'Keine Shops vorhanden',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   )
@@ -240,7 +261,10 @@ class _ShoppingListState extends State<_ShoppingList> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Bestehende Shops:', style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        'Bestehende Shops:',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 10),
                       ..._shops.map(
                         (shop) => ListTile(
@@ -257,7 +281,10 @@ class _ShoppingListState extends State<_ShoppingList> {
                       const SizedBox(height: 20),
                     ],
                   ),
-                Text('Neuen Shop hinzufügen', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Neuen Shop hinzufügen',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: shopNameCtrl,
@@ -266,7 +293,9 @@ class _ShoppingListState extends State<_ShoppingList> {
                     hintText: 'z.B. EDEKA, Lidl, ...',
                     filled: true,
                     fillColor: Theme.of(context).colorScheme.surface,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -312,7 +341,9 @@ class _ShoppingListState extends State<_ShoppingList> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLg),
+        ),
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
@@ -330,17 +361,29 @@ class _ShoppingListState extends State<_ShoppingList> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item == null ? 'Hinzufügen' : 'Bearbeiten', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    item == null ? 'Hinzufügen' : 'Bearbeiten',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: 20),
                   DropdownButtonFormField<String>(
-                    value: selIngId,
+                    initialValue: selIngId,
                     decoration: const InputDecoration(labelText: 'Zutat'),
-                    items: _ingredients.map((i) => DropdownMenuItem(value: i.id, child: Text(i.name))).toList(),
+                    items: _ingredients
+                        .map(
+                          (i) => DropdownMenuItem(
+                            value: i.id,
+                            child: Text(i.name),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (v) {
                       setDialogState(() {
                         selIngId = v;
                         // Auto-select default unit
-                        final ing = _ingredients.where((i) => i.id == v).firstOrNull;
+                        final ing = _ingredients
+                            .where((i) => i.id == v)
+                            .firstOrNull;
                         if (ing?.defaultUnitId != null) {
                           selUnitId = ing!.defaultUnitId;
                         }
@@ -360,9 +403,18 @@ class _ShoppingListState extends State<_ShoppingList> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: selUnitId,
-                          decoration: const InputDecoration(labelText: 'Einheit'),
-                          items: _units.map((u) => DropdownMenuItem(value: u.id, child: Text(u.symbol))).toList(),
+                          initialValue: selUnitId,
+                          decoration: const InputDecoration(
+                            labelText: 'Einheit',
+                          ),
+                          items: _units
+                              .map(
+                                (u) => DropdownMenuItem(
+                                  value: u.id,
+                                  child: Text(u.symbol),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (v) => setDialogState(() => selUnitId = v),
                         ),
                       ),
@@ -371,12 +423,17 @@ class _ShoppingListState extends State<_ShoppingList> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: noteCtrl,
-                    decoration: const InputDecoration(labelText: 'Notiz (optional)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Notiz (optional)',
+                    ),
                   ),
                   // Prices section (only for existing items)
                   if (item != null) ...[
                     const SizedBox(height: 24),
-                    Text('Preise verfolgen', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Preise verfolgen',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 12),
                     if (prices.isNotEmpty)
                       Column(
@@ -388,15 +445,20 @@ class _ShoppingListState extends State<_ShoppingList> {
                               margin: const EdgeInsets.symmetric(vertical: 6),
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     '${shop?.name ?? 'Unbekannt'}: €${price.price.toStringAsFixed(2)}',
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.delete, size: 16),
@@ -419,17 +481,29 @@ class _ShoppingListState extends State<_ShoppingList> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: selShopId,
-                            decoration: const InputDecoration(labelText: 'Shop'),
-                            items: _shops.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
-                            onChanged: (v) => setDialogState(() => selShopId = v),
+                            initialValue: selShopId,
+                            decoration: const InputDecoration(
+                              labelText: 'Shop',
+                            ),
+                            items: _shops
+                                .map(
+                                  (s) => DropdownMenuItem(
+                                    value: s.id,
+                                    child: Text(s.name),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setDialogState(() => selShopId = v),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: TextField(
                             controller: priceCtrl,
-                            decoration: const InputDecoration(labelText: 'Preis €'),
+                            decoration: const InputDecoration(
+                              labelText: 'Preis €',
+                            ),
                             keyboardType: TextInputType.number,
                           ),
                         ),
@@ -440,8 +514,8 @@ class _ShoppingListState extends State<_ShoppingList> {
                       Text(
                         'Keine Shops konfiguriert. Bitte Shops hinzufügen.',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       )
                     else
                       ElevatedButton.icon(
@@ -475,7 +549,10 @@ class _ShoppingListState extends State<_ShoppingList> {
                           },
                         ),
                       const Spacer(),
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Abbrechen'),
+                      ),
                       ElevatedButton(
                         onPressed: () async {
                           if (selIngId == null || selUnitId == null) return;
@@ -543,7 +620,7 @@ class _ShoppingListState extends State<_ShoppingList> {
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: sorted.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, i) {
                 final item = sorted[i];
                 final ing = _ingredientMap[item.ingredientId];
@@ -573,7 +650,9 @@ class _ShoppingListState extends State<_ShoppingList> {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: const Text('Einkaufslisteneintrag gelöscht'),
+                            content: const Text(
+                              'Einkaufslisteneintrag gelöscht',
+                            ),
                             duration: const Duration(seconds: 2),
                           ),
                         );
@@ -601,9 +680,13 @@ class _ShoppingListState extends State<_ShoppingList> {
                         Text(
                           ing?.name ?? 'Unbekannt',
                           style: text.bodyLarge?.copyWith(
-                            decoration: item.isBought ? TextDecoration.lineThrough : null,
+                            decoration: item.isBought
+                                ? TextDecoration.lineThrough
+                                : null,
                             color: item.isBought ? colors.outline : null,
-                            fontWeight: item.isBought ? FontWeight.normal : FontWeight.bold,
+                            fontWeight: item.isBought
+                                ? FontWeight.normal
+                                : FontWeight.bold,
                           ),
                         ),
                         if (priceRange != null) ...[
@@ -620,9 +703,14 @@ class _ShoppingListState extends State<_ShoppingList> {
                               if (bestPriceShop != null) ...[
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: colors.secondaryContainer.withValues(alpha: 0.5),
+                                    color: colors.secondaryContainer.withValues(
+                                      alpha: 0.5,
+                                    ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -641,7 +729,9 @@ class _ShoppingListState extends State<_ShoppingList> {
                           const SizedBox(height: 4),
                           Text(
                             item.note!,
-                            style: text.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+                            style: text.labelSmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ],

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 // ─────────────────────────────────────────────
 //  MealPlanEntry (Eintrag im Essensplaner)
 // ─────────────────────────────────────────────
@@ -19,20 +17,20 @@ class MealPlanEntry {
   });
 
   Map<String, dynamic> toJson() => {
-        if (id.isNotEmpty) 'id': id,
-        'recipeId': recipeId,
-        'date': date.toIso8601String().split('T')[0],
-        'mealType': mealType,
-        'servings': servings,
-      };
+    if (id.isNotEmpty) 'id': id,
+    'recipeId': recipeId,
+    'date': date.toIso8601String().split('T')[0],
+    'mealType': mealType,
+    'servings': servings,
+  };
 
   factory MealPlanEntry.fromJson(Map<String, dynamic> j) => MealPlanEntry(
-        id: j['id']?.toString() ?? '',
-        recipeId: (j['recipeId'] ?? '').toString(),
-        date: DateTime.tryParse(j['date']?.toString() ?? '') ?? DateTime.now(),
-        mealType: j['mealType']?.toString(),
-        servings: j['servings'] as int? ?? 2,
-      );
+    id: j['id']?.toString() ?? '',
+    recipeId: (j['recipeId'] ?? '').toString(),
+    date: DateTime.tryParse(j['date']?.toString() ?? '') ?? DateTime.now(),
+    mealType: j['mealType']?.toString(),
+    servings: j['servings'] as int? ?? 2,
+  );
 }
 
 // ─────────────────────────────────────────────
@@ -54,17 +52,20 @@ class PantryTransaction {
   });
 
   Map<String, dynamic> toJson() => {
-        if (id.isNotEmpty) 'id': id,
-        'pantryItemId': pantryItemId,
-        'amount': amount,
-        'reason': reason,
-      };
+    if (id.isNotEmpty) 'id': id,
+    'pantryItemId': pantryItemId,
+    'amount': amount,
+    'reason': reason,
+  };
 
-  factory PantryTransaction.fromJson(Map<String, dynamic> j) => PantryTransaction(
+  factory PantryTransaction.fromJson(Map<String, dynamic> j) =>
+      PantryTransaction(
         id: j['id']?.toString() ?? '',
         pantryItemId: (j['pantryItemId'] ?? '').toString(),
         amount: (j['amount'] as num?)?.toDouble() ?? 0.0,
         reason: j['reason']?.toString(),
-        timestamp: DateTime.tryParse(j['timestamp']?.toString() ?? '') ?? DateTime.now(),
+        timestamp:
+            DateTime.tryParse(j['timestamp']?.toString() ?? '') ??
+            DateTime.now(),
       );
 }

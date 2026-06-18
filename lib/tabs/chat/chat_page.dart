@@ -333,10 +333,11 @@ class _CreateChatFormState extends State<_CreateChatForm> {
                   value: _selectedUserIds.contains(user.id),
                   onChanged: (v) {
                     setState(() {
-                      if (v == true)
+                      if (v == true) {
                         _selectedUserIds.add(user.id);
-                      else
+                      } else {
                         _selectedUserIds.remove(user.id);
+                      }
                     });
                   },
                 );
@@ -533,7 +534,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                   decoration: InputDecoration(
                     hintText: 'Nachricht schreiben...',
                     filled: true,
-                    fillColor: colors.surfaceVariant.withOpacity(0.3),
+                    fillColor: colors.surfaceContainerHighest.withOpacity(0.3),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
@@ -584,11 +585,12 @@ class _ChatSettingsViewState extends State<_ChatSettingsView> {
   Future<void> _load() async {
     try {
       final members = await ChatService.getMembers(widget.room.id);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _members = members;
           _loading = false;
         });
+      }
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
