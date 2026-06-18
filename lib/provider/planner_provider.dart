@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
+import 'package:productivity/dataclasses/planner_entry_type.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 
 class PlannerProvider extends ChangeNotifier {
   List<PlannerEntry> _entries = [];
+  List<PlannerEntryType> _types = [];
   bool _isLoading = false;
   String? _error;
 
   List<PlannerEntry> get entries => _entries;
+  List<PlannerEntryType> get types => _types;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -30,9 +33,9 @@ class PlannerProvider extends ChangeNotifier {
   Future<void> createEntry({
     required String title,
     String? description,
-    required String type,
+    required int typeId,
     required DateTime scheduledAt,
-    int durationMin = 60,
+    required DateTime endsAt,
     int notifyMinBefore = 10,
     String color = '#3B82F6',
     int? parentId,
@@ -45,9 +48,9 @@ class PlannerProvider extends ChangeNotifier {
       final newEntry = await PlannerService.create(
         title: title,
         description: description,
-        type: type,
+        typeId: typeId,
         scheduledAt: scheduledAt,
-        durationMin: durationMin,
+        endsAt: endsAt,
         notifyMinBefore: notifyMinBefore,
         color: color,
         parentId: parentId,
@@ -68,8 +71,9 @@ class PlannerProvider extends ChangeNotifier {
     int id, {
     String? title,
     String? description,
-    String? type,
+    int? typeId,
     DateTime? scheduledAt,
+    DateTime? endsAt,
     int? durationMin,
     int? notifyMinBefore,
     String? color,
@@ -85,8 +89,9 @@ class PlannerProvider extends ChangeNotifier {
         id,
         title: title,
         description: description,
-        type: type,
+        typeId: typeId,
         scheduledAt: scheduledAt,
+        endsAt: endsAt,
         durationMin: durationMin,
         notifyMinBefore: notifyMinBefore,
         color: color,
@@ -121,6 +126,94 @@ class PlannerProvider extends ChangeNotifier {
     }
 
     _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Verschiebt einen Eintrag (Drag & Drop). Aktualisiert sofort lokal
+  /// (optimistisch, ohne Lade-Spinner) und persistiert im Hintergrund.
+  Future<void> moveEntry(
+    int id, {
+    required DateTime scheduledAt,
+    required DateTime endsAt,
+  }) async {
+    final index = _entries.indexWhere((e) => e.id == id);
+    if (index < 0) return;
+
+    final original = _entries[index];
+    final durationMin = endsAt.difference(scheduledAt).inMinutes;
+
+    _entries[index] = original.copyWith(
+      scheduledAt: scheduledAt,
+      endsAt: endsAt,
+      durationMin: durationMin < 1 ? 1 : durationMin,
+    );
+    notifyListeners();
+
+    try {
+      final updated = await PlannerService.update(
+        id,
+        scheduledAt: scheduledAt,
+        endsAt: endsAt,
+      );
+      final i = _entries.indexWhere((e) => e.id == id);
+      if (i >= 0) _entries[i] = updated;
+      _error = null;
+    } catch (e) {
+      // Bei Fehler zurückrollen
+      final i = _entries.indexWhere((e) => e.id == id);
+      if (i >= 0) _entries[i] = original;
+      _error = e.toString();
+    }
+    notifyListeners();
+  }
+
+  // ── Stammdaten: Typen ──────────────────────────────────────────────────
+
+  Future<void> loadTypes() async {
+    try {
+      _types = await PlannerService.loadTypes();
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    }
+    notifyListeners();
+  }
+
+  Future<void> createType({
+    required String name,
+    String color = '#3B82F6',
+    String? icon,
+  }) async {
+    final created = await PlannerService.createType(
+      name: name,
+      color: color,
+      icon: icon,
+      orderIndex: _types.length,
+    );
+    _types.add(created);
+    notifyListeners();
+  }
+
+  Future<void> updateType(
+    int id, {
+    String? name,
+    String? color,
+    String? icon,
+  }) async {
+    final updated = await PlannerService.updateType(
+      id,
+      name: name,
+      color: color,
+      icon: icon,
+    );
+    final index = _types.indexWhere((t) => t.id == id);
+    if (index >= 0) _types[index] = updated;
+    notifyListeners();
+  }
+
+  Future<void> deletePlannerType(int id) async {
+    await PlannerService.deleteType(id);
+    _types.removeWhere((t) => t.id == id);
     notifyListeners();
   }
 

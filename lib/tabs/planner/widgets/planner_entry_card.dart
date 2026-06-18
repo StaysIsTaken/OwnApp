@@ -59,21 +59,7 @@ class PlannerEntryCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${entry.scheduledAt.hour.toString().padLeft(2, '0')}:${entry.scheduledAt.minute.toString().padLeft(2, '0')}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.timer,
-                      size: 14,
-                      color: Colors.grey[500],
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${entry.durationMin}min',
+                      '${entry.scheduledAt.hour.toString().padLeft(2, '0')}:${entry.scheduledAt.minute.toString().padLeft(2, '0')} – ${entry.endsAt.hour.toString().padLeft(2, '0')}:${entry.endsAt.minute.toString().padLeft(2, '0')}',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
@@ -107,15 +93,15 @@ class PlannerEntryCard extends StatelessWidget {
       context: context,
       builder: (context) => PlannerEditDialog(
         entry: entry,
-        onSave: (title, description, type, scheduledAt, durationMin,
+        onSave: (title, description, typeId, scheduledAt, endsAt,
             notifyMinBefore, color, parentId, orderIndex) {
           context.read<PlannerProvider>().updateEntry(
                 entry.id,
                 title: title,
                 description: description,
-                type: type,
+                typeId: typeId,
                 scheduledAt: scheduledAt,
-                durationMin: durationMin,
+                endsAt: endsAt,
                 notifyMinBefore: notifyMinBefore,
                 color: color,
                 parentId: parentId,
@@ -172,7 +158,7 @@ class PlannerEntryCard extends StatelessWidget {
             Row(
               children: [
                 Chip(
-                  label: Text(entry.type),
+                  label: Text(entry.type ?? 'Ohne Typ'),
                   backgroundColor: _getColorFromHex(entry.color).withOpacity(0.2),
                   labelStyle: TextStyle(
                     color: _getColorFromHex(entry.color),
@@ -181,7 +167,7 @@ class PlannerEntryCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Chip(
                   label: Text(
-                    '${entry.durationMin}min',
+                    '${entry.scheduledAt.hour.toString().padLeft(2, '0')}:${entry.scheduledAt.minute.toString().padLeft(2, '0')} – ${entry.endsAt.hour.toString().padLeft(2, '0')}:${entry.endsAt.minute.toString().padLeft(2, '0')}',
                   ),
                 ),
               ],
