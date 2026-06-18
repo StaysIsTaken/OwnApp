@@ -8,7 +8,7 @@ import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
 class WeekView extends StatefulWidget {
   final DateTime selectedDate;
 
-  const WeekView({Key? key, required this.selectedDate}) : super(key: key);
+  const WeekView({super.key, required this.selectedDate});
 
   @override
   State<WeekView> createState() => _WeekViewState();
@@ -31,8 +31,10 @@ class _WeekViewState extends State<WeekView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(
-          (7 * _hourHeight)
-              .clamp(0.0, _scrollController.position.maxScrollExtent),
+          (7 * _hourHeight).clamp(
+            0.0,
+            _scrollController.position.maxScrollExtent,
+          ),
         );
       }
     });
@@ -61,8 +63,10 @@ class _WeekViewState extends State<WeekView> {
 
         final theme = Theme.of(context);
         final entries = plannerProvider.getEntriesForWeek(_weekStart);
-        final daysOfWeek =
-            List.generate(7, (i) => _weekStart.add(Duration(days: i)));
+        final daysOfWeek = List.generate(
+          7,
+          (i) => _weekStart.add(Duration(days: i)),
+        );
         final use24h = settingsProvider.use24hFormat;
         final weekEnd = _weekStart.add(const Duration(days: 6));
         final now = DateTime.now();
@@ -82,14 +86,23 @@ class _WeekViewState extends State<WeekView> {
                       _buildTimeColumn(theme, use24h),
                       ...List.generate(daysOfWeek.length, (index) {
                         final day = daysOfWeek[index];
-                        final dayEntries = entries
-                            .where((e) => _isSameDay(e.scheduledAt, day))
-                            .toList()
-                          ..sort((a, b) =>
-                              a.scheduledAt.compareTo(b.scheduledAt));
+                        final dayEntries =
+                            entries
+                                .where((e) => _isSameDay(e.scheduledAt, day))
+                                .toList()
+                              ..sort(
+                                (a, b) =>
+                                    a.scheduledAt.compareTo(b.scheduledAt),
+                              );
                         return Expanded(
                           child: _buildDayColumn(
-                              context, theme, day, index, dayEntries, now),
+                            context,
+                            theme,
+                            day,
+                            index,
+                            dayEntries,
+                            now,
+                          ),
                         );
                       }),
                     ],
@@ -123,13 +136,15 @@ class _WeekViewState extends State<WeekView> {
             children: [
               Text(
                 '${_weekStart.day}. ${_monthShort(_weekStart.month)} – ${weekEnd.day}. ${_monthShort(weekEnd.month)}',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(
                 'KW ${_weekNumber(_weekStart)}',
-                style:
-                    theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.hintColor,
+                ),
               ),
             ],
           ),
@@ -149,7 +164,10 @@ class _WeekViewState extends State<WeekView> {
   }
 
   Widget _buildDayHeaders(
-      ThemeData theme, List<DateTime> daysOfWeek, DateTime now) {
+    ThemeData theme,
+    List<DateTime> daysOfWeek,
+    DateTime now,
+  ) {
     return Container(
       height: _headerHeight,
       decoration: BoxDecoration(
@@ -162,8 +180,15 @@ class _WeekViewState extends State<WeekView> {
           const SizedBox(width: _timeColumnWidth),
           ...daysOfWeek.map((day) {
             final dayIndex = day.weekday - 1;
-            final dayName =
-                ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'][dayIndex];
+            final dayName = [
+              'MO',
+              'DI',
+              'MI',
+              'DO',
+              'FR',
+              'SA',
+              'SO',
+            ][dayIndex];
             final isToday = _isSameDay(day, now);
             final isWeekend = day.weekday >= 6;
             return Expanded(
@@ -177,8 +202,8 @@ class _WeekViewState extends State<WeekView> {
                         color: isToday
                             ? theme.colorScheme.primary
                             : (isWeekend
-                                ? theme.hintColor.withValues(alpha: 0.7)
-                                : theme.hintColor),
+                                  ? theme.hintColor.withValues(alpha: 0.7)
+                                  : theme.hintColor),
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1.0,
@@ -200,8 +225,9 @@ class _WeekViewState extends State<WeekView> {
                               ? theme.colorScheme.onPrimary
                               : theme.textTheme.titleMedium?.color,
                           fontSize: 18,
-                          fontWeight:
-                              isToday ? FontWeight.bold : FontWeight.w500,
+                          fontWeight: isToday
+                              ? FontWeight.bold
+                              : FontWeight.w500,
                         ),
                       ),
                     ),
@@ -247,8 +273,14 @@ class _WeekViewState extends State<WeekView> {
     );
   }
 
-  Widget _buildDayColumn(BuildContext context, ThemeData theme, DateTime day,
-      int dayIndex, List<PlannerEntry> dayEntries, DateTime now) {
+  Widget _buildDayColumn(
+    BuildContext context,
+    ThemeData theme,
+    DateTime day,
+    int dayIndex,
+    List<PlannerEntry> dayEntries,
+    DateTime now,
+  ) {
     final isToday = _isSameDay(day, now);
     final lineColor = theme.dividerColor.withValues(alpha: 0.25);
 
@@ -262,8 +294,8 @@ class _WeekViewState extends State<WeekView> {
             color: candidate.isNotEmpty
                 ? theme.colorScheme.primary.withValues(alpha: 0.10)
                 : (isToday
-                    ? theme.colorScheme.primary.withValues(alpha: 0.04)
-                    : null),
+                      ? theme.colorScheme.primary.withValues(alpha: 0.04)
+                      : null),
             border: Border(left: BorderSide(color: lineColor)),
           ),
           child: Stack(
@@ -273,8 +305,9 @@ class _WeekViewState extends State<WeekView> {
                   return GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => _showCreateEntryDialog(
-                        context,
-                        DateTime(day.year, day.month, day.day, hour, 0)),
+                      context,
+                      DateTime(day.year, day.month, day.day, hour, 0),
+                    ),
                     child: Container(
                       height: _hourHeight,
                       decoration: BoxDecoration(
@@ -284,8 +317,9 @@ class _WeekViewState extends State<WeekView> {
                   );
                 }),
               ),
-              ...dayEntries
-                  .map((entry) => _buildEntryCard(context, theme, entry)),
+              ...dayEntries.map(
+                (entry) => _buildEntryCard(context, theme, entry),
+              ),
               if (isToday) _buildNowIndicator(now),
             ],
           ),
@@ -294,8 +328,13 @@ class _WeekViewState extends State<WeekView> {
     );
   }
 
-  void _handleDrop(BuildContext context, DateTime day, int dayIndex,
-      PlannerEntry entry, Offset globalOffset) {
+  void _handleDrop(
+    BuildContext context,
+    DateTime day,
+    int dayIndex,
+    PlannerEntry entry,
+    Offset globalOffset,
+  ) {
     final box =
         _dayKeys[dayIndex].currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
@@ -304,29 +343,36 @@ class _WeekViewState extends State<WeekView> {
     minutes = (minutes / _snapMinutes).round() * _snapMinutes;
     minutes = minutes.clamp(0, 24 * 60 - _snapMinutes);
 
-    final newStart = DateTime(day.year, day.month, day.day)
-        .add(Duration(minutes: minutes));
+    final newStart = DateTime(
+      day.year,
+      day.month,
+      day.day,
+    ).add(Duration(minutes: minutes));
     final duration = entry.endsAt.difference(entry.scheduledAt);
     final newEnd = newStart.add(duration);
 
     context.read<PlannerProvider>().moveEntry(
-          entry.id,
-          scheduledAt: newStart,
-          endsAt: newEnd,
-        );
+      entry.id,
+      scheduledAt: newStart,
+      endsAt: newEnd,
+    );
   }
 
   Widget _buildEntryCard(
-      BuildContext context, ThemeData theme, PlannerEntry entry) {
+    BuildContext context,
+    ThemeData theme,
+    PlannerEntry entry,
+  ) {
     final color = _getColorFromHex(entry.color);
     final start = entry.scheduledAt;
     final top = (start.hour + start.minute / 60.0) * _hourHeight;
     final durationMin = entry.endsAt.difference(start).inMinutes;
-    final height =
-        ((durationMin / 60.0) * _hourHeight).clamp(22.0, double.infinity);
+    final height = ((durationMin / 60.0) * _hourHeight).clamp(
+      22.0,
+      double.infinity,
+    );
     final isCompact = height < 40;
-    final colWidth =
-        (MediaQuery.of(context).size.width - _timeColumnWidth) / 7;
+    final colWidth = (MediaQuery.of(context).size.width - _timeColumnWidth) / 7;
 
     final cardContent = Container(
       decoration: BoxDecoration(
@@ -428,15 +474,28 @@ class _WeekViewState extends State<WeekView> {
 
   String _monthShort(int month) {
     const m = [
-      'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'
+      'Jan',
+      'Feb',
+      'Mär',
+      'Apr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Dez',
     ];
     return m[month - 1];
   }
 
   int _weekNumber(DateTime date) {
-    final dayOfYear =
-        DateTime(date.year, date.month, date.day).difference(DateTime(date.year, 1, 1)).inDays;
+    final dayOfYear = DateTime(
+      date.year,
+      date.month,
+      date.day,
+    ).difference(DateTime(date.year, 1, 1)).inDays;
     return ((dayOfYear - date.weekday + 10) / 7).floor();
   }
 
@@ -451,9 +510,19 @@ class _WeekViewState extends State<WeekView> {
       builder: (context) => PlannerEditDialog(
         initialScheduledAt: scheduledAt,
         initialEndsAt: scheduledAt.add(const Duration(hours: 1)),
-        onSave: (title, description, typeId, start, end, notifyMinBefore, color,
-            parentId, orderIndex) {
-          context.read<PlannerProvider>().createEntry(
+        onSave:
+            (
+              title,
+              description,
+              typeId,
+              start,
+              end,
+              notifyMinBefore,
+              color,
+              parentId,
+              orderIndex,
+            ) {
+              context.read<PlannerProvider>().createEntry(
                 title: title,
                 description: description,
                 typeId: typeId,
@@ -462,7 +531,7 @@ class _WeekViewState extends State<WeekView> {
                 notifyMinBefore: notifyMinBefore,
                 color: color,
               );
-        },
+            },
       ),
     );
   }
@@ -474,19 +543,29 @@ class _WeekViewState extends State<WeekView> {
       builder: (context) => PlannerEditDialog(
         entry: entry,
         onDelete: () => provider.deleteEntry(entry.id),
-        onSave: (title, description, typeId, start, end, notifyMinBefore, color,
-            parentId, orderIndex) {
-          provider.updateEntry(
-            entry.id,
-            title: title,
-            description: description,
-            typeId: typeId,
-            scheduledAt: start,
-            endsAt: end,
-            notifyMinBefore: notifyMinBefore,
-            color: color,
-          );
-        },
+        onSave:
+            (
+              title,
+              description,
+              typeId,
+              start,
+              end,
+              notifyMinBefore,
+              color,
+              parentId,
+              orderIndex,
+            ) {
+              provider.updateEntry(
+                entry.id,
+                title: title,
+                description: description,
+                typeId: typeId,
+                scheduledAt: start,
+                endsAt: end,
+                notifyMinBefore: notifyMinBefore,
+                color: color,
+              );
+            },
       ),
     );
   }

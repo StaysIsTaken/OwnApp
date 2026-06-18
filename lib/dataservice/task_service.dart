@@ -18,12 +18,14 @@ class TaskService {
       queryParameters: {
         'skip': skip,
         'limit': limit,
-        if (completed != null) 'completed': completed,
-        if (category != null) 'category': category,
+        'completed': ?completed,
+        'category': ?category,
       },
     );
 
-    final listRaw = response.data is Map ? response.data['items'] ?? [] : response.data;
+    final listRaw = response.data is Map
+        ? response.data['items'] ?? []
+        : response.data;
     return (listRaw as List)
         .map((item) => Task.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -45,7 +47,8 @@ class TaskService {
     final payload = {
       'title': task.title,
       if (task.description != null) 'description': task.description,
-      if (task.dueDate != null) 'dueDate': task.dueDate!.toIso8601String().split('T')[0],
+      if (task.dueDate != null)
+        'dueDate': task.dueDate!.toIso8601String().split('T')[0],
       if (task.category != null) 'category': task.category,
       'priority': task.priority,
     };
@@ -61,14 +64,18 @@ class TaskService {
     final payload = {
       'title': task.title,
       if (task.description != null) 'description': task.description,
-      if (task.dueDate != null) 'dueDate': task.dueDate!.toIso8601String().split('T')[0],
+      if (task.dueDate != null)
+        'dueDate': task.dueDate!.toIso8601String().split('T')[0],
       'completed': task.completed,
       if (task.category != null) 'category': task.category,
       'priority': task.priority,
       'kanbanState': task.kanbanState,
     };
 
-    final response = await ApiClient.dio.put('$_path/${task.id}', data: payload);
+    final response = await ApiClient.dio.put(
+      '$_path/${task.id}',
+      data: payload,
+    );
     final updated = Task.fromJson(response.data as Map<String, dynamic>);
     // Re-schedule (or cancel, if completed/no due date) reminders
     await TaskNotificationScheduler.schedule(updated);

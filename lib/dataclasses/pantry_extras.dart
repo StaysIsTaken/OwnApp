@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 // ─────────────────────────────────────────────
 //  StorageLocation (Lagerort)
 // ─────────────────────────────────────────────
@@ -9,15 +7,12 @@ class StorageLocation {
 
   const StorageLocation({required this.id, required this.name});
 
-  Map<String, dynamic> toJson() => {
-    if (id.isNotEmpty) 'id': id,
-    'name': name
-  };
+  Map<String, dynamic> toJson() => {if (id.isNotEmpty) 'id': id, 'name': name};
 
   factory StorageLocation.fromJson(Map<String, dynamic> j) => StorageLocation(
-        id: j['id']?.toString() ?? '',
-        name: j['name']?.toString() ?? '',
-      );
+    id: j['id']?.toString() ?? '',
+    name: j['name']?.toString() ?? '',
+  );
 }
 
 // ─────────────────────────────────────────────
@@ -47,31 +42,30 @@ class ShoppingListItem {
     double? amount,
     bool? isBought,
     String? note,
-  }) =>
-      ShoppingListItem(
-        id: id ?? this.id,
-        ingredientId: ingredientId ?? this.ingredientId,
-        unitId: unitId ?? this.unitId,
-        amount: amount ?? this.amount,
-        isBought: isBought ?? this.isBought,
-        note: note ?? this.note,
-      );
+  }) => ShoppingListItem(
+    id: id ?? this.id,
+    ingredientId: ingredientId ?? this.ingredientId,
+    unitId: unitId ?? this.unitId,
+    amount: amount ?? this.amount,
+    isBought: isBought ?? this.isBought,
+    note: note ?? this.note,
+  );
 
   Map<String, dynamic> toJson() => {
-        if (id.isNotEmpty) 'id': id,
-        'ingredientId': ingredientId,
-        'unitId': unitId,
-        'amount': amount,
-        'isBought': isBought,
-        'note': note,
-      };
+    if (id.isNotEmpty) 'id': id,
+    'ingredientId': ingredientId,
+    'unitId': unitId,
+    'amount': amount,
+    'isBought': isBought,
+    'note': note,
+  };
 
   factory ShoppingListItem.fromJson(Map<String, dynamic> j) => ShoppingListItem(
-        id: j['id']?.toString() ?? '',
-        ingredientId: (j['ingredientId'] ?? '').toString(),
-        unitId: (j['unitId'] ?? '').toString(),
-        amount: (j['amount'] as num?)?.toDouble() ?? 0.0,
-        isBought: j['isBought'] ?? false,
-        note: j['note']?.toString(),
-      );
+    id: j['id']?.toString() ?? '',
+    ingredientId: (j['ingredientId'] ?? '').toString(),
+    unitId: (j['unitId'] ?? '').toString(),
+    amount: (j['amount'] as num?)?.toDouble() ?? 0.0,
+    isBought: j['isBought'] ?? false,
+    note: j['note']?.toString(),
+  );
 }

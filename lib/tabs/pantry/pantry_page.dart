@@ -119,16 +119,19 @@ class _PantryListState extends State<_PantryList> {
     }
 
     String? selIngId = item?.ingredientId;
-    if (selIngId != null && !_ingredients.any((i) => i.id == selIngId))
+    if (selIngId != null && !_ingredients.any((i) => i.id == selIngId)) {
       selIngId = null;
+    }
 
     String? selUnitId = item?.unitId;
-    if (selUnitId != null && !_units.any((u) => u.id == selUnitId))
+    if (selUnitId != null && !_units.any((u) => u.id == selUnitId)) {
       selUnitId = null;
+    }
 
     String? selLocId = item?.storageLocationId;
-    if (selLocId != null && !_locations.any((l) => l.id == selLocId))
+    if (selLocId != null && !_locations.any((l) => l.id == selLocId)) {
       selLocId = null;
+    }
     final qtyCtrl = TextEditingController(text: item?.amount.toString() ?? '1');
     final minQtyCtrl = TextEditingController(
       text: item?.minAmount.toString() ?? '0',
@@ -161,7 +164,7 @@ class _PantryListState extends State<_PantryList> {
                 ),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
-                  value: selIngId,
+                  initialValue: selIngId,
                   decoration: const InputDecoration(labelText: 'Zutat'),
                   items: _ingredients
                       .map(
@@ -195,7 +198,7 @@ class _PantryListState extends State<_PantryList> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: selUnitId,
+                        initialValue: selUnitId,
                         decoration: const InputDecoration(labelText: 'Einheit'),
                         items: _units
                             .map(
@@ -212,7 +215,7 @@ class _PantryListState extends State<_PantryList> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selLocId,
+                  initialValue: selLocId,
                   decoration: const InputDecoration(labelText: 'Lagerort'),
                   items: _locations
                       .map(
@@ -248,8 +251,9 @@ class _PantryListState extends State<_PantryList> {
                       ),
                       lastDate: DateTime.now().add(const Duration(days: 3650)),
                     );
-                    if (picked != null)
+                    if (picked != null) {
                       setDialogState(() => selExpiry = picked);
+                    }
                   },
                 ),
                 const SizedBox(height: 24),
@@ -338,7 +342,7 @@ class _PantryListState extends State<_PantryList> {
                     hintText: 'Vorräte suchen...',
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
-                    fillColor: colors.surfaceVariant.withOpacity(0.3),
+                    fillColor: colors.surfaceContainerHighest.withOpacity(0.3),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,

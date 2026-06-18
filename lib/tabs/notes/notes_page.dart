@@ -143,17 +143,23 @@ class _NotesPageContentState extends State<_NotesPageContent> {
 
     // Filter by folder
     if (_selectedFolderId != null) {
-      filtered = filtered.where((note) => note.folderId == _selectedFolderId).toList();
+      filtered = filtered
+          .where((note) => note.folderId == _selectedFolderId)
+          .toList();
     }
 
     // Filter by search
     if (_searchQuery.isNotEmpty) {
       filtered = filtered
-          .where((note) =>
-              note.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              note.text.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              note.tags.any((tag) =>
-                  tag.toLowerCase().contains(_searchQuery.toLowerCase())))
+          .where(
+            (note) =>
+                note.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                note.text.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                note.tags.any(
+                  (tag) =>
+                      tag.toLowerCase().contains(_searchQuery.toLowerCase()),
+                ),
+          )
           .toList();
     }
 
@@ -165,15 +171,15 @@ class _NotesPageContentState extends State<_NotesPageContent> {
       await NoteService.delete(note.id);
       await _loadNotes();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notiz gelöscht')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Notiz gelöscht')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
       }
     }
   }
@@ -201,16 +207,16 @@ class _NotesPageContentState extends State<_NotesPageContent> {
         debugPrint('Ordner erstellt, lade Daten neu...');
         await _loadNotes();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Ordner erstellt')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Ordner erstellt')));
         }
       } catch (e) {
         debugPrint('Fehler beim Erstellen des Ordners: $e');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Fehler: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
         }
       }
     }
@@ -226,15 +232,15 @@ class _NotesPageContentState extends State<_NotesPageContent> {
             _selectedFolderId = null;
           }
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ordner gelöscht')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Ordner gelöscht')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
       }
     }
   }
@@ -246,15 +252,15 @@ class _NotesPageContentState extends State<_NotesPageContent> {
       await NoteFolderService.update(updated);
       await _loadNotes();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ordner umbenannt')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Ordner umbenannt')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
       }
     }
   }
@@ -287,7 +293,9 @@ class _NotesPageContentState extends State<_NotesPageContent> {
                 ),
               ..._folders.where((f) => f.id != note.folderId).map((folder) {
                 final parent = folder.parentFolderId != null
-                    ? _folders.where((f) => f.id == folder.parentFolderId).firstOrNull
+                    ? _folders
+                          .where((f) => f.id == folder.parentFolderId)
+                          .firstOrNull
                     : null;
                 return ListTile(
                   leading: const Icon(Icons.folder),
@@ -329,15 +337,15 @@ class _NotesPageContentState extends State<_NotesPageContent> {
       await NoteService.update(updated);
       await _loadNotes();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notiz verschoben')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Notiz verschoben')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
       }
     }
   }
@@ -349,15 +357,15 @@ class _NotesPageContentState extends State<_NotesPageContent> {
       await NoteService.update(updated);
       await _loadNotes();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notiz verschoben')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Notiz verschoben')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
       }
     }
   }
@@ -376,7 +384,9 @@ class _NotesPageContentState extends State<_NotesPageContent> {
   Widget _buildMobileLayout() {
     final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
-    final rootFolders = _folders.where((f) => f.parentFolderId == null).toList();
+    final rootFolders = _folders
+        .where((f) => f.parentFolderId == null)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -387,8 +397,9 @@ class _NotesPageContentState extends State<_NotesPageContent> {
             builder: (BuildContext context, SearchController controller) {
               return SearchBar(
                 controller: controller,
-                padding: const MaterialStatePropertyAll<EdgeInsets>(
-                    EdgeInsets.symmetric(horizontal: 16)),
+                padding: const WidgetStatePropertyAll<EdgeInsets>(
+                  EdgeInsets.symmetric(horizontal: 16),
+                ),
                 onChanged: (value) {
                   setState(() => _searchQuery = value);
                 },
@@ -396,16 +407,19 @@ class _NotesPageContentState extends State<_NotesPageContent> {
                 hintText: 'Notizen durchsuchen...',
               );
             },
-            suggestionsBuilder: (BuildContext context, SearchController controller) {
-              return _filteredNotes
-                  .map((note) => ListTile(
-                        title: Text(note.title),
-                        onTap: () {
-                          controller.closeView(note.title);
-                        },
-                      ))
-                  .toList();
-            },
+            suggestionsBuilder:
+                (BuildContext context, SearchController controller) {
+                  return _filteredNotes
+                      .map(
+                        (note) => ListTile(
+                          title: Text(note.title),
+                          onTap: () {
+                            controller.closeView(note.title);
+                          },
+                        ),
+                      )
+                      .toList();
+                },
           ),
         ),
         // Ordner-Chips
@@ -427,7 +441,9 @@ class _NotesPageContentState extends State<_NotesPageContent> {
                   ),
                 ),
                 ...rootFolders.map((folder) {
-                  final hasSubfolders = _folders.any((f) => f.parentFolderId == folder.id);
+                  final hasSubfolders = _folders.any(
+                    (f) => f.parentFolderId == folder.id,
+                  );
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilterChip(
@@ -465,23 +481,26 @@ class _NotesPageContentState extends State<_NotesPageContent> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: _folders
                   .where((f) => f.parentFolderId == _selectedFolderId)
-                  .map((subfolder) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          selected: false,
-                          avatar: const Icon(Icons.subdirectory_arrow_right, size: 16),
-                          label: Text(subfolder.name),
-                          onSelected: (_) {
-                            setState(() => _selectedFolderId = subfolder.id);
-                          },
+                  .map(
+                    (subfolder) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        selected: false,
+                        avatar: const Icon(
+                          Icons.subdirectory_arrow_right,
+                          size: 16,
                         ),
-                      ))
+                        label: Text(subfolder.name),
+                        onSelected: (_) {
+                          setState(() => _selectedFolderId = subfolder.id);
+                        },
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ),
-        Expanded(
-          child: _buildNotesList(colors, text),
-        ),
+        Expanded(child: _buildNotesList(colors, text)),
       ],
     );
   }
@@ -501,9 +520,7 @@ class _NotesPageContentState extends State<_NotesPageContent> {
             ),
           ),
           child: _isLoading
-              ? Center(
-                  child: CircularProgressIndicator(color: colors.primary),
-                )
+              ? Center(child: CircularProgressIndicator(color: colors.primary))
               : FolderTree(
                   folders: _folders,
                   notes: _notes,
@@ -530,8 +547,10 @@ class _NotesPageContentState extends State<_NotesPageContent> {
                   },
                   onCreateFolder: (parentId) => _createFolder(parentId),
                   onDeleteFolder: (folderId) => _deleteFolder(folderId),
-                  onRenameFolder: (folderId, newName) => _renameFolder(folderId, newName),
-                  onMoveNote: (noteId, folderId) => _moveNote(noteId, folderId!),
+                  onRenameFolder: (folderId, newName) =>
+                      _renameFolder(folderId, newName),
+                  onMoveNote: (noteId, folderId) =>
+                      _moveNote(noteId, folderId!),
                   onRefresh: _loadNotes,
                 ),
         ),
@@ -546,8 +565,9 @@ class _NotesPageContentState extends State<_NotesPageContent> {
                   builder: (BuildContext context, SearchController controller) {
                     return SearchBar(
                       controller: controller,
-                      padding: const MaterialStatePropertyAll<EdgeInsets>(
-                          EdgeInsets.symmetric(horizontal: 16)),
+                      padding: const WidgetStatePropertyAll<EdgeInsets>(
+                        EdgeInsets.symmetric(horizontal: 16),
+                      ),
                       onChanged: (value) {
                         setState(() => _searchQuery = value);
                       },
@@ -555,21 +575,22 @@ class _NotesPageContentState extends State<_NotesPageContent> {
                       hintText: 'Notizen durchsuchen...',
                     );
                   },
-                  suggestionsBuilder: (BuildContext context, SearchController controller) {
-                    return _filteredNotes
-                        .map((note) => ListTile(
-                              title: Text(note.title),
-                              onTap: () {
-                                controller.closeView(note.title);
-                              },
-                            ))
-                        .toList();
-                  },
+                  suggestionsBuilder:
+                      (BuildContext context, SearchController controller) {
+                        return _filteredNotes
+                            .map(
+                              (note) => ListTile(
+                                title: Text(note.title),
+                                onTap: () {
+                                  controller.closeView(note.title);
+                                },
+                              ),
+                            )
+                            .toList();
+                      },
                 ),
               ),
-              Expanded(
-                child: _buildNotesList(colors, text),
-              ),
+              Expanded(child: _buildNotesList(colors, text)),
             ],
           ),
         ),
@@ -579,9 +600,7 @@ class _NotesPageContentState extends State<_NotesPageContent> {
 
   Widget _buildNotesList(ColorScheme colors, TextTheme text) {
     if (_isLoading) {
-      return Center(
-        child: CircularProgressIndicator(color: colors.primary),
-      );
+      return Center(child: CircularProgressIndicator(color: colors.primary));
     }
 
     if (_error != null) {
@@ -611,11 +630,7 @@ class _NotesPageContentState extends State<_NotesPageContent> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.note_outlined,
-              size: 64,
-              color: colors.onSurfaceVariant,
-            ),
+            Icon(Icons.note_outlined, size: 64, color: colors.onSurfaceVariant),
             const SizedBox(height: 16),
             Text(
               'Keine Notizen vorhanden',
@@ -658,7 +673,9 @@ class _NotesPageContentState extends State<_NotesPageContent> {
                         : note.text,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+                    style: text.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
                   if (note.tags.isNotEmpty) ...[
                     const SizedBox(height: 4),

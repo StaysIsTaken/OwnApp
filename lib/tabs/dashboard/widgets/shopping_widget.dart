@@ -32,13 +32,15 @@ class ShoppingWidget extends StatelessWidget {
       if (prices == null || prices.isEmpty) continue;
 
       for (final price in prices) {
-        shopTotals[price.shopId] = (shopTotals[price.shopId] ?? 0) +
-            (price.price * item.amount);
+        shopTotals[price.shopId] =
+            (shopTotals[price.shopId] ?? 0) + (price.price * item.amount);
       }
     }
 
     if (shopTotals.isEmpty) return null;
-    final bestShopId = shopTotals.entries.reduce((a, b) => a.value < b.value ? a : b).key;
+    final bestShopId = shopTotals.entries
+        .reduce((a, b) => a.value < b.value ? a : b)
+        .key;
     return shopMap[bestShopId]?.name;
   }
 
@@ -63,11 +65,17 @@ class ShoppingWidget extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.shopping_cart_outlined, color: colors.primary, size: 20),
+                  Icon(
+                    Icons.shopping_cart_outlined,
+                    color: colors.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Einkauf',
-                    style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: text.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const Spacer(),
                   Icon(Icons.chevron_right_rounded, color: colors.outline),
@@ -83,7 +91,11 @@ class ShoppingWidget extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.check_circle_rounded, color: colors.tertiary, size: 16),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: colors.tertiary,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -115,7 +127,8 @@ class ShoppingWidget extends StatelessWidget {
                             value: false,
                             onChanged: (_) => onItemBought(item),
                             visualDensity: VisualDensity.compact,
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -127,8 +140,12 @@ class ShoppingWidget extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${item.amount.toStringAsFixed(item.amount == item.amount.toInt() ? 0 : 1)}',
-                          style: text.labelSmall?.copyWith(color: colors.outline),
+                          item.amount.toStringAsFixed(
+                            item.amount == item.amount.toInt() ? 0 : 1,
+                          ),
+                          style: text.labelSmall?.copyWith(
+                            color: colors.outline,
+                          ),
                         ),
                       ],
                     ),
@@ -155,7 +172,11 @@ class ShoppingWidget extends StatelessWidget {
                         if (estimatedCost > 0)
                           Row(
                             children: [
-                              Icon(Icons.euro_rounded, size: 14, color: colors.primary),
+                              Icon(
+                                Icons.euro_rounded,
+                                size: 14,
+                                color: colors.primary,
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -178,7 +199,11 @@ class ShoppingWidget extends StatelessWidget {
                           if (estimatedCost > 0) const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.storefront_outlined, size: 14, color: colors.primary),
+                              Icon(
+                                Icons.storefront_outlined,
+                                size: 14,
+                                color: colors.primary,
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(

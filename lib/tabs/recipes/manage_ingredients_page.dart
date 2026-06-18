@@ -17,7 +17,8 @@ class _ManageIngredientsContent extends StatefulWidget {
   const _ManageIngredientsContent();
 
   @override
-  State<_ManageIngredientsContent> createState() => _ManageIngredientsContentState();
+  State<_ManageIngredientsContent> createState() =>
+      _ManageIngredientsContentState();
 }
 
 class _ManageIngredientsContentState extends State<_ManageIngredientsContent> {
@@ -112,34 +113,41 @@ class _ManageIngredientsContentState extends State<_ManageIngredientsContent> {
         _loading
             ? const Center(child: CircularProgressIndicator())
             : _ingredients.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.eco_outlined,
-                            size: 64, color: colors.outlineVariant),
-                        const SizedBox(height: 12),
-                        Text('Noch keine Zutaten',
-                            style: text.bodyMedium
-                                ?.copyWith(color: colors.outline)),
-                        const SizedBox(height: 6),
-                        Text('Tippe auf + um eine Zutat anzulegen',
-                            style: text.bodySmall
-                                ?.copyWith(color: colors.outlineVariant)),
-                      ],
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.eco_outlined,
+                      size: 64,
+                      color: colors.outlineVariant,
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-                    itemCount: _ingredients.length,
-                    itemBuilder: (_, i) => ManageItemTile(
-                      title: _ingredients[i].name,
-                      subtitle:
-                          'Standard-Einheit: ${_unitName(_ingredients[i].defaultUnitId)}',
-                      onEdit: () => _openForm(ingredient: _ingredients[i]),
-                      onDelete: () => _confirmDelete(_ingredients[i]),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Noch keine Zutaten',
+                      style: text.bodyMedium?.copyWith(color: colors.outline),
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Tippe auf + um eine Zutat anzulegen',
+                      style: text.bodySmall?.copyWith(
+                        color: colors.outlineVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+                itemCount: _ingredients.length,
+                itemBuilder: (_, i) => ManageItemTile(
+                  title: _ingredients[i].name,
+                  subtitle:
+                      'Standard-Einheit: ${_unitName(_ingredients[i].defaultUnitId)}',
+                  onEdit: () => _openForm(ingredient: _ingredients[i]),
+                  onDelete: () => _confirmDelete(_ingredients[i]),
+                ),
+              ),
         Positioned(
           right: 16,
           bottom: 16,
@@ -198,7 +206,8 @@ class _IngredientFormState extends State<_IngredientForm> {
     setState(() => _saving = true);
 
     final ingredient = Ingredient(
-      id: widget.ingredient?.id ??
+      id:
+          widget.ingredient?.id ??
           DateTime.now().microsecondsSinceEpoch.toString(),
       name: _nameCtrl.text.trim(),
       defaultUnitId: _selectedUnitId!,
@@ -254,13 +263,15 @@ class _IngredientFormState extends State<_IngredientForm> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _selectedUnitId,
+              initialValue: _selectedUnitId,
               decoration: const InputDecoration(labelText: 'Standard-Einheit'),
               items: widget.units
-                  .map((u) => DropdownMenuItem(
-                        value: u.id,
-                        child: Text('${u.name} (${u.symbol})'),
-                      ))
+                  .map(
+                    (u) => DropdownMenuItem(
+                      value: u.id,
+                      child: Text('${u.name} (${u.symbol})'),
+                    ),
+                  )
                   .toList(),
               onChanged: (v) => setState(() => _selectedUnitId = v),
               validator: (v) =>
@@ -274,7 +285,9 @@ class _IngredientFormState extends State<_IngredientForm> {
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(isEdit ? 'Speichern' : 'Zutat anlegen'),
             ),

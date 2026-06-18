@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/provider/planner_provider.dart';
+import 'package:productivity/provider/settings_provider.dart';
 import 'package:productivity/tabs/planner/manage_planner_types_page.dart';
 
 class PlannerEditDialog extends StatefulWidget {
@@ -19,16 +20,17 @@ class PlannerEditDialog extends StatefulWidget {
     String color,
     int? parentId,
     int orderIndex,
-  ) onSave;
+  )
+  onSave;
 
   const PlannerEditDialog({
-    Key? key,
+    super.key,
     this.entry,
     this.initialScheduledAt,
     this.initialEndsAt,
     this.onDelete,
     required this.onSave,
-  }) : super(key: key);
+  });
 
   @override
   State<PlannerEditDialog> createState() => _PlannerEditDialogState();
@@ -61,17 +63,22 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.entry?.title ?? '');
-    _descriptionController =
-        TextEditingController(text: widget.entry?.description ?? '');
+    _descriptionController = TextEditingController(
+      text: widget.entry?.description ?? '',
+    );
     _typeId = widget.entry?.typeId;
     _scheduledAt =
-        widget.entry?.scheduledAt ?? widget.initialScheduledAt ?? DateTime.now();
-    _endsAt = widget.entry?.endsAt ??
+        widget.entry?.scheduledAt ??
+        widget.initialScheduledAt ??
+        DateTime.now();
+    _endsAt =
+        widget.entry?.endsAt ??
         widget.initialEndsAt ??
         _scheduledAt.add(const Duration(hours: 1));
     _notifyMinBefore = widget.entry?.notifyMinBefore ?? 10;
-    _notifyController =
-        TextEditingController(text: _notifyMinBefore.toString());
+    _notifyController = TextEditingController(
+      text: _notifyMinBefore.toString(),
+    );
     _color = widget.entry?.color ?? _colors[0];
     _parentId = widget.entry?.parentId;
     _orderIndex = widget.entry?.orderIndex ?? 0;
@@ -98,8 +105,7 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
     return Color(int.parse('FF$hexColor', radix: 16));
   }
 
-  String _formatDate(DateTime dt) =>
-      '${dt.day}.${dt.month}.${dt.year}';
+  String _formatDate(DateTime dt) => '${dt.day}.${dt.month}.${dt.year}';
 
   String _formatTime(DateTime dt) =>
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -114,38 +120,59 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
     if (date != null) {
       setState(() {
         final dur = _endsAt.difference(_scheduledAt);
-        _scheduledAt = DateTime(date.year, date.month, date.day,
-            _scheduledAt.hour, _scheduledAt.minute);
+        _scheduledAt = DateTime(
+          date.year,
+          date.month,
+          date.day,
+          _scheduledAt.hour,
+          _scheduledAt.minute,
+        );
         _endsAt = _scheduledAt.add(dur);
       });
     }
   }
 
   Future<void> _pickStartTime() async {
+    final settings = context.read<SettingsProvider>();
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_scheduledAt),
+      use24HourFormat: settings.use24hFormat,
     );
     if (time != null) {
       setState(() {
         final dur = _endsAt.difference(_scheduledAt);
-        _scheduledAt = DateTime(_scheduledAt.year, _scheduledAt.month,
-            _scheduledAt.day, time.hour, time.minute);
+        _scheduledAt = DateTime(
+          _scheduledAt.year,
+          _scheduledAt.month,
+          _scheduledAt.day,
+          time.hour,
+          time.minute,
+        );
         // Ende mitziehen, mindestens jedoch nach dem Start
-        _endsAt = _scheduledAt.add(dur.inMinutes > 0 ? dur : const Duration(hours: 1));
+        _endsAt = _scheduledAt.add(
+          dur.inMinutes > 0 ? dur : const Duration(hours: 1),
+        );
       });
     }
   }
 
   Future<void> _pickEndTime() async {
+    final settings = context.read<SettingsProvider>();
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_endsAt),
+      use24HourFormat: settings.use24hFormat,
     );
     if (time != null) {
       setState(() {
-        var end = DateTime(_scheduledAt.year, _scheduledAt.month,
-            _scheduledAt.day, time.hour, time.minute);
+        var end = DateTime(
+          _scheduledAt.year,
+          _scheduledAt.month,
+          _scheduledAt.day,
+          time.hour,
+          time.minute,
+        );
         // Endet die Zeit vor dem Start, gilt sie als am nächsten Tag.
         if (!end.isAfter(_scheduledAt)) {
           end = end.add(const Duration(days: 1));
@@ -184,8 +211,10 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
                   if (widget.entry != null && widget.onDelete != null)
                     IconButton(
                       tooltip: 'Löschen',
-                      icon: Icon(Icons.delete_outline,
-                          color: theme.colorScheme.error),
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: theme.colorScheme.error,
+                      ),
                       onPressed: _confirmDelete,
                     ),
                 ],
@@ -215,8 +244,7 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      initialValue:
-                          typeIds.contains(_typeId) ? _typeId : null,
+                      initialValue: typeIds.contains(_typeId) ? _typeId : null,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Typ',
@@ -303,8 +331,9 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
                 padding: const EdgeInsets.only(top: 6, left: 4),
                 child: Text(
                   'Dauer: ${_formatDuration(duration)}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.hintColor),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.hintColor,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -401,20 +430,22 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
 
   void _save() {
     if (_titleController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Titel ist erforderlich')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Titel ist erforderlich')));
       return;
     }
     if (_typeId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bitte einen Typ wählen')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Bitte einen Typ wählen')));
       return;
     }
     if (!_endsAt.isAfter(_scheduledAt)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Die Endzeit muss nach der Startzeit liegen')),
+        const SnackBar(
+          content: Text('Die Endzeit muss nach der Startzeit liegen'),
+        ),
       );
       return;
     }
@@ -467,9 +498,12 @@ class _PickerTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: theme.hintColor)),
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.hintColor,
+                  ),
+                ),
                 Text(value, style: theme.textTheme.bodyLarge),
               ],
             ),

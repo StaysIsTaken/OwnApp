@@ -48,13 +48,16 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
     _nameCtrl = TextEditingController(text: r?.name ?? '');
     _descCtrl = TextEditingController(text: r?.description ?? '');
     _selectedCategoryIds = List<String>.from(r?.categoryIds ?? []);
-    _entries = r?.ingredients
-            .map((ri) => _IngredientEntry(
-                  id: ri.id,
-                  ingredientId: ri.ingredientId,
-                  unitId: ri.unitId,
-                  amount: ri.amount,
-                ))
+    _entries =
+        r?.ingredients
+            .map(
+              (ri) => _IngredientEntry(
+                id: ri.id,
+                ingredientId: ri.ingredientId,
+                unitId: ri.unitId,
+                amount: ri.amount,
+              ),
+            )
             .toList() ??
         [];
     _loadData();
@@ -82,8 +85,9 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
     });
   }
 
-  Map<String, Ingredient> get _ingredientMap =>
-      {for (final i in _ingredients) i.id: i};
+  Map<String, Ingredient> get _ingredientMap => {
+    for (final i in _ingredients) i.id: i,
+  };
   Map<String, Unit> get _unitMap => {for (final u in _units) u.id: u};
 
   String _fmtAmount(double v) =>
@@ -94,18 +98,19 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
     setState(() => _saving = true);
 
     final recipe = Recipe(
-      id: widget.recipe?.id ??
-          DateTime.now().microsecondsSinceEpoch.toString(),
+      id: widget.recipe?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
       name: _nameCtrl.text.trim(),
       categoryIds: _selectedCategoryIds,
       description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
       ingredients: _entries
-          .map((e) => RecipeIngredient(
-                id: e.id,
-                ingredientId: e.ingredientId,
-                unitId: e.unitId,
-                amount: e.amount,
-              ))
+          .map(
+            (e) => RecipeIngredient(
+              id: e.id,
+              ingredientId: e.ingredientId,
+              unitId: e.unitId,
+              amount: e.amount,
+            ),
+          )
           .toList(),
     );
 
@@ -141,7 +146,9 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
     if (_ingredients.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bitte zuerst Zutaten unter „Zutaten verwalten" anlegen.'),
+          content: Text(
+            'Bitte zuerst Zutaten unter „Zutaten verwalten" anlegen.',
+          ),
         ),
       );
       return;
@@ -149,7 +156,9 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
     if (_units.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bitte zuerst Einheiten unter „Einheiten verwalten" anlegen.'),
+          content: Text(
+            'Bitte zuerst Einheiten unter „Einheiten verwalten" anlegen.',
+          ),
         ),
       );
       return;
@@ -230,18 +239,28 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                     Text('Kategorien', style: text.titleMedium),
                     const SizedBox(height: 8),
                     _categories.isEmpty
-                        ? Text('Keine Kategorien vorhanden.',
-                            style: text.bodySmall?.copyWith(color: colors.outline))
+                        ? Text(
+                            'Keine Kategorien vorhanden.',
+                            style: text.bodySmall?.copyWith(
+                              color: colors.outline,
+                            ),
+                          )
                         : Wrap(
                             spacing: 8,
                             runSpacing: 0,
                             children: _categories.map((c) {
-                              final isSelected = _selectedCategoryIds.contains(c.id);
+                              final isSelected = _selectedCategoryIds.contains(
+                                c.id,
+                              );
                               return FilterChip(
                                 label: Text(c.name),
                                 labelStyle: TextStyle(
-                                  color: isSelected ? colors.onPrimary : colors.onSurfaceVariant,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  color: isSelected
+                                      ? colors.onPrimary
+                                      : colors.onSurfaceVariant,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
                                   fontSize: 13,
                                 ),
                                 selected: isSelected,
@@ -254,16 +273,22 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                                     }
                                   });
                                 },
-                                backgroundColor: colors.surfaceVariant.withOpacity(0.3),
+                                backgroundColor: colors.surfaceContainerHighest
+                                    .withOpacity(0.3),
                                 selectedColor: colors.primary,
                                 checkmarkColor: colors.onPrimary,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                   side: BorderSide(
-                                    color: isSelected ? colors.primary : colors.outline.withOpacity(0.2),
+                                    color: isSelected
+                                        ? colors.primary
+                                        : colors.outline.withOpacity(0.2),
                                   ),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 2,
+                                ),
                               );
                             }).toList(),
                           ),
@@ -300,8 +325,9 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
                           'Noch keine Zutaten hinzugefügt.',
-                          style: text.bodySmall
-                              ?.copyWith(color: colors.outline),
+                          style: text.bodySmall?.copyWith(
+                            color: colors.outline,
+                          ),
                         ),
                       )
                     else
@@ -314,11 +340,14 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 4),
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
                             title: Text(
                               ingredient?.name ?? '–',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w600),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             subtitle: Text(
                               '${_fmtAmount(entry.amount)} ${unit?.symbol ?? ''}',
@@ -328,14 +357,20 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: Icon(Icons.edit_outlined,
-                                      color: colors.primary, size: 20),
+                                  icon: Icon(
+                                    Icons.edit_outlined,
+                                    color: colors.primary,
+                                    size: 20,
+                                  ),
                                   onPressed: () =>
                                       _openAddIngredient(editIndex: idx),
                                 ),
                                 IconButton(
-                                  icon: Icon(Icons.delete_outline,
-                                      color: colors.error, size: 20),
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    color: colors.error,
+                                    size: 20,
+                                  ),
                                   onPressed: () => _removeIngredient(idx),
                                 ),
                               ],
@@ -356,7 +391,9 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.check),
               label: Text(_isEdit ? 'Speichern' : 'Rezept anlegen'),
@@ -384,13 +421,12 @@ class _IngredientEntry {
     String? ingredientId,
     String? unitId,
     double? amount,
-  }) =>
-      _IngredientEntry(
-        id: id ?? this.id,
-        ingredientId: ingredientId ?? this.ingredientId,
-        unitId: unitId ?? this.unitId,
-        amount: amount ?? this.amount,
-      );
+  }) => _IngredientEntry(
+    id: id ?? this.id,
+    ingredientId: ingredientId ?? this.ingredientId,
+    unitId: unitId ?? this.unitId,
+    amount: amount ?? this.amount,
+  );
 }
 
 // ── Add / Edit Ingredient Sheet ────────────────────────────────────────────────
@@ -422,7 +458,7 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
     super.initState();
     final init = widget.initial;
     _selectedIngredientId = init?.ingredientId ?? widget.ingredients.first.id;
-    
+
     // Safety check for defaultUnitId
     final prefUnitId = init?.unitId ?? widget.ingredients.first.defaultUnitId;
     if (prefUnitId != null && widget.units.any((u) => u.id == prefUnitId)) {
@@ -450,10 +486,11 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
     final ingredient = widget.ingredients.firstWhere((i) => i.id == id);
     setState(() {
       _selectedIngredientId = id;
-      
+
       // Update unit: use default unit if valid, otherwise fallback to the first unit in the list
       final defUnit = ingredient.defaultUnitId?.toString();
-      if (defUnit != null && widget.units.any((u) => u.id.toString() == defUnit)) {
+      if (defUnit != null &&
+          widget.units.any((u) => u.id.toString() == defUnit)) {
         _selectedUnitId = defUnit;
       } else if (widget.units.isNotEmpty) {
         _selectedUnitId = widget.units.first.id;
@@ -466,11 +503,13 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
     final amount = double.tryParse(_amountCtrl.text.replaceAll(',', '.'));
     if (amount == null || amount <= 0) return;
 
-    widget.onConfirm(_IngredientEntry(
-      ingredientId: _selectedIngredientId,
-      unitId: _selectedUnitId,
-      amount: amount,
-    ));
+    widget.onConfirm(
+      _IngredientEntry(
+        ingredientId: _selectedIngredientId,
+        unitId: _selectedUnitId,
+        amount: amount,
+      ),
+    );
     Navigator.pop(context);
   }
 
@@ -512,11 +551,12 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
 
             // ── Ingredient dropdown ───────────
             DropdownButtonFormField<String>(
-              value: _selectedIngredientId,
+              initialValue: _selectedIngredientId,
               decoration: const InputDecoration(labelText: 'Zutat'),
               items: widget.ingredients
-                  .map((i) =>
-                      DropdownMenuItem(value: i.id, child: Text(i.name)))
+                  .map(
+                    (i) => DropdownMenuItem(value: i.id, child: Text(i.name)),
+                  )
                   .toList(),
               onChanged: _onIngredientChanged,
             ),
@@ -531,14 +571,15 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
                   child: TextFormField(
                     controller: _amountCtrl,
                     keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true),
+                      decimal: true,
+                    ),
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                          RegExp(r'[0-9.,]')),
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                     ],
                     decoration: const InputDecoration(labelText: 'Menge'),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Menge eingeben';
+                      if (v == null || v.trim().isEmpty)
+                        return 'Menge eingeben';
                       final d = double.tryParse(v.replaceAll(',', '.'));
                       if (d == null || d <= 0) return 'Ungültige Menge';
                       return null;
@@ -549,13 +590,15 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
                 Expanded(
                   flex: 3,
                   child: DropdownButtonFormField<String?>(
-                    value: _selectedUnitId,
+                    initialValue: _selectedUnitId,
                     decoration: const InputDecoration(labelText: 'Einheit'),
                     items: widget.units
-                        .map((u) => DropdownMenuItem<String?>(
-                              value: u.id,
-                              child: Text('${u.name} (${u.symbol})'),
-                            ))
+                        .map(
+                          (u) => DropdownMenuItem<String?>(
+                            value: u.id,
+                            child: Text('${u.name} (${u.symbol})'),
+                          ),
+                        )
                         .toList(),
                     onChanged: (v) {
                       if (v != null) setState(() => _selectedUnitId = v);

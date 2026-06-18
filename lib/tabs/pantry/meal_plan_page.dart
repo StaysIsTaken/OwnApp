@@ -59,37 +59,51 @@ class _MealPlanListState extends State<_MealPlanList> {
     String? selRecipeId = entry?.recipeId;
     String? selMealType = entry?.mealType ?? 'Mittagessen';
     DateTime selDate = entry?.date ?? DateTime.now();
-    final servingsCtrl = TextEditingController(text: entry?.servings.toString() ?? '2');
+    final servingsCtrl = TextEditingController(
+      text: entry?.servings.toString() ?? '2',
+    );
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLg),
+        ),
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20, right: 20, top: 20,
+            left: 20,
+            right: 20,
+            top: 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(entry == null ? 'Essen planen' : 'Planung bearbeiten', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                entry == null ? 'Essen planen' : 'Planung bearbeiten',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
-                value: selRecipeId,
+                initialValue: selRecipeId,
                 decoration: const InputDecoration(labelText: 'Rezept'),
-                items: _recipes.map((r) => DropdownMenuItem(value: r.id, child: Text(r.name))).toList(),
+                items: _recipes
+                    .map(
+                      (r) => DropdownMenuItem(value: r.id, child: Text(r.name)),
+                    )
+                    .toList(),
                 onChanged: (v) => setDialogState(() => selRecipeId = v),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: selMealType,
+                initialValue: selMealType,
                 decoration: const InputDecoration(labelText: 'Mahlzeit'),
                 items: ['Frühstück', 'Mittagessen', 'Abendessen', 'Snack']
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
                 onChanged: (v) => setDialogState(() => selMealType = v),
               ),
               const SizedBox(height: 12),
@@ -101,7 +115,9 @@ class _MealPlanListState extends State<_MealPlanList> {
                   final picked = await showDatePicker(
                     context: context,
                     initialDate: selDate,
-                    firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                    firstDate: DateTime.now().subtract(
+                      const Duration(days: 30),
+                    ),
                     lastDate: DateTime.now().add(const Duration(days: 365)),
                   );
                   if (picked != null) setDialogState(() => selDate = picked);
@@ -127,7 +143,10 @@ class _MealPlanListState extends State<_MealPlanList> {
                       },
                     ),
                   const Spacer(),
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Abbrechen'),
+                  ),
                   ElevatedButton(
                     onPressed: () async {
                       if (selRecipeId == null) return;
@@ -168,16 +187,22 @@ class _MealPlanListState extends State<_MealPlanList> {
         child: const Icon(Icons.add),
       ),
       body: _entries.isEmpty
-          ? const Center(child: Text('Noch kein Essen geplant.\nTippe auf +, um anzufangen!', textAlign: TextAlign.center))
+          ? const Center(
+              child: Text(
+                'Noch kein Essen geplant.\nTippe auf +, um anzufangen!',
+                textAlign: TextAlign.center,
+              ),
+            )
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _entries.length,
               itemBuilder: (context, i) {
                 final entry = _entries[i];
                 final recipe = _recipeMap[entry.recipeId];
-                final showDateHeader = i == 0 || 
-                    DateFormat('yyyy-MM-dd').format(_entries[i-1].date) != 
-                    DateFormat('yyyy-MM-dd').format(entry.date);
+                final showDateHeader =
+                    i == 0 ||
+                    DateFormat('yyyy-MM-dd').format(_entries[i - 1].date) !=
+                        DateFormat('yyyy-MM-dd').format(entry.date);
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,7 +213,10 @@ class _MealPlanListState extends State<_MealPlanList> {
                         padding: const EdgeInsets.only(left: 4, bottom: 8),
                         child: Text(
                           _formatDate(entry.date),
-                          style: text.titleMedium?.copyWith(color: colors.primary, fontWeight: FontWeight.bold),
+                          style: text.titleMedium?.copyWith(
+                            color: colors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -197,12 +225,21 @@ class _MealPlanListState extends State<_MealPlanList> {
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: colors.outlineVariant.withOpacity(0.5)),
+                        side: BorderSide(
+                          color: colors.outlineVariant.withOpacity(0.5),
+                        ),
                       ),
                       child: ListTile(
                         leading: _getMealIcon(entry.mealType ?? '', colors),
-                        title: Text(recipe?.name ?? 'Unbekanntes Rezept', style: text.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
-                        subtitle: Text('${entry.mealType} • ${entry.servings} Personen'),
+                        title: Text(
+                          recipe?.name ?? 'Unbekanntes Rezept',
+                          style: text.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${entry.mealType} • ${entry.servings} Personen',
+                        ),
                         trailing: const Icon(Icons.edit_outlined, size: 20),
                         onTap: () => _showEditDialog(entry),
                       ),
@@ -226,10 +263,17 @@ class _MealPlanListState extends State<_MealPlanList> {
   Widget _getMealIcon(String type, ColorScheme colors) {
     IconData icon;
     switch (type.toLowerCase()) {
-      case 'frühstück': icon = Icons.coffee_outlined; break;
-      case 'mittagessen': icon = Icons.lunch_dining_outlined; break;
-      case 'abendessen': icon = Icons.dinner_dining_outlined; break;
-      default: icon = Icons.restaurant_outlined;
+      case 'frühstück':
+        icon = Icons.coffee_outlined;
+        break;
+      case 'mittagessen':
+        icon = Icons.lunch_dining_outlined;
+        break;
+      case 'abendessen':
+        icon = Icons.dinner_dining_outlined;
+        break;
+      default:
+        icon = Icons.restaurant_outlined;
     }
     return CircleAvatar(
       backgroundColor: colors.primaryContainer,

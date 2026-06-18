@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/ingredient.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
@@ -73,9 +72,7 @@ class BackgroundTaskManager {
       taskPeriodicSync,
       frequency: const Duration(hours: 6),
       existingWorkPolicy: ExistingWorkPolicy.replace,
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-      ),
+      constraints: Constraints(networkType: NetworkType.connected),
       initialDelay: const Duration(minutes: 1),
     );
 
@@ -133,7 +130,10 @@ class BackgroundTaskManager {
       final expiringSoon = pantry.where((p) {
         if (p.expiryDate == null) return false;
         final expiry = DateTime(
-            p.expiryDate!.year, p.expiryDate!.month, p.expiryDate!.day);
+          p.expiryDate!.year,
+          p.expiryDate!.month,
+          p.expiryDate!.day,
+        );
         final daysUntil = expiry.difference(today).inDays;
         return daysUntil >= 0 && daysUntil <= 3;
       }).toList();
@@ -156,8 +156,7 @@ class BackgroundTaskManager {
       }
 
       // 2. Items below their minimum stock level
-      final lowStock =
-          pantry.where((p) => p.amount <= p.minAmount).toList();
+      final lowStock = pantry.where((p) => p.amount <= p.minAmount).toList();
       if (lowStock.isNotEmpty) {
         final names = lowStock
             .take(3)

@@ -121,7 +121,9 @@ class _TasksPageState extends State<_TasksPageContent> {
       final newTask = Task(
         id: '',
         title: _titleController.text,
-        description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
+        description: _descriptionController.text.isEmpty
+            ? null
+            : _descriptionController.text,
         dueDate: _dueDate,
         priority: _priority,
         userId: _currentUser!.id,
@@ -192,7 +194,9 @@ class _TasksPageState extends State<_TasksPageContent> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusLg),
+        ),
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
@@ -210,7 +214,10 @@ class _TasksPageState extends State<_TasksPageContent> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('SubTasks für: ${task.title}', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'SubTasks für: ${task.title}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: 20),
                   // List of existing subtasks
                   if (subtasks.isEmpty)
@@ -219,8 +226,11 @@ class _TasksPageState extends State<_TasksPageContent> {
                       child: Center(
                         child: Text(
                           'Keine SubTasks vorhanden',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                       ),
@@ -229,14 +239,26 @@ class _TasksPageState extends State<_TasksPageContent> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('SubTasks:', style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          'SubTasks:',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 10),
-                        ...subtasks.map((subTask) => _buildSubTaskItem(subTask, task.id, () => setDialogState(() {}))),
+                        ...subtasks.map(
+                          (subTask) => _buildSubTaskItem(
+                            subTask,
+                            task.id,
+                            () => setDialogState(() {}),
+                          ),
+                        ),
                         const SizedBox(height: 20),
                       ],
                     ),
                   // Add new subtask section
-                  Text('Neue SubTask hinzufügen', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Neue SubTask hinzufügen',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: subTitleCtrl,
@@ -245,26 +267,37 @@ class _TasksPageState extends State<_TasksPageContent> {
                       hintText: 'Titel eingeben...',
                       filled: true,
                       fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: subPriority,
+                    initialValue: subPriority,
                     items: ['low', 'medium', 'high']
-                        .map((p) => DropdownMenuItem(
-                              value: p,
-                              child: Text(
-                                p == 'low' ? 'Niedrig' : p == 'medium' ? 'Mittel' : 'Hoch',
-                              ),
-                            ))
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p,
+                            child: Text(
+                              p == 'low'
+                                  ? 'Niedrig'
+                                  : p == 'medium'
+                                  ? 'Mittel'
+                                  : 'Hoch',
+                            ),
+                          ),
+                        )
                         .toList(),
-                    onChanged: (v) => setDialogState(() => subPriority = v ?? 'medium'),
+                    onChanged: (v) =>
+                        setDialogState(() => subPriority = v ?? 'medium'),
                     decoration: InputDecoration(
                       labelText: 'Priorität',
                       filled: true,
                       fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -278,7 +311,11 @@ class _TasksPageState extends State<_TasksPageContent> {
                       ElevatedButton.icon(
                         onPressed: () {
                           if (subTitleCtrl.text.isNotEmpty) {
-                            _createSubTask(task.id, subTitleCtrl.text, priority: subPriority).then((_) {
+                            _createSubTask(
+                              task.id,
+                              subTitleCtrl.text,
+                              priority: subPriority,
+                            ).then((_) {
                               setDialogState(() {
                                 subTitleCtrl.clear();
                                 subPriority = 'medium';
@@ -301,7 +338,11 @@ class _TasksPageState extends State<_TasksPageContent> {
     );
   }
 
-  Widget _buildSubTaskItem(SubTask subTask, String taskId, VoidCallback onStateChanged) {
+  Widget _buildSubTaskItem(
+    SubTask subTask,
+    String taskId,
+    VoidCallback onStateChanged,
+  ) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(12),
@@ -328,18 +369,20 @@ class _TasksPageState extends State<_TasksPageContent> {
                 Text(
                   subTask.title,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        decoration: subTask.completed ? TextDecoration.lineThrough : null,
-                        color: subTask.completed
-                            ? Theme.of(context).colorScheme.onSurfaceVariant
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
+                    decoration: subTask.completed
+                        ? TextDecoration.lineThrough
+                        : null,
+                    color: subTask.completed
+                        ? Theme.of(context).colorScheme.onSurfaceVariant
+                        : Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
                 if (subTask.dueDate != null)
                   Text(
                     DateFormat('dd.MM.yyyy').format(subTask.dueDate!),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
               ],
             ),
@@ -377,7 +420,13 @@ class _TasksPageState extends State<_TasksPageContent> {
     );
   }
 
-  Future<void> _createSubTask(String taskId, String title, {String? description, DateTime? dueDate, String priority = 'medium'}) async {
+  Future<void> _createSubTask(
+    String taskId,
+    String title, {
+    String? description,
+    DateTime? dueDate,
+    String priority = 'medium',
+  }) async {
     try {
       final newSubTask = SubTask(
         id: '',
@@ -409,7 +458,9 @@ class _TasksPageState extends State<_TasksPageContent> {
       setState(() {
         final taskId = subTask.taskId;
         if (_subtasksByTaskId[taskId] != null) {
-          final idx = _subtasksByTaskId[taskId]!.indexWhere((s) => s.id == subTask.id);
+          final idx = _subtasksByTaskId[taskId]!.indexWhere(
+            (s) => s.id == subTask.id,
+          );
           if (idx >= 0) {
             _subtasksByTaskId[taskId]![idx] = subTask;
           }
@@ -440,7 +491,9 @@ class _TasksPageState extends State<_TasksPageContent> {
       setState(() {
         final taskId = subTask.taskId;
         if (_subtasksByTaskId[taskId] != null) {
-          final idx = _subtasksByTaskId[taskId]!.indexWhere((s) => s.id == subTask.id);
+          final idx = _subtasksByTaskId[taskId]!.indexWhere(
+            (s) => s.id == subTask.id,
+          );
           if (idx >= 0) {
             _subtasksByTaskId[taskId]![idx] = result;
           }
@@ -489,11 +542,15 @@ class _TasksPageState extends State<_TasksPageContent> {
                       fillColor: colors.surface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.3)),
+                        borderSide: BorderSide(
+                          color: colors.outline.withValues(alpha: 0.3),
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
+                        borderSide: BorderSide(
+                          color: colors.outline.withValues(alpha: 0.2),
+                        ),
                       ),
                     ),
                   ),
@@ -508,11 +565,15 @@ class _TasksPageState extends State<_TasksPageContent> {
                       fillColor: colors.surface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.3)),
+                        borderSide: BorderSide(
+                          color: colors.outline.withValues(alpha: 0.3),
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
+                        borderSide: BorderSide(
+                          color: colors.outline.withValues(alpha: 0.2),
+                        ),
                       ),
                     ),
                     maxLines: 2,
@@ -529,7 +590,8 @@ class _TasksPageState extends State<_TasksPageContent> {
                               firstDate: DateTime(2020),
                               lastDate: DateTime(2100),
                             );
-                            if (picked != null) setState(() => _dueDate = picked);
+                            if (picked != null)
+                              setState(() => _dueDate = picked);
                           },
                           child: InputDecorator(
                             decoration: InputDecoration(
@@ -538,11 +600,15 @@ class _TasksPageState extends State<_TasksPageContent> {
                               fillColor: colors.surface,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.3)),
+                                borderSide: BorderSide(
+                                  color: colors.outline.withValues(alpha: 0.3),
+                                ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
+                                borderSide: BorderSide(
+                                  color: colors.outline.withValues(alpha: 0.2),
+                                ),
                               ),
                             ),
                             child: Text(
@@ -550,7 +616,9 @@ class _TasksPageState extends State<_TasksPageContent> {
                                   ? DateFormat('dd.MM.yyyy').format(_dueDate!)
                                   : 'Optional',
                               style: TextStyle(
-                                color: _dueDate != null ? colors.onSurface : colors.onSurfaceVariant,
+                                color: _dueDate != null
+                                    ? colors.onSurface
+                                    : colors.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -561,25 +629,36 @@ class _TasksPageState extends State<_TasksPageContent> {
                         child: DropdownButtonFormField<String>(
                           initialValue: _priority,
                           items: ['low', 'medium', 'high']
-                              .map((p) => DropdownMenuItem(
-                                    value: p,
-                                    child: Text(
-                                      p == 'low' ? 'Niedrig' : p == 'medium' ? 'Mittel' : 'Hoch',
-                                    ),
-                                  ))
+                              .map(
+                                (p) => DropdownMenuItem(
+                                  value: p,
+                                  child: Text(
+                                    p == 'low'
+                                        ? 'Niedrig'
+                                        : p == 'medium'
+                                        ? 'Mittel'
+                                        : 'Hoch',
+                                  ),
+                                ),
+                              )
                               .toList(),
-                          onChanged: (v) => setState(() => _priority = v ?? 'medium'),
+                          onChanged: (v) =>
+                              setState(() => _priority = v ?? 'medium'),
                           decoration: InputDecoration(
                             labelText: 'Priorität',
                             filled: true,
                             fillColor: colors.surface,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.3)),
+                              borderSide: BorderSide(
+                                color: colors.outline.withValues(alpha: 0.3),
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
+                              borderSide: BorderSide(
+                                color: colors.outline.withValues(alpha: 0.2),
+                              ),
                             ),
                           ),
                         ),
@@ -615,9 +694,18 @@ class _TasksPageState extends State<_TasksPageContent> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.cloud_off_rounded, size: 48, color: colors.onSurfaceVariant),
+                  Icon(
+                    Icons.cloud_off_rounded,
+                    size: 48,
+                    color: colors.onSurfaceVariant,
+                  ),
                   const SizedBox(height: 12),
-                  Text(_error!, style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
+                  Text(
+                    _error!,
+                    style: text.bodyMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: _loadTasks,
@@ -649,8 +737,8 @@ class _TasksPageState extends State<_TasksPageContent> {
   Widget _buildKanbanColumn(ColorScheme colors, TextTheme text, String state) {
     final tasks = _getTasksByState(state);
     return DragTarget<Task>(
-      onAccept: (draggedTask) {
-        _updateTaskState(draggedTask, state);
+      onAcceptWithDetails: (draggedTask) {
+        _updateTaskState(draggedTask as Task, state);
       },
       builder: (context, candidateData, rejectedData) {
         return Container(
@@ -673,14 +761,23 @@ class _TasksPageState extends State<_TasksPageContent> {
                     ? Center(
                         child: Text(
                           'Keine Tasks',
-                          style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+                          style: text.bodyMedium?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         itemCount: tasks.length,
                         itemBuilder: (context, index) {
-                          return _buildDraggableTaskCard(colors, text, tasks[index]);
+                          return _buildDraggableTaskCard(
+                            colors,
+                            text,
+                            tasks[index],
+                          );
                         },
                       ),
               ),
@@ -691,7 +788,12 @@ class _TasksPageState extends State<_TasksPageContent> {
     );
   }
 
-  Widget _buildListHeader(ColorScheme colors, TextTheme text, String state, int count) {
+  Widget _buildListHeader(
+    ColorScheme colors,
+    TextTheme text,
+    String state,
+    int count,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -732,7 +834,11 @@ class _TasksPageState extends State<_TasksPageContent> {
     );
   }
 
-  Widget _buildDraggableTaskCard(ColorScheme colors, TextTheme text, Task task) {
+  Widget _buildDraggableTaskCard(
+    ColorScheme colors,
+    TextTheme text,
+    Task task,
+  ) {
     return GestureDetector(
       onTap: () => _showTaskEditDialog(task),
       child: _buildTaskCard(colors, text, task),
@@ -855,11 +961,17 @@ class _TasksPageState extends State<_TasksPageContent> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.calendar_today, size: 12, color: colors.onSurfaceVariant),
+                    Icon(
+                      Icons.calendar_today,
+                      size: 12,
+                      color: colors.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       DateFormat('dd.MM').format(task.dueDate!),
-                      style: text.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+                      style: text.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -867,10 +979,16 @@ class _TasksPageState extends State<_TasksPageContent> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _getPriorityColor(colors, task.priority).withValues(alpha: 0.3),
+                color: _getPriorityColor(
+                  colors,
+                  task.priority,
+                ).withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: _getPriorityColor(colors, task.priority).withValues(alpha: 0.5),
+                  color: _getPriorityColor(
+                    colors,
+                    task.priority,
+                  ).withValues(alpha: 0.5),
                 ),
               ),
               child: Text(
@@ -932,10 +1050,12 @@ class _TasksPageState extends State<_TasksPageContent> {
               PopupMenuButton<User>(
                 onSelected: (user) => _changeTaskUser(task, user),
                 itemBuilder: (context) => _users
-                    .map((user) => PopupMenuItem(
-                          value: user,
-                          child: Text('${user.firstname} ${user.lastname}'),
-                        ))
+                    .map(
+                      (user) => PopupMenuItem(
+                        value: user,
+                        child: Text('${user.firstname} ${user.lastname}'),
+                      ),
+                    )
                     .toList(),
                 child: Icon(Icons.edit, size: 12, color: colors.primary),
               ),
@@ -1015,11 +1135,17 @@ class _TasksPageState extends State<_TasksPageContent> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.calendar_today, size: 12, color: colors.onSurfaceVariant),
+                    Icon(
+                      Icons.calendar_today,
+                      size: 12,
+                      color: colors.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       DateFormat('dd.MM').format(task.dueDate!),
-                      style: text.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+                      style: text.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -1027,10 +1153,16 @@ class _TasksPageState extends State<_TasksPageContent> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _getPriorityColor(colors, task.priority).withValues(alpha: 0.3),
+                color: _getPriorityColor(
+                  colors,
+                  task.priority,
+                ).withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: _getPriorityColor(colors, task.priority).withValues(alpha: 0.5),
+                  color: _getPriorityColor(
+                    colors,
+                    task.priority,
+                  ).withValues(alpha: 0.5),
                 ),
               ),
               child: Text(
@@ -1067,10 +1199,12 @@ class _TasksPageState extends State<_TasksPageContent> {
               PopupMenuButton<User>(
                 onSelected: (user) => _changeTaskUser(task, user),
                 itemBuilder: (context) => _users
-                    .map((user) => PopupMenuItem(
-                          value: user,
-                          child: Text('${user.firstname} ${user.lastname}'),
-                        ))
+                    .map(
+                      (user) => PopupMenuItem(
+                        value: user,
+                        child: Text('${user.firstname} ${user.lastname}'),
+                      ),
+                    )
                     .toList(),
                 child: Icon(Icons.edit, size: 12, color: colors.primary),
               ),

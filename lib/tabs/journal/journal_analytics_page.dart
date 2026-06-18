@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:productivity/dataclasses/journal_analysis.dart';
 import 'package:productivity/dataservice/journal_analysis_service.dart';
 
 class JournalAnalyticsPage extends StatefulWidget {
@@ -76,9 +75,7 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Journal Analyse'),
-      ),
+      appBar: AppBar(title: const Text('Journal Analyse')),
       body: RefreshIndicator(
         onRefresh: _loadAnalytics,
         child: SingleChildScrollView(
@@ -131,9 +128,7 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
               const SizedBox(height: 24),
 
               if (_isLoading)
-                Center(
-                  child: CircularProgressIndicator(color: colors.primary),
-                )
+                Center(child: CircularProgressIndicator(color: colors.primary))
               else if (_error != null)
                 Center(
                   child: Column(
@@ -141,8 +136,10 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
                     children: [
                       Icon(Icons.error_outline, size: 48, color: colors.error),
                       const SizedBox(height: 16),
-                      Text('Fehler beim Laden',
-                          style: text.bodyMedium?.copyWith(color: colors.error)),
+                      Text(
+                        'Fehler beim Laden',
+                        style: text.bodyMedium?.copyWith(color: colors.error),
+                      ),
                     ],
                   ),
                 )
@@ -150,7 +147,9 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
                 Center(
                   child: Text(
                     'Keine Analysen verfügbar',
-                    style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+                    style: text.bodyMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
                 )
               else ...[
@@ -162,7 +161,10 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Durchschnittliche Stimmung', style: text.titleSmall),
+                        Text(
+                          'Durchschnittliche Stimmung',
+                          style: text.titleSmall,
+                        ),
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -174,12 +176,16 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
                                 color: _getAverageSentiment() > 0
                                     ? Colors.green.withValues(alpha: 0.2)
                                     : _getAverageSentiment() < 0
-                                        ? Colors.red.withValues(alpha: 0.2)
-                                        : Colors.grey.withValues(alpha: 0.2),
+                                    ? Colors.red.withValues(alpha: 0.2)
+                                    : Colors.grey.withValues(alpha: 0.2),
                               ),
                               child: Center(
                                 child: Text(
-                                  _getAverageSentiment() > 0 ? '😊' : _getAverageSentiment() < 0 ? '😔' : '😐',
+                                  _getAverageSentiment() > 0
+                                      ? '😊'
+                                      : _getAverageSentiment() < 0
+                                      ? '😔'
+                                      : '😐',
                                   style: const TextStyle(fontSize: 32),
                                 ),
                               ),
@@ -312,7 +318,9 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
     required Color color,
     required TextTheme text,
   }) {
-    final percentage = total > 0 ? (count / total * 100).toStringAsFixed(1) : '0.0';
+    final percentage = total > 0
+        ? (count / total * 100).toStringAsFixed(1)
+        : '0.0';
 
     return Row(
       children: [
