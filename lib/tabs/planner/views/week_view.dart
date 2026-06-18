@@ -63,7 +63,7 @@ class _WeekViewState extends State<WeekView> {
               ),
             ),
             SizedBox(
-              height: 80,
+              height: 70,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -79,38 +79,35 @@ class _WeekViewState extends State<WeekView> {
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GestureDetector(
-                      onTap: () {
-                        // Könnte hier zu DayView wechseln
-                      },
-                      child: Card(
-                        child: Container(
-                          width: 80,
-                          padding: const EdgeInsets.all(8),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][index],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                    child: Card(
+                      child: Container(
+                        width: 70,
+                        padding: const EdgeInsets.all(6),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][index],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                day.day.toString(),
-                                style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              day.day.toString(),
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '$dayEntries',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '$dayEntries Einträge',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
