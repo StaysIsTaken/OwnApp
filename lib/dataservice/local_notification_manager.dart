@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -17,14 +18,23 @@ import 'package:timezone/timezone.dart' as tz;
 ///  - scheduled at a specific time (e.g. when a task is due)
 class LocalNotificationManager {
   LocalNotificationManager._internal();
-  static final LocalNotificationManager _instance =
-      LocalNotificationManager._internal();
-  factory LocalNotificationManager() => _instance;
+  
+  static LocalNotificationManager? _instance;
+  
+  factory LocalNotificationManager() {
+    _instance ??= LocalNotificationManager._internal();
+    return _instance!;
+  }
 
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin? _plugin;
 
   bool _initialized = false;
+
+  /// Get or create the plugin (lazy initialization)
+  FlutterLocalNotificationsPlugin _getPlugin() {
+    _plugin ??= FlutterLocalNotificationsPlugin();
+    return _plugin!;
+  }
 
   // ──── Channel IDs ────────────────────────────────────
   static const String channelTasks = 'tasks_channel';
@@ -40,7 +50,24 @@ class LocalNotificationManager {
   // ──── Initialization ─────────────────────────────────
   Future<void> init() async {
     if (_initialized) return;
-    if (kIsWeb) return; // Web does not support flutter_local_notifications
+    
+    // Web and desktop platforms do not support flutter_local_notifications
+    if (kIsWeb) {
+      _initialized = true;
+      return;
+    }
+    
+    // Check if platform is supported (only Android and iOS)
+    try {
+      if (!Platform.isAndroid && !Platform.isIOS) {
+        _initialized = true;
+        return;
+      }
+    } catch (e) {
+      // If platform check fails, mark as initialized and return
+      _initialized = true;
+      return;
+    }
 
     tz.initializeTimeZones();
 
@@ -55,7 +82,7 @@ class LocalNotificationManager {
       iOS: iosSettings,
     );
 
-    await _plugin.initialize(
+    await _getPlugin().initialize(
       initSettings,
       onDidReceiveNotificationResponse: _handleNotificationTap,
     );
@@ -67,6 +94,12 @@ class LocalNotificationManager {
   /// Returns `true` if granted.
   Future<bool> requestPermissions() async {
     if (kIsWeb) return false;
+    
+    try {
+      if (!Platform.isAndroid && !Platform.isIOS) return false;
+    } catch (_) {
+      return false;
+    }
 
     // Android 13+ requires runtime permission
     final notifStatus = await Permission.notification.request();
@@ -81,7 +114,7 @@ class LocalNotificationManager {
     }
 
     // iOS permissions
-    final iosImpl = _plugin.resolvePlatformSpecificImplementation<
+    final iosImpl = _getPlugin().resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
     if (iosImpl != null) {
       await iosImpl.requestPermissions(alert: true, badge: true, sound: true);
@@ -92,7 +125,14 @@ class LocalNotificationManager {
 
   Future<bool> areNotificationsEnabled() async {
     if (kIsWeb) return false;
-    final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+    
+    try {
+      if (!Platform.isAndroid && !Platform.isIOS) return false;
+    } catch (_) {
+      return false;
+    }
+    
+    final androidImpl = _getPlugin().resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (androidImpl != null) {
       return await androidImpl.areNotificationsEnabled() ?? false;
@@ -137,7 +177,7 @@ class LocalNotificationManager {
     if (!await _isChannelAllowed(channelId)) return;
 
     final details = _buildNotificationDetails(channelId);
-    await _plugin.show(id, title, body, details, payload: payload);
+    await _getPlugin().show(id, title, body, details, payload: payload);
   }
 
   // ──── Schedule at specific Time ──────────────────────
@@ -158,7 +198,7 @@ class LocalNotificationManager {
     final tzWhen = tz.TZDateTime.from(when, tz.local);
 
     try {
-      await _plugin.zonedSchedule(
+      await _getPlugin().zonedSchedule(
         id,
         title,
         body,
@@ -172,7 +212,7 @@ class LocalNotificationManager {
     } catch (e) {
       // Fallback to inexact scheduling if exact alarm not allowed
       try {
-        await _plugin.zonedSchedule(
+        await _getPlugin().zonedSchedule(
           id,
           title,
           body,
@@ -192,18 +232,18 @@ class LocalNotificationManager {
   // ──── Cancel ────────────────────────────────────────
   Future<void> cancel(int id) async {
     if (kIsWeb || !_initialized) return;
-    await _plugin.cancel(id);
+    await _getPlugin().cancel(id);
   }
 
   Future<void> cancelAll() async {
     if (kIsWeb || !_initialized) return;
-    await _plugin.cancelAll();
+    await _getPlugin().cancelAll();
   }
 
   /// Returns IDs of currently scheduled (not yet shown) notifications.
   Future<List<PendingNotificationRequest>> pending() async {
     if (kIsWeb || !_initialized) return [];
-    return await _plugin.pendingNotificationRequests();
+    return await _getPlugin().pendingNotificationRequests();
   }
 
   // ──── Internal Helpers ──────────────────────────────

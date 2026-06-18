@@ -22,12 +22,14 @@ import 'package:productivity/tabs/time.dart';
 import 'package:productivity/tabs/notes/notes_page.dart';
 import 'package:productivity/tabs/journal/journal_page.dart';
 import 'package:productivity/tabs/calendar/calendar_page.dart';
+import 'package:productivity/tabs/planner/planner_tab.dart';
 import 'package:flutter/foundation.dart';
 import 'package:productivity/widgets/drawer.dart';
 import 'package:productivity/widgets/auth_wrapper.dart';
 import 'package:productivity/dataservice/notification_service.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/dataservice/background_task_manager.dart';
+import 'package:productivity/provider/planner_provider.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -44,6 +46,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => PlannerProvider()),
       ],
       child: const MyApp(),
     ),
@@ -136,6 +139,7 @@ class AppRoutes {
   static const String notes = '/notes';
   static const String journal = '/journal';
   static const String calendar = '/calendar';
+  static const String planner = '/planner';
 
   static final Map<String, WidgetBuilder> routes = {
     login: (_) => const Login(),
@@ -162,6 +166,7 @@ class AppRoutes {
     notes: (_) => const NotesPage(),
     journal: (_) => const JournalPage(),
     calendar: (_) => const CalendarPage(),
+    planner: (_) => const PlannerTab(),
   };
 }
 

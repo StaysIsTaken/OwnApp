@@ -50,6 +50,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
       route: AppRoutes.tasks,
     ),
     NavItem(
+      icon: Icons.event_note_outlined,
+      iconActive: Icons.event_note_rounded,
+      label: 'Planner',
+      route: AppRoutes.planner,
+    ),
+    NavItem(
       icon: Icons.chat_outlined,
       iconActive: Icons.chat_rounded,
       label: 'Chat',
