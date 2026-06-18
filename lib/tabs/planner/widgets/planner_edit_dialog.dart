@@ -134,10 +134,9 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
 
   Future<void> _pickStartTime() async {
     final settings = context.read<SettingsProvider>();
-    final time = await showTimePicker(
-      context: context,
+    final time = await _showCustomTimePicker(
       initialTime: TimeOfDay.fromDateTime(_scheduledAt),
-      use24HourFormat: settings.use24hFormat,
+      use24hFormat: settings.use24hFormat,
     );
     if (time != null) {
       setState(() {
@@ -159,10 +158,9 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
 
   Future<void> _pickEndTime() async {
     final settings = context.read<SettingsProvider>();
-    final time = await showTimePicker(
-      context: context,
+    final time = await _showCustomTimePicker(
       initialTime: TimeOfDay.fromDateTime(_endsAt),
-      use24HourFormat: settings.use24hFormat,
+      use24hFormat: settings.use24hFormat,
     );
     if (time != null) {
       setState(() {
@@ -402,6 +400,24 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
     if (h > 0 && m > 0) return '${h}h ${m}min';
     if (h > 0) return '${h}h';
     return '${m}min';
+  }
+
+  Future<TimeOfDay?> _showCustomTimePicker({
+    required TimeOfDay initialTime,
+    required bool use24hFormat,
+  }) async {
+    return showTimePicker(
+      context: context,
+      initialTime: initialTime,
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(alwaysUse24HourFormat: use24hFormat),
+          child: child!,
+        );
+      },
+    );
   }
 
   void _confirmDelete() {
