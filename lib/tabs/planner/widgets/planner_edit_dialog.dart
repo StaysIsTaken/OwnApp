@@ -3,6 +3,8 @@ import 'package:productivity/dataclasses/planner_entry.dart';
 
 class PlannerEditDialog extends StatefulWidget {
   final PlannerEntry? entry;
+  final DateTime? initialScheduledAt;
+  final int? initialDurationMin;
   final Function(
     String title,
     String? description,
@@ -18,6 +20,8 @@ class PlannerEditDialog extends StatefulWidget {
   const PlannerEditDialog({
     Key? key,
     this.entry,
+    this.initialScheduledAt,
+    this.initialDurationMin,
     required this.onSave,
   }) : super(key: key);
 
@@ -55,8 +59,10 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
     _descriptionController =
         TextEditingController(text: widget.entry?.description ?? '');
     _type = widget.entry?.type ?? _types[0];
-    _scheduledAt = widget.entry?.scheduledAt ?? DateTime.now();
-    _durationMin = widget.entry?.durationMin ?? 60;
+    _scheduledAt =
+        widget.entry?.scheduledAt ?? widget.initialScheduledAt ?? DateTime.now();
+    _durationMin =
+        widget.entry?.durationMin ?? widget.initialDurationMin ?? 60;
     _notifyMinBefore = widget.entry?.notifyMinBefore ?? 10;
     _color = widget.entry?.color ?? _colors[0];
     _parentId = widget.entry?.parentId;
