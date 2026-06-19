@@ -124,6 +124,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
       label: 'Lagerorte',
       route: AppRoutes.storageLocations,
     ),
+    NavItem(
+      icon: Icons.label_outline,
+      iconActive: Icons.label_rounded,
+      label: 'Termin-Typen',
+      route: AppRoutes.plannerTypes,
+    ),
   ];
 
   static const _settingsItem = NavItem(

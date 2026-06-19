@@ -1,16 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/planner_entry_type.dart';
 import 'package:productivity/provider/planner_provider.dart';
+import 'package:productivity/widgets/color_picker_dialog.dart';
 
-class ManagePlannerTypesPage extends StatefulWidget {
-  const ManagePlannerTypesPage({super.key});
+class ManagePlannerTypesPage extends BasePage {
+  const ManagePlannerTypesPage({super.key})
+      : super(title: 'Termin-Typen verwalten');
 
   @override
-  State<ManagePlannerTypesPage> createState() => _ManagePlannerTypesPageState();
+  Widget buildBody(BuildContext context) => const _ManageTypesContent();
+
+  @override
+  Widget? buildFAB(BuildContext context) => FloatingActionButton(
+        onPressed: () => showDialog(
+          context: context,
+          builder: (_) => const _TypeEditDialog(),
+        ),
+        child: const Icon(Icons.add),
+      );
 }
 
-class _ManagePlannerTypesPageState extends State<ManagePlannerTypesPage> {
+class _ManageTypesContent extends StatefulWidget {
+  const _ManageTypesContent();
+
+  @override
+  State<_ManageTypesContent> createState() => _ManageTypesContentState();
+}
+
+class _ManageTypesContentState extends State<_ManageTypesContent> {
   @override
   void initState() {
     super.initState();
@@ -26,67 +45,58 @@ class _ManagePlannerTypesPageState extends State<ManagePlannerTypesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Planner-Typen')),
-      body: Consumer<PlannerProvider>(
-        builder: (context, provider, child) {
-          final types = provider.types;
-          if (types.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.category_outlined,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Noch keine Typen angelegt',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ],
+    return Consumer<PlannerProvider>(
+      builder: (context, provider, child) {
+        final types = provider.types;
+        if (types.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.category_outlined,
+                    size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text('Noch keine Typen angelegt',
+                    style: TextStyle(color: Colors.grey[600])),
+              ],
+            ),
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(12),
+          itemCount: types.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 4),
+          itemBuilder: (context, index) {
+            final t = types[index];
+            return Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: _getColorFromHex(t.color),
+                  radius: 14,
+                ),
+                title: Text(t.name),
+                subtitle: Text(t.color),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => _TypeEditDialog(type: t),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _confirmDelete(context, t),
+                    ),
+                  ],
+                ),
               ),
             );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: types.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 4),
-            itemBuilder: (context, index) {
-              final t = types[index];
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: _getColorFromHex(t.color),
-                    radius: 14,
-                  ),
-                  title: Text(t.name),
-                  subtitle: Text(t.color),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => _showEditDialog(context, t),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _confirmDelete(context, t),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showEditDialog(context, null),
-        child: const Icon(Icons.add),
-      ),
+          },
+        );
+      },
     );
   }
 
@@ -112,13 +122,6 @@ class _ManagePlannerTypesPageState extends State<ManagePlannerTypesPage> {
       ),
     );
   }
-
-  void _showEditDialog(BuildContext context, PlannerEntryType? type) {
-    showDialog(
-      context: context,
-      builder: (_) => _TypeEditDialog(type: type),
-    );
-  }
 }
 
 class _TypeEditDialog extends StatefulWidget {
@@ -134,14 +137,8 @@ class _TypeEditDialogState extends State<_TypeEditDialog> {
   late String _color;
 
   final List<String> _colors = [
-    '#3B82F6',
-    '#EF4444',
-    '#10B981',
-    '#F59E0B',
-    '#8B5CF6',
-    '#EC4899',
-    '#06B6D4',
-    '#6366F1',
+    '#3B82F6', '#EF4444', '#10B981', '#F59E0B',
+    '#8B5CF6', '#EC4899', '#06B6D4', '#6366F1',
   ];
 
   @override
@@ -184,26 +181,55 @@ class _TypeEditDialogState extends State<_TypeEditDialog> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _colors.map((c) {
-              final isSelected = c == _color;
-              return GestureDetector(
-                onTap: () => setState(() => _color = c),
+            children: [
+              for (final c in [
+                ..._colors,
+                if (!_colors.contains(_color)) _color,
+              ])
+                GestureDetector(
+                  onTap: () => setState(() => _color = c),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _getColorFromHex(c),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: c == _color
+                            ? theme.colorScheme.onSurface
+                            : Colors.transparent,
+                        width: c == _color ? 3 : 0,
+                      ),
+                    ),
+                  ),
+                ),
+              GestureDetector(
+                onTap: () async {
+                  final picked = await ColorPickerDialog.show(context, _color);
+                  if (picked != null) setState(() => _color = picked);
+                },
                 child: Container(
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: _getColorFromHex(c),
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected
-                          ? theme.colorScheme.onSurface
-                          : Colors.transparent,
-                      width: isSelected ? 3 : 0,
+                    border: Border.all(color: theme.dividerColor),
+                    gradient: const SweepGradient(
+                      colors: [
+                        Color(0xFFFF0000),
+                        Color(0xFFFFFF00),
+                        Color(0xFF00FF00),
+                        Color(0xFF00FFFF),
+                        Color(0xFF0000FF),
+                        Color(0xFFFF00FF),
+                        Color(0xFFFF0000),
+                      ],
                     ),
                   ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 20),
                 ),
-              );
-            }).toList(),
+              ),
+            ],
           ),
         ],
       ),
@@ -226,9 +252,7 @@ class _TypeEditDialogState extends State<_TypeEditDialog> {
             try {
               if (widget.type == null) {
                 await provider.createType(
-                  name: _nameController.text.trim(),
-                  color: _color,
-                );
+                    name: _nameController.text.trim(), color: _color);
               } else {
                 await provider.updateType(
                   widget.type!.id,
@@ -238,7 +262,9 @@ class _TypeEditDialogState extends State<_TypeEditDialog> {
               }
               navigator.pop();
             } catch (e) {
-              messenger.showSnackBar(SnackBar(content: Text('Fehler: $e')));
+              messenger.showSnackBar(
+                SnackBar(content: Text('Fehler: $e')),
+              );
             }
           },
           child: const Text('Speichern'),

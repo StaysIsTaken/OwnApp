@@ -5,6 +5,8 @@ class PlannerEntry {
   final String? description;
   final int? typeId;
   final String? type;
+  final int? recurrenceId;
+  final bool isDetached;
   final DateTime scheduledAt;
   final DateTime endsAt;
   final int durationMin;
@@ -23,6 +25,8 @@ class PlannerEntry {
     this.description,
     this.typeId,
     this.type,
+    this.recurrenceId,
+    this.isDetached = false,
     required this.scheduledAt,
     required this.endsAt,
     this.durationMin = 60,
@@ -47,6 +51,8 @@ class PlannerEntry {
       description: json['description'],
       typeId: json['type_id'],
       type: json['type'],
+      recurrenceId: json['recurrence_id'],
+      isDetached: json['is_detached'] ?? false,
       scheduledAt: scheduledAt,
       endsAt: json['ends_at'] != null
           ? DateTime.parse(json['ends_at'])
@@ -96,6 +102,8 @@ class PlannerEntry {
     String? description,
     int? typeId,
     String? type,
+    int? recurrenceId,
+    bool? isDetached,
     DateTime? scheduledAt,
     DateTime? endsAt,
     int? durationMin,
@@ -114,6 +122,8 @@ class PlannerEntry {
       description: description ?? this.description,
       typeId: typeId ?? this.typeId,
       type: type ?? this.type,
+      recurrenceId: recurrenceId ?? this.recurrenceId,
+      isDetached: isDetached ?? this.isDetached,
       scheduledAt: scheduledAt ?? this.scheduledAt,
       endsAt: endsAt ?? this.endsAt,
       durationMin: durationMin ?? this.durationMin,

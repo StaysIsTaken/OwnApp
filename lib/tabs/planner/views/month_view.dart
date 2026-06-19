@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/provider/planner_provider.dart';
+import 'package:productivity/widgets/platform_draggable.dart';
 import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
 
 class MonthView extends StatefulWidget {
@@ -283,19 +284,30 @@ class _MonthViewState extends State<MonthView> {
         borderRadius: BorderRadius.circular(3),
       ),
       alignment: Alignment.centerLeft,
-      child: Text(
-        '${_formatTime(entry.scheduledAt)} ${entry.title}',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      child: Row(
+        children: [
+          if (entry.recurrenceId != null)
+            const Padding(
+              padding: EdgeInsets.only(right: 2),
+              child: Icon(Icons.repeat, size: 9, color: Colors.white),
+            ),
+          Expanded(
+            child: Text(
+              '${_formatTime(entry.scheduledAt)} ${entry.title}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
 
-    return LongPressDraggable<PlannerEntry>(
+    return platformDraggable<PlannerEntry>(
       data: entry,
       feedback: Material(
         color: Colors.transparent,
@@ -364,28 +376,8 @@ class _MonthViewState extends State<MonthView> {
       builder: (context) => PlannerEditDialog(
         initialScheduledAt: scheduledAt,
         initialEndsAt: scheduledAt.add(const Duration(hours: 1)),
-        onSave:
-            (
-              title,
-              description,
-              typeId,
-              start,
-              end,
-              notifyMinBefore,
-              color,
-              parentId,
-              orderIndex,
-            ) {
-              context.read<PlannerProvider>().createEntry(
-                title: title,
-                description: description,
-                typeId: typeId,
-                scheduledAt: start,
-                endsAt: end,
-                notifyMinBefore: notifyMinBefore,
-                color: color,
-              );
-            },
+        onSubmit: (result, scope) =>
+            _submitNew(context.read<PlannerProvider>(), result),
       ),
     );
   }
@@ -396,31 +388,65 @@ class _MonthViewState extends State<MonthView> {
       context: context,
       builder: (context) => PlannerEditDialog(
         entry: entry,
-        onDelete: () => provider.deleteEntry(entry.id),
-        onSave:
-            (
-              title,
-              description,
-              typeId,
-              start,
-              end,
-              notifyMinBefore,
-              color,
-              parentId,
-              orderIndex,
-            ) {
-              provider.updateEntry(
-                entry.id,
-                title: title,
-                description: description,
-                typeId: typeId,
-                scheduledAt: start,
-                endsAt: end,
-                notifyMinBefore: notifyMinBefore,
-                color: color,
-              );
-            },
+        onDelete: (scope) {
+          if (entry.recurrenceId != null) {
+            provider.deleteSeriesEntry(entry.id, scope ?? 'single');
+          } else {
+            provider.deleteEntry(entry.id);
+          }
+        },
+        onSubmit: (result, scope) {
+          if (entry.recurrenceId != null) {
+            provider.updateSeriesEntry(
+              entry.id,
+              scope ?? 'single',
+              title: result.title,
+              description: result.description,
+              typeId: result.typeId,
+              scheduledAt: result.scheduledAt,
+              endsAt: result.endsAt,
+              notifyMinBefore: result.notifyMinBefore,
+              color: result.color,
+            );
+          } else {
+            provider.updateEntry(
+              entry.id,
+              title: result.title,
+              description: result.description,
+              typeId: result.typeId,
+              scheduledAt: result.scheduledAt,
+              endsAt: result.endsAt,
+              notifyMinBefore: result.notifyMinBefore,
+              color: result.color,
+            );
+          }
+        },
       ),
     );
+  }
+
+  void _submitNew(PlannerProvider provider, PlannerFormResult result) {
+    if (result.recurrence != null) {
+      provider.createRecurringEntry(
+        title: result.title,
+        description: result.description,
+        typeId: result.typeId,
+        scheduledAt: result.scheduledAt,
+        endsAt: result.endsAt,
+        notifyMinBefore: result.notifyMinBefore,
+        color: result.color,
+        recurrence: result.recurrence!.toJson(),
+      );
+    } else {
+      provider.createEntry(
+        title: result.title,
+        description: result.description,
+        typeId: result.typeId,
+        scheduledAt: result.scheduledAt,
+        endsAt: result.endsAt,
+        notifyMinBefore: result.notifyMinBefore,
+        color: result.color,
+      );
+    }
   }
 }

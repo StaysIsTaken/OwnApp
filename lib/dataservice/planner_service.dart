@@ -11,9 +11,23 @@ class PlannerService {
       final response = await ApiClient.dio.get(_path);
       if (response.statusCode == 200) {
         final List<dynamic> items = response.data is List ? response.data : [];
-        return items
+        final topLevel = items
             .map((item) => PlannerEntry.fromJson(item as Map<String, dynamic>))
             .toList();
+        // Flach: Parent + (verschachtelte) Children in einer Liste, damit
+        // Sub-Einträge überall als eigenständige Termine genutzt werden können.
+        final flat = <PlannerEntry>[];
+        void collect(PlannerEntry e) {
+          flat.add(e);
+          for (final c in e.children) {
+            collect(c);
+          }
+        }
+
+        for (final e in topLevel) {
+          collect(e);
+        }
+        return flat;
       }
       return [];
     } catch (e) {
@@ -99,6 +113,73 @@ class PlannerService {
       throw Exception('Fehler beim Aktualisieren des Eintrags');
     } catch (e) {
       throw Exception('Fehler beim Aktualisieren des Eintrags: $e');
+    }
+  }
+
+  // ── Wiederkehrende Serien ──────────────────────────────────────────────
+
+  static Future<void> createRecurring({
+    required String title,
+    String? description,
+    required int typeId,
+    required DateTime scheduledAt,
+    required DateTime endsAt,
+    int notifyMinBefore = 10,
+    String color = '#3B82F6',
+    required Map<String, dynamic> recurrence,
+  }) async {
+    try {
+      await ApiClient.dio.post('$_path/recurring', data: {
+        'title': title,
+        'description': description,
+        'type_id': typeId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'ends_at': endsAt.toIso8601String(),
+        'notify_min_before': notifyMinBefore,
+        'color': color,
+        'recurrence': recurrence,
+      });
+    } catch (e) {
+      throw Exception('Fehler beim Erstellen der Serie: $e');
+    }
+  }
+
+  /// scope: 'single' | 'all' | 'future'
+  static Future<void> updateSeries(
+    int id,
+    String scope, {
+    String? title,
+    String? description,
+    int? typeId,
+    DateTime? scheduledAt,
+    DateTime? endsAt,
+    int? notifyMinBefore,
+    String? color,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {};
+      if (title != null) data['title'] = title;
+      if (description != null) data['description'] = description;
+      if (typeId != null) data['type_id'] = typeId;
+      if (scheduledAt != null) data['scheduled_at'] = scheduledAt.toIso8601String();
+      if (endsAt != null) data['ends_at'] = endsAt.toIso8601String();
+      if (notifyMinBefore != null) data['notify_min_before'] = notifyMinBefore;
+      if (color != null) data['color'] = color;
+
+      await ApiClient.dio.put('$_path/$id/recurring',
+          queryParameters: {'scope': scope}, data: data);
+    } catch (e) {
+      throw Exception('Fehler beim Aktualisieren der Serie: $e');
+    }
+  }
+
+  /// scope: 'single' | 'all' | 'future'
+  static Future<void> deleteSeries(int id, String scope) async {
+    try {
+      await ApiClient.dio.delete('$_path/$id/recurring',
+          queryParameters: {'scope': scope});
+    } catch (e) {
+      throw Exception('Fehler beim Löschen der Serie: $e');
     }
   }
 

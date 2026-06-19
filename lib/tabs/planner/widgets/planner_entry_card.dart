@@ -76,32 +76,42 @@ class PlannerEntryCard extends StatelessWidget {
       context: context,
       builder: (context) => PlannerEditDialog(
         entry: entry,
-        onSave:
-            (
-              title,
-              description,
-              typeId,
-              scheduledAt,
-              endsAt,
-              notifyMinBefore,
-              color,
-              parentId,
-              orderIndex,
-            ) {
-              context.read<PlannerProvider>().updateEntry(
-                entry.id,
-                title: title,
-                description: description,
-                typeId: typeId,
-                scheduledAt: scheduledAt,
-                endsAt: endsAt,
-                notifyMinBefore: notifyMinBefore,
-                color: color,
-                parentId: parentId,
-                orderIndex: orderIndex,
-              );
-              Navigator.of(context).pop();
-            },
+        onDelete: (scope) {
+          if (entry.recurrenceId != null) {
+            context
+                .read<PlannerProvider>()
+                .deleteSeriesEntry(entry.id, scope ?? 'single');
+          } else {
+            context.read<PlannerProvider>().deleteEntry(entry.id);
+          }
+        },
+        onSubmit: (result, scope) {
+          final provider = context.read<PlannerProvider>();
+          if (entry.recurrenceId != null) {
+            provider.updateSeriesEntry(
+              entry.id,
+              scope ?? 'single',
+              title: result.title,
+              description: result.description,
+              typeId: result.typeId,
+              scheduledAt: result.scheduledAt,
+              endsAt: result.endsAt,
+              notifyMinBefore: result.notifyMinBefore,
+              color: result.color,
+            );
+          } else {
+            provider.updateEntry(
+              entry.id,
+              title: result.title,
+              description: result.description,
+              typeId: result.typeId,
+              scheduledAt: result.scheduledAt,
+              endsAt: result.endsAt,
+              notifyMinBefore: result.notifyMinBefore,
+              color: result.color,
+            );
+          }
+        },
       ),
     );
   }

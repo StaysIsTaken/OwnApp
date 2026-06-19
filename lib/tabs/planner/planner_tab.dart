@@ -71,30 +71,31 @@ class _PlannerTabState extends State<PlannerTab>
     showDialog(
       context: context,
       builder: (context) => PlannerEditDialog(
-        onSave:
-            (
-              title,
-              description,
-              typeId,
-              scheduledAt,
-              endsAt,
-              notifyMinBefore,
-              color,
-              parentId,
-              orderIndex,
-            ) {
-              context.read<PlannerProvider>().createEntry(
-                title: title,
-                description: description,
-                typeId: typeId,
-                scheduledAt: scheduledAt,
-                endsAt: endsAt,
-                notifyMinBefore: notifyMinBefore,
-                color: color,
-                parentId: parentId,
-                orderIndex: orderIndex,
-              );
-            },
+        onSubmit: (result, scope) {
+          final provider = context.read<PlannerProvider>();
+          if (result.recurrence != null) {
+            provider.createRecurringEntry(
+              title: result.title,
+              description: result.description,
+              typeId: result.typeId,
+              scheduledAt: result.scheduledAt,
+              endsAt: result.endsAt,
+              notifyMinBefore: result.notifyMinBefore,
+              color: result.color,
+              recurrence: result.recurrence!.toJson(),
+            );
+          } else {
+            provider.createEntry(
+              title: result.title,
+              description: result.description,
+              typeId: result.typeId,
+              scheduledAt: result.scheduledAt,
+              endsAt: result.endsAt,
+              notifyMinBefore: result.notifyMinBefore,
+              color: result.color,
+            );
+          }
+        },
       ),
     );
   }

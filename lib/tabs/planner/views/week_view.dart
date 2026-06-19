@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
+import 'package:productivity/widgets/platform_draggable.dart';
 import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
 
 class WeekView extends StatefulWidget {
@@ -298,34 +299,95 @@ class _WeekViewState extends State<WeekView> {
                       : null),
             border: Border(left: BorderSide(color: lineColor)),
           ),
-          child: Stack(
-            children: [
-              Column(
-                children: List.generate(24, (hour) {
-                  return GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _showCreateEntryDialog(
-                      context,
-                      DateTime(day.year, day.month, day.day, hour, 0),
-                    ),
-                    child: Container(
-                      height: _hourHeight,
-                      decoration: BoxDecoration(
-                        border: Border(top: BorderSide(color: lineColor)),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              ...dayEntries.map(
-                (entry) => _buildEntryCard(context, theme, entry),
-              ),
-              if (isToday) _buildNowIndicator(now),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final laid = _layoutDay(dayEntries);
+              return Stack(
+                children: [
+                  Column(
+                    children: List.generate(24, (hour) {
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _showCreateEntryDialog(
+                          context,
+                          DateTime(day.year, day.month, day.day, hour, 0),
+                        ),
+                        child: Container(
+                          height: _hourHeight,
+                          decoration: BoxDecoration(
+                            border: Border(top: BorderSide(color: lineColor)),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  ...laid.map(
+                    (l) => _buildEntryCard(
+                        context, theme, l, constraints.maxWidth),
+                  ),
+                  if (isToday) _buildNowIndicator(now),
+                ],
+              );
+            },
           ),
         );
       },
     );
+  }
+
+  /// Berechnet Spalten für überlappende Termine (inkl. Parent/Child zur selben
+  /// Zeit), damit sie nebeneinander statt übereinander liegen.
+  List<_LaidOut> _layoutDay(List<PlannerEntry> entries) {
+    final sorted = [...entries]..sort((a, b) {
+        final s = a.scheduledAt.compareTo(b.scheduledAt);
+        if (s != 0) return s;
+        return b.endsAt.compareTo(a.endsAt);
+      });
+
+    final result = <_LaidOut>[];
+    var cluster = <PlannerEntry>[];
+    DateTime? clusterEnd;
+
+    void flush() {
+      if (cluster.isEmpty) return;
+      final colEnds = <DateTime>[];
+      final assign = <PlannerEntry, int>{};
+      for (final e in cluster) {
+        var placed = -1;
+        for (var i = 0; i < colEnds.length; i++) {
+          if (!e.scheduledAt.isBefore(colEnds[i])) {
+            placed = i;
+            colEnds[i] = e.endsAt;
+            break;
+          }
+        }
+        if (placed == -1) {
+          placed = colEnds.length;
+          colEnds.add(e.endsAt);
+        }
+        assign[e] = placed;
+      }
+      final cols = colEnds.length;
+      for (final e in cluster) {
+        result.add(_LaidOut(e, assign[e]!, cols));
+      }
+      cluster = [];
+      clusterEnd = null;
+    }
+
+    for (final e in sorted) {
+      if (cluster.isNotEmpty &&
+          clusterEnd != null &&
+          !e.scheduledAt.isBefore(clusterEnd!)) {
+        flush();
+      }
+      cluster.add(e);
+      clusterEnd = (clusterEnd == null || e.endsAt.isAfter(clusterEnd!))
+          ? e.endsAt
+          : clusterEnd;
+    }
+    flush();
+    return result;
   }
 
   void _handleDrop(
@@ -361,8 +423,11 @@ class _WeekViewState extends State<WeekView> {
   Widget _buildEntryCard(
     BuildContext context,
     ThemeData theme,
-    PlannerEntry entry,
+    _LaidOut laid,
+    double dayWidth,
   ) {
+    final entry = laid.entry;
+    final isChild = entry.parentId != null;
     final color = _getColorFromHex(entry.color);
     final start = entry.scheduledAt;
     final top = (start.hour + start.minute / 60.0) * _hourHeight;
@@ -372,28 +437,63 @@ class _WeekViewState extends State<WeekView> {
       double.infinity,
     );
     final isCompact = height < 40;
-    final colWidth = (MediaQuery.of(context).size.width - _timeColumnWidth) / 7;
+
+    // Spaltenbreite bei Überlappung
+    const gap = 2.0;
+    final colWidth = dayWidth / laid.columns;
+    final left = laid.column * colWidth + gap;
+    final width = (colWidth - gap * 1.5).clamp(8.0, double.infinity);
+    // Bei sehr schmalen Karten Icons/Padding reduzieren, sonst Overflow.
+    final showIcons = width > 36;
+    final hPad = width < 26 ? 2.0 : 6.0;
 
     final cardContent = Container(
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.22),
+        color: color.withValues(alpha: isChild ? 0.16 : 0.22),
         borderRadius: BorderRadius.circular(7),
-        border: Border(left: BorderSide(color: color, width: 3.5)),
+        border: Border(
+          left: BorderSide(color: color, width: isChild ? 2.5 : 3.5),
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            entry.title,
-            style: TextStyle(
-              color: Color.lerp(color, Colors.white, 0.65),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              height: 1.1,
-            ),
-            maxLines: isCompact ? 1 : 2,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              if (showIcons && isChild)
+                Padding(
+                  padding: const EdgeInsets.only(right: 2),
+                  child: Icon(
+                    Icons.subdirectory_arrow_right,
+                    size: 11,
+                    color: Color.lerp(color, Colors.white, 0.65),
+                  ),
+                ),
+              if (showIcons && entry.recurrenceId != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 3),
+                  child: Icon(
+                    Icons.repeat,
+                    size: 11,
+                    color: Color.lerp(color, Colors.white, 0.65),
+                  ),
+                ),
+              Expanded(
+                child: Text(
+                  entry.title,
+                  style: TextStyle(
+                    color: Color.lerp(color, Colors.white, 0.65),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    height: 1.1,
+                  ),
+                  maxLines: isCompact ? 1 : 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
           if (!isCompact) ...[
             const SizedBox(height: 2),
@@ -414,18 +514,17 @@ class _WeekViewState extends State<WeekView> {
 
     return Positioned(
       top: top + 1,
-      left: 3,
-      right: 3,
+      left: left,
+      width: width,
       height: height - 2,
-      child: LongPressDraggable<PlannerEntry>(
+      child: platformDraggable<PlannerEntry>(
         data: entry,
-        dragAnchorStrategy: childDragAnchorStrategy,
         feedback: Material(
           color: Colors.transparent,
           child: Opacity(
             opacity: 0.9,
             child: SizedBox(
-              width: colWidth - 6,
+              width: width,
               height: height - 2,
               child: cardContent,
             ),
@@ -510,28 +609,8 @@ class _WeekViewState extends State<WeekView> {
       builder: (context) => PlannerEditDialog(
         initialScheduledAt: scheduledAt,
         initialEndsAt: scheduledAt.add(const Duration(hours: 1)),
-        onSave:
-            (
-              title,
-              description,
-              typeId,
-              start,
-              end,
-              notifyMinBefore,
-              color,
-              parentId,
-              orderIndex,
-            ) {
-              context.read<PlannerProvider>().createEntry(
-                title: title,
-                description: description,
-                typeId: typeId,
-                scheduledAt: start,
-                endsAt: end,
-                notifyMinBefore: notifyMinBefore,
-                color: color,
-              );
-            },
+        onSubmit: (result, scope) =>
+            _submitNew(context.read<PlannerProvider>(), result),
       ),
     );
   }
@@ -542,31 +621,73 @@ class _WeekViewState extends State<WeekView> {
       context: context,
       builder: (context) => PlannerEditDialog(
         entry: entry,
-        onDelete: () => provider.deleteEntry(entry.id),
-        onSave:
-            (
-              title,
-              description,
-              typeId,
-              start,
-              end,
-              notifyMinBefore,
-              color,
-              parentId,
-              orderIndex,
-            ) {
-              provider.updateEntry(
-                entry.id,
-                title: title,
-                description: description,
-                typeId: typeId,
-                scheduledAt: start,
-                endsAt: end,
-                notifyMinBefore: notifyMinBefore,
-                color: color,
-              );
-            },
+        onDelete: (scope) {
+          if (entry.recurrenceId != null) {
+            provider.deleteSeriesEntry(entry.id, scope ?? 'single');
+          } else {
+            provider.deleteEntry(entry.id);
+          }
+        },
+        onSubmit: (result, scope) {
+          if (entry.recurrenceId != null) {
+            provider.updateSeriesEntry(
+              entry.id,
+              scope ?? 'single',
+              title: result.title,
+              description: result.description,
+              typeId: result.typeId,
+              scheduledAt: result.scheduledAt,
+              endsAt: result.endsAt,
+              notifyMinBefore: result.notifyMinBefore,
+              color: result.color,
+            );
+          } else {
+            provider.updateEntry(
+              entry.id,
+              title: result.title,
+              description: result.description,
+              typeId: result.typeId,
+              scheduledAt: result.scheduledAt,
+              endsAt: result.endsAt,
+              notifyMinBefore: result.notifyMinBefore,
+              color: result.color,
+            );
+          }
+        },
       ),
     );
   }
+
+  void _submitNew(PlannerProvider provider, PlannerFormResult result) {
+    if (result.recurrence != null) {
+      provider.createRecurringEntry(
+        title: result.title,
+        description: result.description,
+        typeId: result.typeId,
+        scheduledAt: result.scheduledAt,
+        endsAt: result.endsAt,
+        notifyMinBefore: result.notifyMinBefore,
+        color: result.color,
+        recurrence: result.recurrence!.toJson(),
+      );
+    } else {
+      provider.createEntry(
+        title: result.title,
+        description: result.description,
+        typeId: result.typeId,
+        scheduledAt: result.scheduledAt,
+        endsAt: result.endsAt,
+        notifyMinBefore: result.notifyMinBefore,
+        color: result.color,
+      );
+    }
+  }
+}
+
+/// Termin mit zugewiesener Spalte für das Überlappungs-Layout.
+class _LaidOut {
+  final PlannerEntry entry;
+  final int column;
+  final int columns;
+  _LaidOut(this.entry, this.column, this.columns);
 }
