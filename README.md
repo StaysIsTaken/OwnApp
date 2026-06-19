@@ -1,6 +1,6 @@
 # Productivity App - Flutter
 
-Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mit Aufgabenverwaltung, Rezepten, Vorratsverwaltung, Essensplanung, Zeitverfolgung und Echtzeit-Chat.
+Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mit Aufgabenverwaltung, einem Kalender-/Planner-Modul (inkl. wiederkehrender Termine), Rezepten, Vorratsverwaltung, Essensplanung, Zeitverfolgung, Notizen, Journal und Echtzeit-Chat.
 
 ## 🎯 Features
 
@@ -16,6 +16,22 @@ Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mi
   - Abschluss-Status
 - **Benutzerzuweisung**: Anzeigen und Ändern des zugeordneten Benutzers
 - **Aufgabenaktionen**: Bearbeiten, Löschen und Abschluss-Status direkt vom Board
+
+### 🗓️ Planner (Kalender)
+- **Drei Ansichten**: Woche, Monat und Tag
+- **Wochenansicht**: Tagesraster über volle Breite mit durchlaufendem Zeitstrahl (00–24 Uhr), "Jetzt"-Linie wie in Teams/Google Calendar, Hervorhebung des heutigen Tages
+- **Termine mit Start- und Endzeit**: Anlegen über Klick auf eine Rasterzelle oder den + Button; Dauer wird automatisch berechnet
+- **Drag & Drop**:
+  - Wochenansicht: Termin ziehen ändert die Uhrzeit (15-Min-Raster) und den Tag
+  - Monatsansicht: Termin auf einen anderen Tag ziehen verschiebt das Datum
+- **Bearbeiten & Löschen** direkt aus Wochen-, Monats- und Tagesansicht
+- **Typen als Stammdaten**: Termin-Typen (z.B. Aufgabe, Meeting, Erinnerung) sind frei pflegbar (Name + Farbe) statt fest verdrahtet; eigener Verwaltungs-Screen
+- **Wiederkehrende Termine (Serien)**:
+  - Täglich / Wöchentlich (mit Wochentagsauswahl) / Monatlich / Jährlich, mit Intervall ("alle N …")
+  - Ende per Datum, nach Anzahl oder unbegrenzt
+  - Beim Bearbeiten/Löschen Auswahl des Geltungsbereichs: **Nur dieser / Dieser und folgende / Alle**
+  - 🔁-Markierung an Serienterminen; einzeln verschobene Termine bleiben erhalten
+- **Benachrichtigungen**: Konfigurierbare Vorlaufzeit pro Termin
 
 ### 📖 Rezeptverwaltung
 - **Rezept-Browsing**: Anzeigen und Verwalten von Rezepten mit Zutaten
@@ -54,6 +70,10 @@ Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mi
 - **Benutzer-zu-Benutzer**: Sende Nachrichten an andere Benutzer
 - **Nachrichtenhistorie**: Zugriff auf Chat-Verlauf
 - **Echtzeit-Updates**: Nachrichten aktualisieren sich in Echtzeit
+
+### 📝 Notizen & 📔 Journal
+- **Notizen**: Notizen in Ordnern organisieren und verknüpfen
+- **Journal**: Tagebuch-Einträge mit Auswertungen/Analysen
 
 ### ⚙️ Einstellungen
 - **Design-Anpassung**: Wechsel zwischen Hell- und Dunkelmodus
@@ -94,6 +114,14 @@ lib/
 │   ├── recipes/                      # Rezept-Seiten
 │   ├── pantry/                       # Vorrats-Seiten
 │   ├── chat/                         # Chat-Interface
+│   ├── planner/                      # Planner/Kalender
+│   │   ├── planner_tab.dart          # Haupt-Tab (Woche/Monat/Tag)
+│   │   ├── views/                    # week_view, month_view, day_view
+│   │   ├── widgets/                  # Eintrags-Dialog & -Karte
+│   │   └── manage_planner_types_page.dart  # Typen-Stammdaten
+│   ├── notes/                        # Notizen
+│   ├── journal/                      # Journal
+│   ├── calendar/                     # Kalender
 │   └── settings.dart                 # Einstellungen
 ├── widgets/                           # Wiederverwendbare UI-Komponenten
 │   ├── drawer.dart                   # Navigations-Schublade
@@ -200,6 +228,17 @@ Die App kommuniziert mit einem REST-API-Backend.
 - `GET /storage-locations` - Liste Lagerorte auf
 - `GET /shopping-list` - Liste Einkaufslistenelemente auf
 - `GET /meal-plans` - Liste Essensplanungen auf
+
+### Planner
+- `GET /planner` - Termine (Top-Level inkl. verschachtelter Children)
+- `POST /planner` - Einzeltermin erstellen (Start- & Endzeit)
+- `PUT /planner/{id}` - Termin aktualisieren
+- `DELETE /planner/{id}` - Termin löschen
+- `POST /planner/recurring` - Wiederkehrende Serie anlegen
+- `PUT /planner/{id}/recurring?scope=single|all|future` - Serientermin bearbeiten
+- `DELETE /planner/{id}/recurring?scope=single|all|future` - Serientermin löschen
+- `GET/POST/PUT/DELETE /planner/types` - Typen-Stammdaten verwalten
+- `GET /planner/pending/notifications` - Fällige Benachrichtigungen (für n8n)
 
 ### Chat
 - WebSocket-Verbindung für Echtzeit-Nachrichten
@@ -368,4 +407,4 @@ Jan-Philip Anft
 
 ---
 
-**Zuletzt aktualisiert**: Mai 2026
+**Zuletzt aktualisiert**: Juni 2026

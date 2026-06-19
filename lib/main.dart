@@ -22,6 +22,7 @@ import 'package:productivity/tabs/notes/notes_page.dart';
 import 'package:productivity/tabs/journal/journal_page.dart';
 import 'package:productivity/tabs/calendar/calendar_page.dart';
 import 'package:productivity/tabs/planner/planner_tab.dart';
+import 'package:productivity/tabs/planner/manage_planner_types_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:productivity/widgets/drawer.dart';
 import 'package:productivity/widgets/auth_wrapper.dart';
@@ -139,6 +140,7 @@ class AppRoutes {
   static const String journal = '/journal';
   static const String calendar = '/calendar';
   static const String planner = '/planner';
+  static const String plannerTypes = '/planner-types';
 
   static final Map<String, WidgetBuilder> routes = {
     login: (_) => const Login(),
@@ -166,6 +168,7 @@ class AppRoutes {
     journal: (_) => const JournalPage(),
     calendar: (_) => const CalendarPage(),
     planner: (_) => const PlannerTab(),
+    plannerTypes: (_) => const ManagePlannerTypesPage(),
   };
 }
 
