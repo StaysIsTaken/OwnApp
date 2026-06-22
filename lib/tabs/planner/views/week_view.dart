@@ -48,7 +48,10 @@ class _WeekViewState extends State<WeekView> {
   }
 
   DateTime _getWeekStart(DateTime date) {
-    return date.subtract(Duration(days: date.weekday - 1));
+    final d = date.subtract(Duration(days: date.weekday - 1));
+    // Auf Mitternacht normalisieren, sonst fallen Termine, die früher als die
+    // aktuelle Uhrzeit am Montag liegen, aus dem Wochenfilter heraus.
+    return DateTime(d.year, d.month, d.day);
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
