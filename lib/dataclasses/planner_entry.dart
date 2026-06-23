@@ -1,3 +1,17 @@
+class PlannerParticipant {
+  final String userId;
+  final String username;
+
+  PlannerParticipant({required this.userId, required this.username});
+
+  factory PlannerParticipant.fromJson(Map<String, dynamic> json) {
+    return PlannerParticipant(
+      userId: json['user_id'] ?? '',
+      username: json['username'] ?? '',
+    );
+  }
+}
+
 class PlannerEntry {
   final int id;
   final String userId;
@@ -7,6 +21,8 @@ class PlannerEntry {
   final String? type;
   final int? recurrenceId;
   final bool isDetached;
+  final String? shareGroupId;
+  final List<PlannerParticipant> participants;
   final DateTime scheduledAt;
   final DateTime endsAt;
   final int durationMin;
@@ -27,6 +43,8 @@ class PlannerEntry {
     this.type,
     this.recurrenceId,
     this.isDetached = false,
+    this.shareGroupId,
+    this.participants = const [],
     required this.scheduledAt,
     required this.endsAt,
     this.durationMin = 60,
@@ -53,6 +71,13 @@ class PlannerEntry {
       type: json['type'],
       recurrenceId: json['recurrence_id'],
       isDetached: json['is_detached'] ?? false,
+      shareGroupId: json['share_group_id'],
+      participants: json['participants'] != null
+          ? (json['participants'] as List)
+              .map((p) =>
+                  PlannerParticipant.fromJson(p as Map<String, dynamic>))
+              .toList()
+          : const [],
       scheduledAt: scheduledAt,
       endsAt: json['ends_at'] != null
           ? DateTime.parse(json['ends_at'])
@@ -104,6 +129,8 @@ class PlannerEntry {
     String? type,
     int? recurrenceId,
     bool? isDetached,
+    String? shareGroupId,
+    List<PlannerParticipant>? participants,
     DateTime? scheduledAt,
     DateTime? endsAt,
     int? durationMin,
@@ -124,6 +151,8 @@ class PlannerEntry {
       type: type ?? this.type,
       recurrenceId: recurrenceId ?? this.recurrenceId,
       isDetached: isDetached ?? this.isDetached,
+      shareGroupId: shareGroupId ?? this.shareGroupId,
+      participants: participants ?? this.participants,
       scheduledAt: scheduledAt ?? this.scheduledAt,
       endsAt: endsAt ?? this.endsAt,
       durationMin: durationMin ?? this.durationMin,

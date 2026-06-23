@@ -54,6 +54,7 @@ class PlannerService {
     String color = '#3B82F6',
     int? parentId,
     int orderIndex = 0,
+    List<String>? participantIds,
   }) async {
     try {
       final response = await ApiClient.dio.post(_path, data: {
@@ -66,6 +67,8 @@ class PlannerService {
         'color': color,
         'parent_id': parentId,
         'order_index': orderIndex,
+        if (participantIds != null && participantIds.isNotEmpty)
+          'participant_ids': participantIds,
       });
 
       if (response.statusCode == 200) {
