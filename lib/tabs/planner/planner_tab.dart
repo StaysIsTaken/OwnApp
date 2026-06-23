@@ -5,6 +5,7 @@ import 'package:productivity/tabs/planner/views/week_view.dart';
 import 'package:productivity/tabs/planner/views/month_view.dart';
 import 'package:productivity/tabs/planner/views/day_view.dart';
 import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
+import 'package:productivity/tabs/planner/widgets/planner_import_dialog.dart';
 import 'package:productivity/widgets/drawer.dart';
 
 class PlannerTab extends StatefulWidget {
@@ -43,6 +44,16 @@ class _PlannerTabState extends State<PlannerTab>
       appBar: AppBar(
         title: const Text('Planner'),
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Kalender importieren',
+            icon: const Icon(Icons.file_download_outlined),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => const PlannerImportDialog(),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [

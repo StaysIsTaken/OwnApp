@@ -115,6 +115,22 @@ class PlannerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── iCal-Import ────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> importIcs({
+    required int typeId,
+    String? url,
+    String color = '#3B82F6',
+  }) async {
+    final result = await PlannerService.importIcs(
+      typeId: typeId,
+      url: url,
+      color: color,
+    );
+    await loadEntries();
+    return result;
+  }
+
   // ── Wiederkehrende Serien ──────────────────────────────────────────────
 
   Future<void> createRecurringEntry({

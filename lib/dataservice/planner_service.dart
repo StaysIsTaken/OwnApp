@@ -177,6 +177,27 @@ class PlannerService {
     }
   }
 
+  // ── iCal-Import ────────────────────────────────────────────────────────
+
+  /// Importiert .ics von einer URL. Gibt das Ergebnis-Map zurück
+  /// (imported, updated, skipped_recurring, errors).
+  static Future<Map<String, dynamic>> importIcs({
+    required int typeId,
+    String? url,
+    String color = '#3B82F6',
+  }) async {
+    try {
+      final response = await ApiClient.dio.post('$_path/import', data: {
+        'type_id': typeId,
+        'url': url,
+        'color': color,
+      });
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (e) {
+      throw Exception('Fehler beim Import: $e');
+    }
+  }
+
   // ── Serien-Ausnahmen ───────────────────────────────────────────────────
 
   static Future<List<PlannerException>> loadExceptions(int recurrenceId) async {
