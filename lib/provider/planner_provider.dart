@@ -40,6 +40,7 @@ class PlannerProvider extends ChangeNotifier {
     String color = '#3B82F6',
     int? parentId,
     int orderIndex = 0,
+    List<String>? participantIds,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -55,6 +56,7 @@ class PlannerProvider extends ChangeNotifier {
         color: color,
         parentId: parentId,
         orderIndex: orderIndex,
+        participantIds: participantIds,
       );
 
       _entries.add(newEntry);

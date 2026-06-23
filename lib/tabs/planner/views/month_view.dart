@@ -446,6 +446,7 @@ class _MonthViewState extends State<MonthView> {
         endsAt: result.endsAt,
         notifyMinBefore: result.notifyMinBefore,
         color: result.color,
+        participantIds: result.participantIds,
       );
     }
   }

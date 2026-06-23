@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/planner_recurrence.dart';
+import 'package:productivity/dataclasses/User.dart';
+import 'package:productivity/dataservice/user_service.dart';
 import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
+import 'package:productivity/provider/user_provider.dart';
 import 'package:productivity/widgets/color_picker_dialog.dart';
 import 'package:productivity/tabs/planner/manage_planner_types_page.dart';
 import 'package:productivity/tabs/planner/widgets/subtask_dialog.dart';
@@ -18,6 +21,7 @@ class PlannerFormResult {
   final int notifyMinBefore;
   final String color;
   final RecurrenceInput? recurrence; // null = einmaliger Termin
+  final List<String> participantIds; // leer = nicht geteilt
 
   PlannerFormResult({
     required this.title,
@@ -28,6 +32,7 @@ class PlannerFormResult {
     required this.notifyMinBefore,
     required this.color,
     required this.recurrence,
+    required this.participantIds,
   });
 }
 
@@ -77,6 +82,10 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
   DateTime? _recurUntil;
   int _recurCount = 10;
 
+  // Teilen mit anderen Usern (nur neue, nicht-wiederkehrende Termine)
+  List<User> _users = [];
+  final Set<String> _participantIds = {};
+
   final List<String> _colors = [
     '#3B82F6', '#EF4444', '#10B981', '#F59E0B',
     '#8B5CF6', '#EC4899', '#06B6D4', '#6366F1',
@@ -108,6 +117,22 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
       final provider = context.read<PlannerProvider>();
       if (provider.types.isEmpty) provider.loadTypes();
     });
+
+    // Andere User zum Teilen laden (nur bei neuen Terminen relevant)
+    if (!_isEditing) _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final users = await UserService.getAllUsers();
+      if (!mounted) return;
+      final currentId = context.read<UserProvider>().user?.id;
+      setState(() {
+        _users = users.where((u) => u.id != currentId).toList();
+      });
+    } catch (_) {
+      // Teilen ist optional – Fehler hier ignorieren
+    }
   }
 
   @override
@@ -229,6 +254,22 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
                     ],
                   ),
                 ),
+              if (_sharedWithNames().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.people_outline,
+                          size: 16, color: theme.hintColor),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text('Geteilt mit ${_sharedWithNames().join(', ')}',
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: theme.hintColor)),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 12),
               TextField(
                 controller: _titleController,
@@ -335,6 +376,11 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
               if (!_isEditing) ...[
                 const SizedBox(height: 16),
                 _buildRecurrenceSection(theme),
+              ],
+              // Teilen nur bei neuen, nicht-wiederkehrenden Terminen
+              if (!_isEditing && _recurFreq == null && _users.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _buildShareSection(theme),
               ],
               const SizedBox(height: 12),
               TextField(
@@ -685,6 +731,58 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
     );
   }
 
+  List<String> _sharedWithNames() {
+    final entry = widget.entry;
+    if (entry == null || entry.participants.length <= 1) return [];
+    final me = context.read<UserProvider>().user?.id;
+    return entry.participants
+        .where((p) => p.userId != me)
+        .map((p) => p.username)
+        .toList();
+  }
+
+  Widget _buildShareSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.people_outline, size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 6),
+            Text('Teilen mit', style: theme.textTheme.labelLarge),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: _users.map((u) {
+            final selected = _participantIds.contains(u.id);
+            return FilterChip(
+              label: Text(u.username),
+              selected: selected,
+              onSelected: (s) => setState(() {
+                if (s) {
+                  _participantIds.add(u.id);
+                } else {
+                  _participantIds.remove(u.id);
+                }
+              }),
+            );
+          }).toList(),
+        ),
+        if (_participantIds.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              'Diese Personen bekommen eine eigene Kopie und werden ebenfalls benachrichtigt.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            ),
+          ),
+      ],
+    );
+  }
+
   String _intervalUnit(String freq) {
     switch (freq) {
       case 'DAILY':
@@ -771,6 +869,8 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
       notifyMinBefore: _notifyMinBefore,
       color: _color,
       recurrence: _isEditing ? null : _buildRecurrence(),
+      participantIds:
+          (!_isEditing && _recurFreq == null) ? _participantIds.toList() : const [],
     );
 
     String? scope;
