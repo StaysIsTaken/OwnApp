@@ -1,3 +1,18 @@
+/// Eine ausgelassene Serien-Ausnahme (z.B. einzeln gelöschter Termin).
+class PlannerException {
+  final int id;
+  final DateTime excludedAt;
+
+  PlannerException({required this.id, required this.excludedAt});
+
+  factory PlannerException.fromJson(Map<String, dynamic> json) {
+    return PlannerException(
+      id: json['id'] ?? 0,
+      excludedAt: DateTime.parse(json['excluded_at']),
+    );
+  }
+}
+
 /// Eingabe-Werte für eine Wiederholungsregel (an das Backend gesendet).
 class RecurrenceInput {
   final String freq; // 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
