@@ -1,5 +1,6 @@
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/planner_entry_type.dart';
+import 'package:productivity/dataclasses/planner_recurrence.dart';
 import 'package:productivity/dataservice/api_client.dart';
 
 class PlannerService {
@@ -173,6 +174,41 @@ class PlannerService {
           queryParameters: {'scope': scope}, data: data);
     } catch (e) {
       throw Exception('Fehler beim Aktualisieren der Serie: $e');
+    }
+  }
+
+  // ── Serien-Ausnahmen ───────────────────────────────────────────────────
+
+  static Future<List<PlannerException>> loadExceptions(int recurrenceId) async {
+    try {
+      final response =
+          await ApiClient.dio.get('$_path/recurrences/$recurrenceId/exceptions');
+      final List<dynamic> items = response.data is List ? response.data : [];
+      return items
+          .map((e) => PlannerException.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw Exception('Fehler beim Laden der Ausnahmen: $e');
+    }
+  }
+
+  static Future<void> addException(int recurrenceId, DateTime excludedAt) async {
+    try {
+      await ApiClient.dio.post(
+        '$_path/recurrences/$recurrenceId/exceptions',
+        data: {'excluded_at': excludedAt.toIso8601String()},
+      );
+    } catch (e) {
+      throw Exception('Fehler beim Hinzufügen der Ausnahme: $e');
+    }
+  }
+
+  static Future<void> removeException(int recurrenceId, int exceptionId) async {
+    try {
+      await ApiClient.dio
+          .delete('$_path/recurrences/$recurrenceId/exceptions/$exceptionId');
+    } catch (e) {
+      throw Exception('Fehler beim Aufheben der Ausnahme: $e');
     }
   }
 

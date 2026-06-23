@@ -4,6 +4,7 @@ import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/planner_recurrence.dart';
 import 'package:productivity/dataclasses/User.dart';
 import 'package:productivity/dataservice/user_service.dart';
+import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
 import 'package:productivity/provider/user_provider.dart';
@@ -86,6 +87,9 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
   List<User> _users = [];
   final Set<String> _participantIds = {};
 
+  // Ausnahmen einer bestehenden Serie
+  List<PlannerException> _exceptions = [];
+
   final List<String> _colors = [
     '#3B82F6', '#EF4444', '#10B981', '#F59E0B',
     '#8B5CF6', '#EC4899', '#06B6D4', '#6366F1',
@@ -120,6 +124,20 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
 
     // Andere User zum Teilen laden (nur bei neuen Terminen relevant)
     if (!_isEditing) _loadUsers();
+
+    // Ausnahmen einer bestehenden Serie laden
+    if (_isSeries) _loadExceptions();
+  }
+
+  Future<void> _loadExceptions() async {
+    try {
+      final list =
+          await PlannerService.loadExceptions(widget.entry!.recurrenceId!);
+      if (!mounted) return;
+      setState(() => _exceptions = list);
+    } catch (_) {
+      // optional – Fehler ignorieren
+    }
   }
 
   Future<void> _loadUsers() async {
@@ -454,6 +472,10 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
                 const SizedBox(height: 20),
                 _buildSubtaskSection(theme),
               ],
+              if (_isSeries) ...[
+                const SizedBox(height: 20),
+                _buildExceptionsSection(theme),
+              ],
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -729,6 +751,90 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
       scheduledAt: result.scheduledAt ?? parent.scheduledAt,
       endsAt: result.endsAt ?? parent.endsAt,
     );
+  }
+
+  Widget _buildExceptionsSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Icon(Icons.event_busy, size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 6),
+            Text('Ausgelassene Termine', style: theme.textTheme.labelLarge),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_exceptions.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text('Keine Ausnahmen',
+                style:
+                    theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+          ),
+        ..._exceptions.map(
+          (ex) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                Icon(Icons.block, size: 14, color: theme.hintColor),
+                const SizedBox(width: 6),
+                Expanded(child: Text(_formatDate(ex.excludedAt))),
+                TextButton(
+                  onPressed: () => _removeException(ex),
+                  child: const Text('Wieder aufnehmen'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            icon: const Icon(Icons.add),
+            label: const Text('Termin auslassen'),
+            onPressed: _addException,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addException() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _scheduledAt,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (date == null || !mounted) return;
+    // Slot = gewähltes Datum + Startzeit der Serie
+    final slot = DateTime(date.year, date.month, date.day,
+        widget.entry!.scheduledAt.hour, widget.entry!.scheduledAt.minute);
+    final provider = context.read<PlannerProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await PlannerService.addException(widget.entry!.recurrenceId!, slot);
+      await _loadExceptions();
+      await provider.loadEntries();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Fehler: $e')));
+    }
+  }
+
+  Future<void> _removeException(PlannerException ex) async {
+    final provider = context.read<PlannerProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await PlannerService.removeException(widget.entry!.recurrenceId!, ex.id);
+      await _loadExceptions();
+      await provider.loadEntries();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Fehler: $e')));
+    }
   }
 
   List<String> _sharedWithNames() {
