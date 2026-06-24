@@ -61,12 +61,6 @@ class _DrawerWidgetState extends State<DrawerWidget>
       label: 'Chat',
       route: AppRoutes.chat,
     ),
-    NavItem(
-      icon: Icons.smart_toy_outlined,
-      iconActive: Icons.smart_toy_rounded,
-      label: 'Assistent',
-      route: AppRoutes.assistant,
-    ),
   ];
 
   static const _pantryItems = [

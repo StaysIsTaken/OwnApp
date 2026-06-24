@@ -24,17 +24,18 @@ class AssistantPage extends BasePage {
   const AssistantPage({super.key}) : super(title: 'Assistent');
 
   @override
-  Widget buildBody(BuildContext context) => const _AssistantBody();
+  Widget buildBody(BuildContext context) => const AssistantChatView();
 }
 
-class _AssistantBody extends StatefulWidget {
-  const _AssistantBody();
+/// Wiederverwendbare Chat-Ansicht (Seite UND globales Overlay nutzen sie).
+class AssistantChatView extends StatefulWidget {
+  const AssistantChatView({super.key});
 
   @override
-  State<_AssistantBody> createState() => _AssistantBodyState();
+  State<AssistantChatView> createState() => _AssistantChatViewState();
 }
 
-class _AssistantBodyState extends State<_AssistantBody> {
+class _AssistantChatViewState extends State<AssistantChatView> {
   final List<_ChatMessage> _messages = [];
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
@@ -235,12 +236,21 @@ class _AssistantBodyState extends State<_AssistantBody> {
     switch (kind) {
       case 'delete_planner_entry':
         return Icons.delete_outline;
+      case 'update_planner_entry':
+      case 'update_time_entry':
+        return Icons.edit_outlined;
       case 'create_recurring_entry':
         return Icons.repeat;
       case 'create_note':
         return Icons.note_add_outlined;
       case 'add_shopping_item':
         return Icons.add_shopping_cart;
+      case 'update_shopping_item':
+        return Icons.check_circle_outline;
+      case 'remove_shopping_item':
+        return Icons.remove_shopping_cart_outlined;
+      case 'update_pantry_item':
+        return Icons.kitchen_outlined;
       case 'create_recipe':
         return Icons.menu_book_outlined;
       case 'create_category':
