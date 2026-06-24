@@ -24,6 +24,7 @@ import 'package:productivity/tabs/calendar/calendar_page.dart';
 import 'package:productivity/tabs/planner/planner_tab.dart';
 import 'package:productivity/tabs/planner/manage_planner_types_page.dart';
 import 'package:productivity/tabs/assistant/assistant_page.dart';
+import 'package:productivity/widgets/assistant_overlay.dart';
 import 'package:flutter/foundation.dart';
 import 'package:productivity/widgets/drawer.dart';
 import 'package:productivity/widgets/auth_wrapper.dart';
@@ -82,6 +83,8 @@ class MyApp extends StatelessWidget {
           themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           home: const AppAuthWrapper(),
           routes: AppRoutes.routes,
+          builder: (context, child) =>
+              GlobalAssistantOverlay(child: child ?? const SizedBox.shrink()),
         );
       },
     );
