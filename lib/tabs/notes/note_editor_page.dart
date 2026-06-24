@@ -104,13 +104,6 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   Future<void> _generateText(String defaultPrompt) async {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
 
-    if (settings.selectedAIModel.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kein KI-Modell ausgewählt. Bitte in den Einstellungen ein Modell wählen.')),
-      );
-      return;
-    }
-
     final prompt = _promptController.text.isNotEmpty
         ? _promptController.text
         : defaultPrompt;
@@ -122,9 +115,17 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     });
 
     try {
+      // Stellt sicher, dass ein tatsächlich vorhandenes Modell genutzt wird
+      // (verhindert 404 "model not found" bei veraltetem Default wie 'llama2').
+      final model = await AIService.resolveModel(settings.selectedAIModel);
+      if (model != settings.selectedAIModel) {
+        settings.setSelectedAIModel(model);
+      }
       final result = await AIService.generateTextComplete(
-        model: settings.selectedAIModel,
+        model: model,
         prompt: prompt,
+        maxTokens: settings.aiMaxTokens,
+        temperature: settings.aiTemperature,
       );
 
       if (mounted) {

@@ -21,30 +21,39 @@ class AIService {
     }
   }
 
-  /// Generate text without streaming - wartet bis komplette Antwort da ist
-  /// stream: false in der API - gibt kompletten Text auf einmal zurück
+  /// Liefert ein tatsächlich auf dem Server verfügbares Modell:
+  /// das bevorzugte, falls vorhanden – sonst das erste verfügbare.
+  /// Wirft, wenn gar kein Modell installiert ist.
+  static Future<String> resolveModel(String preferred) async {
+    final models = await getAvailableModels();
+    if (models.isEmpty) {
+      throw Exception(
+          'Auf dem Server ist kein KI-Modell installiert (Ollama).');
+    }
+    if (preferred.isNotEmpty && models.any((m) => m.name == preferred)) {
+      return preferred;
+    }
+    return models.first.name;
+  }
+
+  /// Generiert den kompletten Text. Intern wird GESTREAMT (stream:true) und
+  /// zusammengesetzt — so fließen laufend Daten, damit Proxies/Cloudflare nicht
+  /// mit Timeout (524) abbrechen. maxTokens begrenzt die Generierungsdauer.
   static Future<String> generateTextComplete({
     required String model,
     required String prompt,
+    int? maxTokens,
+    double? temperature,
   }) async {
-    try {
-      final response = await ApiClient.dio.post(
-        '$_path/generate',
-        data: {
-          'model': model,
-          'prompt': prompt,
-          'stream': false,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final text = response.data['response'] ?? '';
-        return text;
-      }
-      return '';
-    } catch (e) {
-      throw Exception('Fehler beim Generieren von Text: $e');
-    }
+    final buffer = StringBuffer();
+    await generateText(
+      model: model,
+      prompt: prompt,
+      maxTokens: maxTokens,
+      temperature: temperature,
+      onChunk: (chunk) => buffer.write(chunk),
+    );
+    return buffer.toString();
   }
 
   /// Generate text with streaming (optional - für Live-Text Ansicht)
@@ -53,14 +62,21 @@ class AIService {
     required String model,
     required String prompt,
     required Function(String) onChunk,
+    int? maxTokens,
+    double? temperature,
   }) async {
     try {
+      final options = <String, dynamic>{};
+      if (maxTokens != null) options['num_predict'] = maxTokens;
+      if (temperature != null) options['temperature'] = temperature;
+
       final response = await ApiClient.dio.post(
         '$_path/generate',
         data: {
           'model': model,
           'prompt': prompt,
           'stream': true,
+          if (options.isNotEmpty) 'options': options,
         },
         options: Options(
           responseType: ResponseType.stream,
