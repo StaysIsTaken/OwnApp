@@ -10,7 +10,7 @@ class SettingsProvider extends ChangeNotifier {
 
   bool _use24hFormat = true;
   bool _isDarkMode = true;
-  String _selectedAIModel = 'llama2';
+  String _selectedAIModel = '';
   double _aiTemperature = 0.7;
   int _aiMaxTokens = 500;
 
@@ -28,7 +28,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _use24hFormat = prefs.getBool(_timeFormatKey) ?? true;
     _isDarkMode = prefs.getBool(_darkModeKey) ?? true;
-    _selectedAIModel = prefs.getString(_selectedAIModelKey) ?? 'llama2';
+    _selectedAIModel = prefs.getString(_selectedAIModelKey) ?? '';
     _aiTemperature = prefs.getDouble(_aiTemperatureKey) ?? 0.7;
     _aiMaxTokens = prefs.getInt(_aiMaxTokensKey) ?? 500;
     notifyListeners();

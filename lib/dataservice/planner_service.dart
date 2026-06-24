@@ -184,12 +184,14 @@ class PlannerService {
   static Future<Map<String, dynamic>> importIcs({
     required int typeId,
     String? url,
+    String? ics,
     String color = '#3B82F6',
   }) async {
     try {
       final response = await ApiClient.dio.post('$_path/import', data: {
         'type_id': typeId,
         'url': url,
+        'ics': ics,
         'color': color,
       });
       return Map<String, dynamic>.from(response.data as Map);

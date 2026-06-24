@@ -120,11 +120,13 @@ class PlannerProvider extends ChangeNotifier {
   Future<Map<String, dynamic>> importIcs({
     required int typeId,
     String? url,
+    String? ics,
     String color = '#3B82F6',
   }) async {
     final result = await PlannerService.importIcs(
       typeId: typeId,
       url: url,
+      ics: ics,
       color: color,
     );
     await loadEntries();

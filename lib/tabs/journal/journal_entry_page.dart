@@ -132,9 +132,17 @@ Antworte mit diesem JSON-Format (genau so, kein zusätzlicher Text davor oder da
   "summary": "Kurze Zusammenfassung"
 }''';
 
+      // Tatsächlich vorhandenes Modell verwenden (verhindert 404 bei
+      // veraltetem Default wie 'llama2').
+      final model = await AIService.resolveModel(settings.selectedAIModel);
+      if (model != settings.selectedAIModel) {
+        settings.setSelectedAIModel(model);
+      }
       final result = await AIService.generateTextComplete(
-        model: settings.selectedAIModel,
+        model: model,
         prompt: prompt,
+        maxTokens: settings.aiMaxTokens,
+        temperature: settings.aiTemperature,
       );
 
       debugPrint('KI-Antwort für Analyse: $result');

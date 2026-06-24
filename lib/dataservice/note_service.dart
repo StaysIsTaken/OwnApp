@@ -36,6 +36,19 @@ class NoteService {
     }
   }
 
+  /// Schlanke Variante zum Anlegen einer Notiz nur aus Feldern
+  /// (z.B. durch den Assistenten). userId wird serverseitig gesetzt.
+  static Future<void> createFromFields({
+    required String title,
+    String? text,
+  }) async {
+    try {
+      await ApiClient.dio.post(_path, data: {'title': title, 'text': text});
+    } catch (e) {
+      throw Exception('Fehler beim Erstellen der Notiz: $e');
+    }
+  }
+
   static Future<Note> create(Note note) async {
     try {
       final response = await ApiClient.dio.post(
