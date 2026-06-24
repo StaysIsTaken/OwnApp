@@ -235,6 +235,8 @@ class _AssistantBodyState extends State<_AssistantBody> {
     switch (kind) {
       case 'delete_planner_entry':
         return Icons.delete_outline;
+      case 'create_recurring_entry':
+        return Icons.repeat;
       case 'create_note':
         return Icons.note_add_outlined;
       case 'add_shopping_item':
