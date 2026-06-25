@@ -85,12 +85,10 @@ class AIService {
       );
 
       if (response.statusCode == 200) {
-        final stream = response.data.stream;
+        final Stream<String> lines = const LineSplitter()
+            .bind(utf8.decoder.bind(response.data.stream));
 
-        await stream
-            .transform(utf8.decoder)
-            .transform(const LineSplitter())
-            .listen((line) {
+        await lines.forEach((line) {
           if (line.isNotEmpty) {
             try {
               final json = jsonDecode(line) as Map<String, dynamic>;
@@ -102,7 +100,7 @@ class AIService {
               // Ignore JSON parse errors
             }
           }
-        }).asFuture();
+        });
       }
     } catch (e) {
       throw Exception('Fehler beim Generieren von Text: $e');
@@ -151,12 +149,10 @@ class AIService {
       );
 
       if (response.statusCode == 200) {
-        final stream = response.data.stream;
+        final Stream<String> lines = const LineSplitter()
+            .bind(utf8.decoder.bind(response.data.stream));
 
-        await stream
-            .transform(utf8.decoder)
-            .transform(const LineSplitter())
-            .listen((line) {
+        await lines.forEach((line) {
           if (line.isNotEmpty) {
             try {
               final json = jsonDecode(line) as Map<String, dynamic>;
@@ -169,7 +165,7 @@ class AIService {
               // Ignore JSON parse errors
             }
           }
-        }).asFuture();
+        });
       }
     } catch (e) {
       throw Exception('Fehler beim Chat: $e');

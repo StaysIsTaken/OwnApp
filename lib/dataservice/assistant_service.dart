@@ -54,10 +54,13 @@ class AssistantService {
       Map<String, dynamic>? result;
       String? error;
 
-      await response.data.stream
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen((line) {
+      // response.data.stream ist Stream<Uint8List>; dessen .transform prüft den
+      // Transformer kovariant gegen Uint8List, daher scheitert
+      // stream.transform(utf8.decoder). Stattdessen utf8.decoder.bind(stream)
+      // verwenden (bind nimmt Stream<List<int>>, Uint8List ist ein Subtyp).
+      final Stream<String> lines = const LineSplitter()
+          .bind(utf8.decoder.bind(response.data.stream));
+      await lines.forEach((line) {
         if (line.trim().isEmpty) return;
         try {
           final json = jsonDecode(line) as Map<String, dynamic>;
@@ -73,7 +76,7 @@ class AssistantService {
         } catch (_) {
           // unvollständige/ungültige Zeile ignorieren
         }
-      }).asFuture();
+      });
 
       if (error != null) throw Exception(error);
       if (result == null) {
