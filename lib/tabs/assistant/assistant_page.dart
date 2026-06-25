@@ -245,6 +245,8 @@ class _AssistantChatViewState extends State<AssistantChatView> {
         return Icons.subdirectory_arrow_right;
       case 'create_note':
         return Icons.note_add_outlined;
+      case 'create_journal_entry':
+        return Icons.book_outlined;
       case 'add_shopping_item':
         return Icons.add_shopping_cart;
       case 'update_shopping_item':
