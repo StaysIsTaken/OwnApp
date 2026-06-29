@@ -1,0 +1,17 @@
+{
+  "name": "JP's Apps",
+  "identifier": "de.jpanft.source",
+  "apps": [{
+    "name": "Home App",
+    "bundleIdentifier": "com.example.productivity",
+    "developerName": "JP",
+    "localizedDescription": "Automatischer Build aus CI",
+    "versions": [{
+      "version": "1.0.4",
+      "date": "2026-06-29T11:43:09Z",
+      "downloadURL": "https://github.com/StaysIsTaken/OwnApp/releases/download/v1.0/FlutterIpaExport.ipa",
+      "size": 9840884,
+      "minOSVersion": "15.0"
+    }]
+  }]
+}
