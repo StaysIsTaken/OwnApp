@@ -6,6 +6,7 @@ import 'package:productivity/dataservice/ai_service.dart';
 import 'package:productivity/dataservice/assistant_service.dart';
 import 'package:productivity/provider/settings_provider.dart';
 import 'package:productivity/provider/planner_provider.dart';
+import 'package:productivity/widgets/mic_button.dart';
 
 class _PendingItem {
   final AssistantPendingAction action;
@@ -146,7 +147,15 @@ class _AssistantChatViewState extends State<AssistantChatView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                MicButton(
+                  onText: (text) {
+                    final base = _input.text.trim();
+                    _input.text = base.isEmpty ? text : '$base $text';
+                    _input.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _input.text.length),
+                    );
+                  },
+                ),
                 IconButton.filled(
                   onPressed: _sending ? null : _send,
                   icon: const Icon(Icons.send),
@@ -241,8 +250,12 @@ class _AssistantChatViewState extends State<AssistantChatView> {
         return Icons.edit_outlined;
       case 'create_recurring_entry':
         return Icons.repeat;
+      case 'create_subtask':
+        return Icons.subdirectory_arrow_right;
       case 'create_note':
         return Icons.note_add_outlined;
+      case 'create_journal_entry':
+        return Icons.book_outlined;
       case 'add_shopping_item':
         return Icons.add_shopping_cart;
       case 'update_shopping_item':

@@ -8,6 +8,7 @@ import 'package:productivity/dataservice/journal_analysis_service.dart';
 import 'package:productivity/dataservice/login_service.dart';
 import 'package:productivity/dataservice/ai_service.dart';
 import 'package:productivity/provider/settings_provider.dart';
+import 'package:productivity/widgets/mic_button.dart';
 import 'package:provider/provider.dart';
 
 class JournalEntryPage extends StatefulWidget {
@@ -193,6 +194,16 @@ Antworte mit diesem JSON-Format (genau so, kein zusätzlicher Text davor oder da
           DateFormat('dd. MMMM yyyy', 'de_DE').format(widget.date),
         ),
         actions: [
+          if (!widget.readOnly)
+            MicButton(
+              onText: (text) {
+                final base = _contentController.text.trimRight();
+                _contentController.text = base.isEmpty ? text : '$base $text';
+                _contentController.selection = TextSelection.fromPosition(
+                  TextPosition(offset: _contentController.text.length),
+                );
+              },
+            ),
           if (!widget.readOnly)
             IconButton(
               icon: const Icon(Icons.save),

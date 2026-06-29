@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:productivity/dataservice/api_client.dart';
 
 class AssistantPendingAction {
@@ -27,19 +29,62 @@ class AssistantService {
   static const String _path = '/assistant';
 
   /// messages: Liste von {role: 'user'|'assistant', content: ...}
+  ///
+  /// Der Endpunkt streamt NDJSON: laufend {"type":"heartbeat"} (damit
+  /// Cloudflare nicht mit 524 abbricht) und am Ende {"type":"result", ...}
+  /// bzw. {"type":"error"}. Wir lesen den Stream Zeile für Zeile und werten
+  /// nur die finale Zeile aus.
   static Future<AssistantReply> chat({
     required List<Map<String, String>> messages,
     String? model,
   }) async {
     try {
-      final response = await ApiClient.dio.post('$_path/chat', data: {
-        'messages': messages,
-        'model': model,
+      final response = await ApiClient.dio.post(
+        '$_path/chat',
+        data: {
+          'messages': messages,
+          'model': model,
+        },
+        options: Options(
+          responseType: ResponseType.stream,
+          contentType: 'application/json',
+        ),
+      );
+
+      Map<String, dynamic>? result;
+      String? error;
+
+      // response.data.stream ist Stream<Uint8List>; dessen .transform prüft den
+      // Transformer kovariant gegen Uint8List, daher scheitert
+      // stream.transform(utf8.decoder). Stattdessen utf8.decoder.bind(stream)
+      // verwenden (bind nimmt Stream<List<int>>, Uint8List ist ein Subtyp).
+      final Stream<String> lines = const LineSplitter()
+          .bind(utf8.decoder.bind(response.data.stream));
+      await lines.forEach((line) {
+        if (line.trim().isEmpty) return;
+        try {
+          final json = jsonDecode(line) as Map<String, dynamic>;
+          switch (json['type']) {
+            case 'result':
+              result = json;
+              break;
+            case 'error':
+              error = (json['detail'] ?? 'Unbekannter Fehler').toString();
+              break;
+            // 'heartbeat' wird ignoriert
+          }
+        } catch (_) {
+          // unvollständige/ungültige Zeile ignorieren
+        }
       });
-      final data = Map<String, dynamic>.from(response.data as Map);
+
+      if (error != null) throw Exception(error);
+      if (result == null) {
+        throw Exception('Keine Antwort vom Assistenten erhalten.');
+      }
       return AssistantReply(
-        reply: (data['reply'] ?? '').toString(),
-        pendingActions: (data['pending_actions'] as List?)
+        reply: (result!['reply'] ?? '').toString(),
+        pendingActions: (result!['pending_actions'] as List?)
                 ?.map((e) =>
                     AssistantPendingAction.fromJson(e as Map<String, dynamic>))
                 .toList() ??
