@@ -6,6 +6,7 @@ import 'package:productivity/dataservice/ai_service.dart';
 import 'package:productivity/dataservice/assistant_service.dart';
 import 'package:productivity/provider/settings_provider.dart';
 import 'package:productivity/provider/planner_provider.dart';
+import 'package:productivity/widgets/mic_button.dart';
 
 class _PendingItem {
   final AssistantPendingAction action;
@@ -146,7 +147,15 @@ class _AssistantChatViewState extends State<AssistantChatView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                MicButton(
+                  onText: (text) {
+                    final base = _input.text.trim();
+                    _input.text = base.isEmpty ? text : '$base $text';
+                    _input.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _input.text.length),
+                    );
+                  },
+                ),
                 IconButton.filled(
                   onPressed: _sending ? null : _send,
                   icon: const Icon(Icons.send),
