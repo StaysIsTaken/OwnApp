@@ -39,6 +39,8 @@ class _SettingsBodyState extends State<_SettingsBody> {
   bool _hasKey = false;
   bool _aiSettingsLoading = true;
   bool _savingAiSettings = false;
+  bool _loadingModels = false;
+  List<String> _cloudModels = [];
   final TextEditingController _apiKeyCtrl = TextEditingController();
   final TextEditingController _cloudModelCtrl = TextEditingController();
   final TextEditingController _baseUrlCtrl = TextEditingController();
@@ -72,6 +74,36 @@ class _SettingsBodyState extends State<_SettingsBody> {
       });
     } catch (e) {
       if (mounted) setState(() => _aiSettingsLoading = false);
+    }
+  }
+
+  Future<void> _loadCloudModels() async {
+    setState(() => _loadingModels = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      // Provider + (neuen) Key erst speichern, damit der Server sie zum
+      // Abfragen der Modelle nutzen kann.
+      final s = await AiSettingsService.save(
+        provider: _provider,
+        apiKey: _apiKeyCtrl.text.isNotEmpty ? _apiKeyCtrl.text : null,
+        baseUrl: _baseUrlCtrl.text.trim(),
+      );
+      _hasKey = s.hasKey;
+      if (_apiKeyCtrl.text.isNotEmpty) _apiKeyCtrl.clear();
+
+      final models = await AiSettingsService.listModels();
+      if (!mounted) return;
+      setState(() {
+        _cloudModels = models;
+        _loadingModels = false;
+      });
+      if (models.isEmpty) {
+        messenger.showSnackBar(
+            const SnackBar(content: Text('Keine Modelle gefunden.')));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingModels = false);
+      messenger.showSnackBar(SnackBar(content: Text('Fehler: $e')));
     }
   }
 
@@ -347,17 +379,63 @@ class _SettingsBodyState extends State<_SettingsBody> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        TextField(
-                          controller: _cloudModelCtrl,
-                          decoration: InputDecoration(
-                            labelText: 'Modell',
-                            hintText: _provider == 'gemini'
-                                ? 'z.B. gemini-2.5-flash'
-                                : 'z.B. google/gemini-2.0-flash-exp:free',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _cloudModelCtrl,
+                                decoration: InputDecoration(
+                                  labelText: 'Modell',
+                                  hintText: _provider == 'gemini'
+                                      ? 'z.B. gemini-2.5-flash'
+                                      : 'z.B. google/gemini-2.0-flash-exp:free',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              onPressed:
+                                  _loadingModels ? null : _loadCloudModels,
+                              icon: _loadingModels
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2))
+                                  : const Icon(Icons.download, size: 18),
+                              label: const Text('Modelle'),
+                            ),
+                          ],
                         ),
+                        if (_cloudModels.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: _cloudModels
+                                    .contains(_cloudModelCtrl.text)
+                                ? _cloudModelCtrl.text
+                                : null,
+                            decoration: const InputDecoration(
+                              labelText: 'Modell wählen',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: _cloudModels
+                                .map((m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(m,
+                                          overflow: TextOverflow.ellipsis),
+                                    ))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() => _cloudModelCtrl.text = v);
+                              }
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         TextField(
                           controller: _baseUrlCtrl,
