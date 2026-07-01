@@ -2,24 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/main.dart';
-import 'package:productivity/dataservice/ai_service.dart';
-import 'package:productivity/dataservice/assistant_service.dart';
 import 'package:productivity/provider/settings_provider.dart';
 import 'package:productivity/provider/planner_provider.dart';
+import 'package:productivity/provider/chat_provider.dart';
 import 'package:productivity/widgets/mic_button.dart';
-
-class _PendingItem {
-  final AssistantPendingAction action;
-  String status = 'open'; // 'open' | 'done' | 'dismissed'
-  _PendingItem(this.action);
-}
-
-class _ChatMessage {
-  final String role; // 'user' | 'assistant'
-  final String content;
-  final List<_PendingItem> pending;
-  _ChatMessage(this.role, this.content, {this.pending = const []});
-}
 
 class AssistantPage extends BasePage {
   const AssistantPage({super.key}) : super(title: 'Assistent');
@@ -29,6 +15,8 @@ class AssistantPage extends BasePage {
 }
 
 /// Wiederverwendbare Chat-Ansicht (Seite UND globales Overlay nutzen sie).
+/// Der Zustand liegt im app-weiten [ChatProvider] – so bleibt eine Antwort
+/// erhalten, auch wenn man das Fenster verlässt.
 class AssistantChatView extends StatefulWidget {
   const AssistantChatView({super.key});
 
@@ -37,13 +25,24 @@ class AssistantChatView extends StatefulWidget {
 }
 
 class _AssistantChatViewState extends State<AssistantChatView> {
-  final List<_ChatMessage> _messages = [];
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
-  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Chat-Fenster ist sichtbar -> keine Notification bei Antworten.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<ChatProvider>().setActive(true);
+    });
+  }
 
   @override
   void dispose() {
+    // Fenster verlassen -> künftige Antworten lösen eine Notification aus.
+    try {
+      context.read<ChatProvider>().setActive(false);
+    } catch (_) {}
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -60,52 +59,29 @@ class _AssistantChatViewState extends State<AssistantChatView> {
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty || _sending) return;
+    final chat = context.read<ChatProvider>();
+    if (text.isEmpty || chat.sending) return;
 
     final settings = context.read<SettingsProvider>();
-    final messenger = ScaffoldMessenger.of(context);
+    final model = settings.selectedAIModel.isEmpty
+        ? null
+        : settings.selectedAIModel;
 
-    setState(() {
-      _messages.add(_ChatMessage('user', text));
-      _input.clear();
-      _sending = true;
-    });
+    _input.clear();
     _scrollToEnd();
-
-    try {
-      final model = await AIService.resolveModel(settings.selectedAIModel);
-      final history = _messages
-          .map((m) => {'role': m.role, 'content': m.content})
-          .toList();
-      final result =
-          await AssistantService.chat(messages: history, model: model);
-
-      if (!mounted) return;
-      setState(() {
-        _messages.add(_ChatMessage(
-          'assistant',
-          result.reply,
-          pending: result.pendingActions.map((a) => _PendingItem(a)).toList(),
-        ));
-      });
-      _scrollToEnd();
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('$e')));
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
+    await chat.send(text, model: model);
+    _scrollToEnd();
   }
 
-  Future<void> _confirm(_PendingItem item) async {
+  Future<void> _confirm(ChatPendingItem item) async {
+    final chat = context.read<ChatProvider>();
     final provider = context.read<PlannerProvider>();
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final affects =
-          await AssistantService.execute(item.action.kind, item.action.params);
+      final affects = await chat.confirm(item);
       if (affects == 'planner') {
         provider.loadEntries();
       }
-      if (mounted) setState(() => item.status = 'done');
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Fehler: $e')));
     }
@@ -114,19 +90,22 @@ class _AssistantChatViewState extends State<AssistantChatView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final chat = context.watch<ChatProvider>();
+    final messages = chat.messages;
+
     return Column(
       children: [
         Expanded(
-          child: _messages.isEmpty
+          child: messages.isEmpty
               ? _emptyState(theme)
               : ListView.builder(
                   controller: _scroll,
                   padding: const EdgeInsets.all(12),
-                  itemCount: _messages.length,
-                  itemBuilder: (context, i) => _bubble(theme, _messages[i]),
+                  itemCount: messages.length,
+                  itemBuilder: (context, i) => _bubble(theme, messages[i]),
                 ),
         ),
-        if (_sending) const LinearProgressIndicator(minHeight: 2),
+        if (chat.sending) const LinearProgressIndicator(minHeight: 2),
         SafeArea(
           top: false,
           child: Padding(
@@ -157,7 +136,7 @@ class _AssistantChatViewState extends State<AssistantChatView> {
                   },
                 ),
                 IconButton.filled(
-                  onPressed: _sending ? null : _send,
+                  onPressed: chat.sending ? null : _send,
                   icon: const Icon(Icons.send),
                 ),
               ],
@@ -191,7 +170,7 @@ class _AssistantChatViewState extends State<AssistantChatView> {
     );
   }
 
-  Widget _bubble(ThemeData theme, _ChatMessage m) {
+  Widget _bubble(ThemeData theme, ChatMessage m) {
     final isUser = m.role == 'user';
     final bg = isUser
         ? theme.colorScheme.primary
@@ -215,7 +194,9 @@ class _AssistantChatViewState extends State<AssistantChatView> {
                     style: TextStyle(color: fg))
                 : MarkdownBody(
                     data: m.content.isEmpty ? '…' : m.content,
-                    selectable: true,
+                    // selectable:true crasht auf Desktop (flutter_markdown-Bug
+                    // in onSelectionChanged) -> aus.
+                    selectable: false,
                     styleSheet:
                         MarkdownStyleSheet.fromTheme(theme).copyWith(
                       p: TextStyle(color: fg),
@@ -277,7 +258,7 @@ class _AssistantChatViewState extends State<AssistantChatView> {
     }
   }
 
-  Widget _actionCard(ThemeData theme, _PendingItem item) {
+  Widget _actionCard(ThemeData theme, ChatPendingItem item) {
     final isDelete = item.action.kind == 'delete_planner_entry';
     return Container(
       margin: const EdgeInsets.only(top: 2, bottom: 6),
@@ -309,7 +290,8 @@ class _AssistantChatViewState extends State<AssistantChatView> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: () => setState(() => item.status = 'dismissed'),
+                  onPressed: () =>
+                      context.read<ChatProvider>().dismiss(item),
                   child: const Text('Verwerfen'),
                 ),
                 const SizedBox(width: 4),

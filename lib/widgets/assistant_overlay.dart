@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/provider/user_provider.dart';
+import 'package:productivity/provider/chat_provider.dart';
 import 'package:productivity/tabs/assistant/assistant_page.dart';
 
 /// Legt über die gesamte App einen Floating-Button, der den Assistenten in
@@ -77,6 +78,12 @@ class _AssistantFloatingState extends State<_AssistantFloating> {
                     appBar: AppBar(
                       title: const Text('Assistent'),
                       actions: [
+                        IconButton(
+                          icon: const Icon(Icons.add_comment_outlined),
+                          tooltip: 'Neuer Chat',
+                          onPressed: () =>
+                              context.read<ChatProvider>().clear(),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => setState(() => _open = false),

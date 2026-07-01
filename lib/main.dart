@@ -32,6 +32,7 @@ import 'package:productivity/dataservice/notification_service.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/dataservice/background_task_manager.dart';
 import 'package:productivity/provider/planner_provider.dart';
+import 'package:productivity/provider/chat_provider.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -49,6 +50,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => PlannerProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: const MyApp(),
     ),

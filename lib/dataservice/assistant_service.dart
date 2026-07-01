@@ -33,10 +33,12 @@ class AssistantService {
   /// Der Endpunkt streamt NDJSON: laufend {"type":"heartbeat"} (damit
   /// Cloudflare nicht mit 524 abbricht) und am Ende {"type":"result", ...}
   /// bzw. {"type":"error"}. Wir lesen den Stream Zeile für Zeile und werten
-  /// nur die finale Zeile aus.
+  /// nur die finale Zeile aus. [onToken] wird – falls gesetzt – für jedes
+  /// Text-Stück ({"type":"token"}) aufgerufen, damit die Antwort live „tippt".
   static Future<AssistantReply> chat({
     required List<Map<String, String>> messages,
     String? model,
+    void Function(String delta)? onToken,
   }) async {
     try {
       final response = await ApiClient.dio.post(
@@ -65,6 +67,10 @@ class AssistantService {
         try {
           final json = jsonDecode(line) as Map<String, dynamic>;
           switch (json['type']) {
+            case 'token':
+              final t = (json['text'] ?? '').toString();
+              if (t.isNotEmpty) onToken?.call(t);
+              break;
             case 'result':
               result = json;
               break;

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
@@ -7,6 +8,11 @@ import 'package:productivity/dataclasses/unit.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/ingredient_service.dart';
 import 'package:productivity/dataservice/unit_service.dart';
+import 'package:productivity/dataservice/barcode_service.dart';
+import 'package:productivity/dataservice/assistant_service.dart';
+import 'package:productivity/dataservice/receipt_service.dart';
+import 'package:productivity/tabs/pantry/barcode_scan_page.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 class PantryPage extends BasePage {
@@ -89,6 +95,186 @@ class _PantryListState extends State<_PantryList> {
           .toList();
     }
     return list;
+  }
+
+  // Barcode-Scan wird nur dort gezeigt, wo eine Kamera verfügbar ist.
+  bool get _canScan {
+    if (kIsWeb) return true;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  Future<void> _scanBarcode() async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final code = await navigator.push<String>(
+      MaterialPageRoute(builder: (_) => const BarcodeScanPage()),
+    );
+    if (code == null || !mounted) return;
+
+    BarcodeProduct? product;
+    try {
+      product = await BarcodeService.lookup(code);
+    } catch (_) {
+      // Lookup-Fehler ignorieren -> Name manuell eingeben
+    }
+    if (!mounted) return;
+
+    final nameCtrl = TextEditingController(text: product?.name ?? '');
+    final qtyCtrl = TextEditingController(text: '1');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Zum Vorrat hinzufügen'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (product == null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Kein Produkt zu Barcode $code gefunden – bitte Namen eingeben.',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+              ),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: qtyCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Menge'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hinzufügen'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final name = nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final qty = double.tryParse(qtyCtrl.text.replaceAll(',', '.')) ?? 1;
+    try {
+      await AssistantService.execute('add_pantry_item', {
+        'name': name,
+        'quantity': qty,
+      });
+      if (!mounted) return;
+      _load();
+      messenger.showSnackBar(
+        SnackBar(content: Text('$name zum Vorrat hinzugefügt')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Fehler: $e')));
+    }
+  }
+
+  Future<void> _scanReceipt() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: _canScan ? ImageSource.camera : ImageSource.gallery,
+      imageQuality: 70,
+    );
+    if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+
+    // Fortschrittsdialog während der (evtl. längeren) Auswertung
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Expanded(child: Text('Kassenbon wird ausgewertet …')),
+          ],
+        ),
+      ),
+    );
+
+    List<AssistantPendingAction> actions = [];
+    String? err;
+    try {
+      actions = await ReceiptService.scan(bytes, target: 'pantry');
+    } catch (e) {
+      err = '$e';
+    }
+    navigator.pop(); // Fortschrittsdialog schließen
+    if (!mounted) return;
+    if (err != null) {
+      messenger.showSnackBar(SnackBar(content: Text('Fehler: $err')));
+      return;
+    }
+    if (actions.isEmpty) {
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Keine Artikel erkannt.')));
+      return;
+    }
+
+    final selected = {for (var i = 0; i < actions.length; i++) i: true};
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('${actions.length} Artikel erkannt'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (var i = 0; i < actions.length; i++)
+                  CheckboxListTile(
+                    dense: true,
+                    value: selected[i],
+                    title: Text(actions[i].label),
+                    onChanged: (v) => setLocal(() => selected[i] = v ?? false),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Übernehmen'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    var ok = 0;
+    for (var i = 0; i < actions.length; i++) {
+      if (selected[i] != true) continue;
+      try {
+        await AssistantService.execute(actions[i].kind, actions[i].params);
+        ok++;
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    _load();
+    messenger.showSnackBar(
+        SnackBar(content: Text('$ok Artikel zum Vorrat hinzugefügt')));
   }
 
   Future<void> _updateQuantity(PantryItem item, double delta) async {
@@ -326,9 +512,31 @@ class _PantryListState extends State<_PantryList> {
     final filtered = _filtered;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showEditDialog(),
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'pantry_receipt',
+            onPressed: _scanReceipt,
+            tooltip: 'Kassenbon scannen',
+            child: const Icon(Icons.receipt_long),
+          ),
+          const SizedBox(height: 12),
+          if (_canScan) ...[
+            FloatingActionButton.small(
+              heroTag: 'pantry_scan',
+              onPressed: _scanBarcode,
+              tooltip: 'Barcode scannen',
+              child: const Icon(Icons.qr_code_scanner),
+            ),
+            const SizedBox(height: 12),
+          ],
+          FloatingActionButton(
+            heroTag: 'pantry_add',
+            onPressed: () => _showEditDialog(),
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
       body: Column(
         children: [

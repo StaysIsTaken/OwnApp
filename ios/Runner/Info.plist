@@ -6,6 +6,8 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Für die Sprach-zu-Text-Funktion (Notizen und Journal diktieren) wird Zugriff auf das Mikrofon benötigt.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Für das Scannen von Barcodes (Vorräte) wird Zugriff auf die Kamera benötigt.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
