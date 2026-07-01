@@ -57,4 +57,14 @@ class AiSettingsService {
     final r = await ApiClient.dio.put(_path, data: body);
     return AiSettings.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
+
+  /// Fragt die verfügbaren Modelle beim Anbieter ab (Key muss vorher
+  /// gespeichert sein). Wirft mit dem Server-Fehlertext bei Problemen.
+  static Future<List<String>> listModels() async {
+    final r = await ApiClient.dio.get('$_path/models');
+    final data = Map<String, dynamic>.from(r.data as Map);
+    return ((data['models'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .toList();
+  }
 }
