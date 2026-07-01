@@ -164,6 +164,18 @@ class LocalNotificationManager {
     await prefs.setBool(prefKey, value);
   }
 
+  /// Nur Android/iOS unterstützen flutter_local_notifications hier.
+  /// Auf Web/Desktop ist der Plugin-Platform-Instance-State nicht initialisiert
+  /// -> Aufrufe würden crashen (LateInitializationError).
+  bool _platformSupported() {
+    if (kIsWeb) return false;
+    try {
+      return Platform.isAndroid || Platform.isIOS;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ──── Show Immediately ───────────────────────────────
   Future<void> showNotification({
     required int id,
@@ -172,7 +184,7 @@ class LocalNotificationManager {
     required String channelId,
     String? payload,
   }) async {
-    if (kIsWeb || !_initialized) return;
+    if (!_platformSupported() || !_initialized) return;
     if (!await isEnabled()) return;
     if (!await _isChannelAllowed(channelId)) return;
 
@@ -189,7 +201,7 @@ class LocalNotificationManager {
     required String channelId,
     String? payload,
   }) async {
-    if (kIsWeb || !_initialized) return;
+    if (!_platformSupported() || !_initialized) return;
     if (!await isEnabled()) return;
     if (!await _isChannelAllowed(channelId)) return;
     if (when.isBefore(DateTime.now())) return; // Don't schedule in the past

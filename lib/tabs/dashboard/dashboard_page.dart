@@ -29,11 +29,15 @@ import 'package:productivity/tabs/dashboard/widgets/shopping_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/mealplan_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/journal_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/notes_widget.dart';
+import 'package:productivity/tabs/dashboard/widgets/today_agenda_widget.dart';
+import 'package:productivity/tabs/dashboard/dashboard_prefs.dart';
 import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/dataclasses/journal_entry.dart';
+import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataservice/note_service.dart';
 import 'package:productivity/dataservice/journal_service.dart';
 import 'package:productivity/dataservice/journal_analysis_service.dart';
+import 'package:productivity/dataservice/planner_service.dart';
 
 class DashboardPage extends BasePage {
   const DashboardPage({super.key}) : super(title: 'Dashboard');
@@ -70,7 +74,12 @@ class _DashboardContentState extends State<_DashboardContent> {
   Map<String, List<ShoppingListItemPrice>> _pricesByItemId = {};
   List<Note> _notes = [];
   List<JournalEntry> _journalEntries = [];
+  List<PlannerEntry> _plannerEntries = [];
   Map<String, dynamic> _sentimentStats = {};
+
+  // Dashboard-Anpassung (Reihenfolge + ausgeblendete Kacheln)
+  List<String> _widgetOrder = DashboardPrefs.allKeys;
+  Set<String> _hidden = {};
 
   bool _loading = true;
   String? _error;
@@ -79,6 +88,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void initState() {
     super.initState();
+    _loadLayout();
     _loadData();
     // Auto-refresh every 60 seconds for live data
     _autoRefreshTimer = Timer.periodic(
@@ -91,6 +101,75 @@ class _DashboardContentState extends State<_DashboardContent> {
   void dispose() {
     _autoRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadLayout() async {
+    final order = await DashboardPrefs.loadOrder();
+    final hidden = await DashboardPrefs.loadHidden();
+    if (!mounted) return;
+    setState(() {
+      _widgetOrder = order;
+      _hidden = hidden;
+    });
+  }
+
+  Future<void> _openCustomize() async {
+    final order = List<String>.from(_widgetOrder);
+    final hidden = Set<String>.from(_hidden);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Dashboard anpassen'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 360,
+            child: ReorderableListView(
+              onReorder: (oldI, newI) => setLocal(() {
+                if (newI > oldI) newI--;
+                final k = order.removeAt(oldI);
+                order.insert(newI, k);
+              }),
+              children: [
+                for (final k in order)
+                  ListTile(
+                    key: ValueKey(k),
+                    leading: const Icon(Icons.drag_handle),
+                    title: Text(DashboardPrefs.labels[k] ?? k),
+                    trailing: Switch(
+                      value: !hidden.contains(k),
+                      onChanged: (v) => setLocal(() {
+                        if (v) {
+                          hidden.remove(k);
+                        } else {
+                          hidden.add(k);
+                        }
+                      }),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Abbrechen')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Speichern')),
+          ],
+        ),
+      ),
+    );
+    if (saved == true) {
+      await DashboardPrefs.save(order, hidden);
+      if (mounted) {
+        setState(() {
+          _widgetOrder = order;
+          _hidden = hidden;
+        });
+      }
+    }
   }
 
   Future<void> _loadData({bool silent = false}) async {
@@ -112,6 +191,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         ShopService.loadAll(), // 7
         NoteService.loadAll(), // 8
         JournalService.loadAll(), // 9
+        PlannerService.loadAll(), // 10
       ]);
 
       Map<String, dynamic> sentimentStats = {};
@@ -153,6 +233,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         _shops = results[7] as List<Shop>;
         _notes = results[8] as List<Note>;
         _journalEntries = results[9] as List<JournalEntry>;
+        _plannerEntries = results[10] as List<PlannerEntry>;
         _pricesByItemId = priceMap;
         _sentimentStats = sentimentStats;
         _loading = false;
@@ -214,9 +295,29 @@ class _DashboardContentState extends State<_DashboardContent> {
                     recipes: _recipes,
                     estimatedShoppingCost: _getEstimatedShoppingCost(),
                   ),
+                  const SizedBox(height: 16),
+
+                  // 4. Heutige Termine (Planner)
+                  TodayAgendaWidget(entries: _getTodayPlanner()),
                   const SizedBox(height: 24),
 
-                  // 4. Widgets Grid
+                  // 5. Anpassbares Widget-Raster
+                  Row(
+                    children: [
+                      Text('Übersicht',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.tune),
+                        tooltip: 'Dashboard anpassen',
+                        onPressed: _openCustomize,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   _buildWidgetGrid(isDesktop, isTablet),
                 ],
               ),
@@ -228,21 +329,22 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   Widget _buildWidgetGrid(bool isDesktop, bool isTablet) {
-    final widgets = <Widget>[
-      TasksWidget(tasks: _tasks, tasksDueToday: _getTasksDueToday()),
-      PantryWidget(
+    // Kachel je Schlüssel – Reihenfolge/Sichtbarkeit steuert der Nutzer.
+    final byKey = <String, Widget>{
+      'tasks': TasksWidget(tasks: _tasks, tasksDueToday: _getTasksDueToday()),
+      'pantry': PantryWidget(
         pantryItems: _pantryItems,
         ingredientMap: _ingredientMap,
         lowItems: _getLowPantryItems(),
         expiringItems: _getExpiringPantryItems(),
       ),
-      TimeWidget(
+      'time': TimeWidget(
         timeEntries: _timeEntries,
         timeTrackedToday: _getTimeTrackedToday(),
         timeTrackedThisWeek: _getTimeTrackedThisWeek(),
         activeEntry: _getActiveTimeEntry(),
       ),
-      ShoppingWidget(
+      'shopping': ShoppingWidget(
         shoppingItems: _shoppingItems,
         ingredientMap: _ingredientMap,
         pricesByItemId: _pricesByItemId,
@@ -250,8 +352,9 @@ class _DashboardContentState extends State<_DashboardContent> {
         estimatedCost: _getEstimatedShoppingCost(),
         onItemBought: _onShoppingItemBought,
       ),
-      MealplanWidget(mealPlanEntries: _mealPlanEntries, recipes: _recipes),
-      JournalWidget(
+      'mealplan':
+          MealplanWidget(mealPlanEntries: _mealPlanEntries, recipes: _recipes),
+      'journal': JournalWidget(
         journalEntries: _journalEntries,
         averageSentiment: _sentimentStats['averageSentiment'] != null
             ? (_sentimentStats['averageSentiment'] as num).toDouble()
@@ -268,8 +371,18 @@ class _DashboardContentState extends State<_DashboardContent> {
                 .toList() ??
             [],
       ),
-      NotesWidget(notes: _notes, onRefresh: () => _loadData(silent: true)),
-    ];
+      'notes':
+          NotesWidget(notes: _notes, onRefresh: () => _loadData(silent: true)),
+    };
+
+    final widgets = _widgetOrder
+        .where((k) => !_hidden.contains(k) && byKey.containsKey(k))
+        .map((k) => byKey[k]!)
+        .toList();
+
+    if (widgets.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     if (isDesktop) {
       // 3 columns on desktop
@@ -397,6 +510,16 @@ class _DashboardContentState extends State<_DashboardContent> {
     } catch (_) {
       return null;
     }
+  }
+
+  List<PlannerEntry> _getTodayPlanner() {
+    final t = DateTime.now();
+    return _plannerEntries
+        .where((e) =>
+            e.scheduledAt.year == t.year &&
+            e.scheduledAt.month == t.month &&
+            e.scheduledAt.day == t.day)
+        .toList();
   }
 
   List<MealPlanEntry> _getTodayMealPlan() {

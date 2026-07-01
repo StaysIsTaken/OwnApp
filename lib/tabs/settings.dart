@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/ai_model.dart';
 import 'package:productivity/dataservice/ai_service.dart';
+import 'package:productivity/dataservice/ai_settings_service.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/widgets/settings_tile.dart';
 
@@ -33,11 +34,71 @@ class _SettingsBodyState extends State<_SettingsBody> {
   List<AIModel> _aiModels = [];
   bool _aiModelsLoading = true;
 
+  // KI-Provider (serverseitig, pro User)
+  String _provider = 'ollama';
+  bool _hasKey = false;
+  bool _aiSettingsLoading = true;
+  bool _savingAiSettings = false;
+  final TextEditingController _apiKeyCtrl = TextEditingController();
+  final TextEditingController _cloudModelCtrl = TextEditingController();
+  final TextEditingController _baseUrlCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _loadNotifSettings();
     _loadAIModels();
+    _loadAiProviderSettings();
+  }
+
+  @override
+  void dispose() {
+    _apiKeyCtrl.dispose();
+    _cloudModelCtrl.dispose();
+    _baseUrlCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAiProviderSettings() async {
+    try {
+      final s = await AiSettingsService.get();
+      if (!mounted) return;
+      setState(() {
+        _provider = s.provider;
+        _hasKey = s.hasKey;
+        _cloudModelCtrl.text = s.model ?? '';
+        _baseUrlCtrl.text = s.baseUrl ?? '';
+        _aiSettingsLoading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _aiSettingsLoading = false);
+    }
+  }
+
+  Future<void> _saveAiProviderSettings() async {
+    setState(() => _savingAiSettings = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final s = await AiSettingsService.save(
+        provider: _provider,
+        // Key nur senden, wenn etwas eingegeben wurde (sonst unverändert lassen)
+        apiKey: _apiKeyCtrl.text.isNotEmpty ? _apiKeyCtrl.text : null,
+        baseUrl: _baseUrlCtrl.text.trim(),
+        model: _cloudModelCtrl.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _hasKey = s.hasKey;
+        _apiKeyCtrl.clear();
+        _savingAiSettings = false;
+      });
+      messenger.showSnackBar(
+        const SnackBar(content: Text('KI-Einstellungen gespeichert ✅')),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _savingAiSettings = false);
+      messenger.showSnackBar(SnackBar(content: Text('Fehler: $e')));
+    }
   }
 
   Future<void> _loadAIModels() async {
@@ -244,7 +305,103 @@ class _SettingsBodyState extends State<_SettingsBody> {
         ],
 
         const SizedBox(height: 16),
-        _SectionTitle('KI-Assistent'),
+        _SectionTitle('KI-Provider'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: _aiSettingsLoading
+                ? const SizedBox(
+                    height: 40, child: Center(child: CircularProgressIndicator()))
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Anbieter',
+                          style: Theme.of(context).textTheme.labelMedium),
+                      const SizedBox(height: 8),
+                      DropdownButton<String>(
+                        isExpanded: true,
+                        value: _provider,
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'ollama', child: Text('Lokal (Ollama)')),
+                          DropdownMenuItem(
+                              value: 'openrouter', child: Text('OpenRouter')),
+                          DropdownMenuItem(
+                              value: 'gemini', child: Text('Google Gemini')),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _provider = v ?? 'ollama'),
+                      ),
+                      if (_provider != 'ollama') ...[
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _apiKeyCtrl,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'API-Key',
+                            hintText: _hasKey
+                                ? '•••••••• (gespeichert – zum Ändern neu eingeben)'
+                                : 'API-Key einfügen',
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _cloudModelCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Modell',
+                            hintText: _provider == 'gemini'
+                                ? 'z.B. gemini-2.5-flash'
+                                : 'z.B. google/gemini-2.0-flash-exp:free',
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _baseUrlCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Base-URL (optional)',
+                            hintText: 'leer = Standard des Anbieters',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Hinweis: Bei einem Cloud-Anbieter werden Chat-Inhalte '
+                          '(inkl. abgefragter Termine/Notizen/Journal) an diesen '
+                          'gesendet. Embeddings/RAG bleiben lokal.',
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: colors.outline,
+                                  ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.icon(
+                          onPressed:
+                              _savingAiSettings ? null : _saveAiProviderSettings,
+                          icon: _savingAiSettings
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.save),
+                          label: const Text('Speichern'),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+        _SectionTitle('KI-Assistent (Lokal)'),
         Card(
           child: Column(
             children: [
