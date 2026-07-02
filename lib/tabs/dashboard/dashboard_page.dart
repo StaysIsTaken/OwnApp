@@ -31,6 +31,9 @@ import 'package:productivity/tabs/dashboard/widgets/journal_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/notes_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/today_agenda_widget.dart';
 import 'package:productivity/tabs/dashboard/dashboard_prefs.dart';
+import 'package:productivity/dataservice/weather_service.dart';
+import 'package:productivity/provider/settings_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/dataclasses/journal_entry.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
@@ -81,6 +84,10 @@ class _DashboardContentState extends State<_DashboardContent> {
   List<String> _widgetOrder = DashboardPrefs.allKeys;
   Set<String> _hidden = {};
 
+  // Wetter
+  WeatherForecast? _weather;
+  bool _weatherLoading = true;
+
   bool _loading = true;
   String? _error;
   Timer? _autoRefreshTimer;
@@ -90,6 +97,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     super.initState();
     _loadLayout();
     _loadData();
+    _loadWeather();
     // Auto-refresh every 60 seconds for live data
     _autoRefreshTimer = Timer.periodic(
       const Duration(seconds: 60),
@@ -101,6 +109,21 @@ class _DashboardContentState extends State<_DashboardContent> {
   void dispose() {
     _autoRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadWeather() async {
+    if (mounted) setState(() => _weatherLoading = true);
+    try {
+      final city = context.read<SettingsProvider>().weatherCity;
+      final w = await WeatherService.load(city: city);
+      if (!mounted) return;
+      setState(() {
+        _weather = w;
+        _weatherLoading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _weatherLoading = false);
+    }
   }
 
   Future<void> _loadLayout() async {
@@ -280,6 +303,9 @@ class _DashboardContentState extends State<_DashboardContent> {
                   GreetingHeader(
                     tasksDueToday: _getTasksDueToday().length,
                     lowPantryItems: _getLowPantryItems().length,
+                    forecast: _weather,
+                    weatherLoading: _weatherLoading,
+                    onRefreshWeather: _loadWeather,
                   ),
                   const SizedBox(height: 20),
 
