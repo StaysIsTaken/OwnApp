@@ -39,6 +39,7 @@ class AssistantService {
     required List<Map<String, String>> messages,
     String? model,
     void Function(String delta)? onToken,
+    void Function()? onReset,
   }) async {
     try {
       final response = await ApiClient.dio.post(
@@ -70,6 +71,9 @@ class AssistantService {
             case 'token':
               final t = (json['text'] ?? '').toString();
               if (t.isNotEmpty) onToken?.call(t);
+              break;
+            case 'reset':
+              onReset?.call();
               break;
             case 'result':
               result = json;

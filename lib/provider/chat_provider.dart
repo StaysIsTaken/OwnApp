@@ -68,9 +68,16 @@ class ChatProvider extends ChangeNotifier with WidgetsBindingObserver {
           assistant.content += delta; // wächst live in der Bubble
           notifyListeners();
         },
+        onReset: () {
+          // Zwischen-Tokens eines vorherigen Agenten-Schritts verwerfen.
+          assistant.content = '';
+          notifyListeners();
+        },
       );
-      // Kanonischen Text setzen (räumt evtl. Zwischen-Token auf) + Karten anhängen.
-      assistant.content = result.reply;
+      // Finalen Text setzen – aber gestreamten Inhalt NICHT durch Leer ersetzen.
+      if (result.reply.trim().isNotEmpty) {
+        assistant.content = result.reply;
+      }
       assistant.pending
         ..clear()
         ..addAll(result.pendingActions.map((a) => ChatPendingItem(a)));
