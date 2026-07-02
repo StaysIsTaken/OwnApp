@@ -1,67 +1,94 @@
 import 'package:productivity/dataservice/api_client.dart';
 
-/// Pro-User KI-Provider-Einstellungen (serverseitig gespeichert).
-class AiSettings {
-  final String provider; // ollama | openrouter | gemini
+/// Ein KI-Anbieter-Profil eines Nutzers (mehrere möglich, eines aktiv).
+class AiProvider {
+  final String id;
+  final String name;
+  final String provider; // ollama | openrouter | gemini | mistral | custom
   final String? baseUrl;
   final String? model;
-  final bool hasKey; // ob ein API-Key hinterlegt ist (der Key selbst kommt nie zurück)
-  final int? maxTokens;
-  final double? temperature;
+  final bool hasKey;
+  final bool isActive;
 
-  AiSettings({
+  AiProvider({
+    required this.id,
+    required this.name,
     required this.provider,
     this.baseUrl,
     this.model,
     this.hasKey = false,
-    this.maxTokens,
-    this.temperature,
+    this.isActive = false,
   });
 
-  factory AiSettings.fromJson(Map<String, dynamic> j) => AiSettings(
-        provider: (j['provider'] ?? 'ollama').toString(),
+  factory AiProvider.fromJson(Map<String, dynamic> j) => AiProvider(
+        id: j['id'].toString(),
+        name: (j['name'] ?? '').toString(),
+        provider: (j['provider'] ?? 'custom').toString(),
         baseUrl: j['base_url'] as String?,
         model: j['model'] as String?,
         hasKey: j['has_key'] == true,
-        maxTokens: j['max_tokens'] as int?,
-        temperature: (j['temperature'] as num?)?.toDouble(),
+        isActive: j['is_active'] == true,
       );
 }
 
 class AiSettingsService {
   AiSettingsService._();
-  static const String _path = '/assistant/settings';
+  static const String _base = '/assistant/providers';
 
-  static Future<AiSettings> get() async {
-    final r = await ApiClient.dio.get(_path);
-    return AiSettings.fromJson(Map<String, dynamic>.from(r.data as Map));
+  static Future<List<AiProvider>> list() async {
+    final r = await ApiClient.dio.get(_base);
+    return (r.data as List)
+        .map((e) => AiProvider.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
-  /// Speichert nur die übergebenen Felder. apiKey: nicht-null = setzen
-  /// (leerer String löscht ihn serverseitig), null = unverändert lassen.
-  static Future<AiSettings> save({
-    String? provider,
-    String? apiKey,
+  static Future<AiProvider> create({
+    required String name,
+    required String provider,
     String? baseUrl,
+    String? apiKey,
     String? model,
-    int? maxTokens,
-    double? temperature,
+  }) async {
+    final r = await ApiClient.dio.post(_base, data: {
+      'name': name,
+      'provider': provider,
+      if (baseUrl != null) 'base_url': baseUrl,
+      if (apiKey != null) 'api_key': apiKey,
+      if (model != null) 'model': model,
+    });
+    return AiProvider.fromJson(Map<String, dynamic>.from(r.data as Map));
+  }
+
+  static Future<AiProvider> update(
+    String id, {
+    String? name,
+    String? provider,
+    String? baseUrl,
+    String? apiKey,
+    String? model,
   }) async {
     final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
     if (provider != null) body['provider'] = provider;
-    if (apiKey != null) body['api_key'] = apiKey;
     if (baseUrl != null) body['base_url'] = baseUrl;
+    if (apiKey != null) body['api_key'] = apiKey;
     if (model != null) body['model'] = model;
-    if (maxTokens != null) body['max_tokens'] = maxTokens;
-    if (temperature != null) body['temperature'] = temperature;
-    final r = await ApiClient.dio.put(_path, data: body);
-    return AiSettings.fromJson(Map<String, dynamic>.from(r.data as Map));
+    final r = await ApiClient.dio.put('$_base/$id', data: body);
+    return AiProvider.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
-  /// Fragt die verfügbaren Modelle beim Anbieter ab (Key muss vorher
-  /// gespeichert sein). Wirft mit dem Server-Fehlertext bei Problemen.
-  static Future<List<String>> listModels() async {
-    final r = await ApiClient.dio.get('$_path/models');
+  static Future<void> delete(String id) async {
+    await ApiClient.dio.delete('$_base/$id');
+  }
+
+  static Future<AiProvider> activate(String id) async {
+    final r = await ApiClient.dio.post('$_base/$id/activate');
+    return AiProvider.fromJson(Map<String, dynamic>.from(r.data as Map));
+  }
+
+  /// Modelle des Anbieters mit der gegebenen id (Key muss gespeichert sein).
+  static Future<List<String>> listModels(String id) async {
+    final r = await ApiClient.dio.get('$_base/$id/models');
     final data = Map<String, dynamic>.from(r.data as Map);
     return ((data['models'] as List?) ?? const [])
         .map((e) => e.toString())

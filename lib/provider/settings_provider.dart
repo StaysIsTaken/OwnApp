@@ -7,18 +7,21 @@ class SettingsProvider extends ChangeNotifier {
   static const String _selectedAIModelKey = 'selected_ai_model';
   static const String _aiTemperatureKey = 'ai_temperature';
   static const String _aiMaxTokensKey = 'ai_max_tokens';
+  static const String _weatherCityKey = 'weather_city';
 
   bool _use24hFormat = true;
   bool _isDarkMode = true;
   String _selectedAIModel = '';
   double _aiTemperature = 0.7;
   int _aiMaxTokens = 500;
+  String _weatherCity = '';
 
   bool get use24hFormat => _use24hFormat;
   bool get isDarkMode => _isDarkMode;
   String get selectedAIModel => _selectedAIModel;
   double get aiTemperature => _aiTemperature;
   int get aiMaxTokens => _aiMaxTokens;
+  String get weatherCity => _weatherCity;
 
   SettingsProvider() {
     _loadSettings();
@@ -31,7 +34,17 @@ class SettingsProvider extends ChangeNotifier {
     _selectedAIModel = prefs.getString(_selectedAIModelKey) ?? '';
     _aiTemperature = prefs.getDouble(_aiTemperatureKey) ?? 0.7;
     _aiMaxTokens = prefs.getInt(_aiMaxTokensKey) ?? 500;
+    _weatherCity = prefs.getString(_weatherCityKey) ?? '';
     notifyListeners();
+  }
+
+  Future<void> setWeatherCity(String value) async {
+    final v = value.trim();
+    if (_weatherCity == v) return;
+    _weatherCity = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_weatherCityKey, v);
   }
 
   Future<void> setUse24hFormat(bool value) async {

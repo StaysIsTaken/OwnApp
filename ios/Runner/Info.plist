@@ -8,6 +8,8 @@
 	<string>Für die Sprach-zu-Text-Funktion (Notizen und Journal diktieren) wird Zugriff auf das Mikrofon benötigt.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Für das Scannen von Barcodes (Vorräte) wird Zugriff auf die Kamera benötigt.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Für die lokale Wetteranzeige wird dein Standort verwendet. Alternativ kannst du eine Stadt in den Einstellungen angeben.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

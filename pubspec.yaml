@@ -28,6 +28,7 @@ dependencies:
   cross_file: ^0.3.4+2
   mobile_scanner: ^5.2.3
   image_picker: ^1.1.2
+  geolocator: ^13.0.1
 
 dev_dependencies:
   flutter_test:
