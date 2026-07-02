@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:productivity/provider/chat_provider.dart';
+import 'package:productivity/dataservice/assistant_signals.dart';
 import 'package:productivity/tabs/assistant/assistant_page.dart';
 
 /// Legt über die gesamte App einen Floating-Button, der den Assistenten in
@@ -39,6 +40,29 @@ class _AssistantFloating extends StatefulWidget {
 
 class _AssistantFloatingState extends State<_AssistantFloating> {
   bool _open = false;
+  int _consumedCheckin = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    AssistantSignals.instance.journalCheckin.addListener(_maybeCheckin);
+    // Auch beim Start prüfen (Kaltstart per Notification-Tap).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeCheckin());
+  }
+
+  @override
+  void dispose() {
+    AssistantSignals.instance.journalCheckin.removeListener(_maybeCheckin);
+    super.dispose();
+  }
+
+  void _maybeCheckin() {
+    final v = AssistantSignals.instance.journalCheckin.value;
+    if (v <= _consumedCheckin || !mounted) return;
+    _consumedCheckin = v;
+    context.read<ChatProvider>().startJournalCheckin();
+    setState(() => _open = true);
+  }
 
   @override
   Widget build(BuildContext context) {

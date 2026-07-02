@@ -123,4 +123,15 @@ class ChatProvider extends ChangeNotifier with WidgetsBindingObserver {
     _sending = false;
     notifyListeners();
   }
+
+  /// Startet einen Journal-Check-in: der Assistent fragt nach dem Tag.
+  /// Die Antwort des Nutzers löst dann den bestehenden Journal-Vorschlag aus.
+  void startJournalCheckin() {
+    messages.add(ChatMessage(
+      'assistant',
+      'Hey! Wie war dein Tag heute? 😊 Erzähl mir kurz, wie es dir geht – '
+          'ich halte es dann gern als Journal-Eintrag fest.',
+    ));
+    notifyListeners();
+  }
 }

@@ -737,6 +737,51 @@ class _SettingsBodyState extends State<_SettingsBody> {
           ),
         ),
 
+        if (!kIsWeb) ...[
+          const SizedBox(height: 16),
+          _SectionTitle('Journal-Erinnerung'),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  secondary: Icon(Icons.book_outlined, color: colors.primary),
+                  title: const Text('Tägliche Journal-Erinnerung'),
+                  subtitle: const Text(
+                      'Erinnert dich, kurz ins Journal zu schreiben – Tippen öffnet den Chatbot'),
+                  value: settings.journalReminderEnabled,
+                  onChanged: (v) => settings.setJournalReminderEnabled(v),
+                ),
+                if (settings.journalReminderEnabled) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: Icon(Icons.schedule, color: colors.primary),
+                    title: const Text('Uhrzeit'),
+                    trailing: Text(
+                      TimeOfDay(
+                        hour: settings.journalReminderHour,
+                        minute: settings.journalReminderMinute,
+                      ).format(context),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay(
+                          hour: settings.journalReminderHour,
+                          minute: settings.journalReminderMinute,
+                        ),
+                      );
+                      if (picked != null) {
+                        settings.setJournalReminderTime(picked.hour, picked.minute);
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+
         const SizedBox(height: 16),
         _SectionTitle('Sonstiges'),
         SettingsTile(

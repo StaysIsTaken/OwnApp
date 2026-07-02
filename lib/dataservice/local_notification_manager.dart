@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:productivity/dataservice/assistant_signals.dart';
 
 /// Manages local (device-side) notifications.
 ///
@@ -46,6 +47,12 @@ class LocalNotificationManager {
   static const String prefChat = 'notif_chat';
   static const String prefTasks = 'notif_tasks';
   static const String prefPantry = 'notif_pantry';
+
+  // Journal-Erinnerung (tägliche Push, öffnet den Chatbot)
+  static const String prefJournalReminderEnabled = 'journal_reminder_enabled';
+  static const String prefJournalReminderHour = 'journal_reminder_hour';
+  static const String prefJournalReminderMinute = 'journal_reminder_minute';
+  static const int journalReminderId = 990001;
 
   // ──── Initialization ─────────────────────────────────
   Future<void> init() async {
@@ -322,8 +329,44 @@ class LocalNotificationManager {
   }
 
   static void _handleNotificationTap(NotificationResponse response) {
-    // Notification was tapped. Payload could be used for routing.
-    // Example: payload = "task:abc-123" → could route to tasks page
-    // Currently we just open the app (which is the default behavior).
+    // Journal-Erinnerung angetippt -> Chatbot öffnen und nach dem Tag fragen.
+    if (response.payload == 'journal_reminder') {
+      AssistantSignals.instance.requestJournalCheckin();
+    }
+  }
+
+  /// Plant die tägliche Journal-Erinnerung anhand der gespeicherten Einstellungen
+  /// (oder bricht sie ab, wenn deaktiviert).
+  Future<void> applyJournalReminder() async {
+    if (!_platformSupported() || !_initialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    await cancel(journalReminderId);
+    final enabled = prefs.getBool(prefJournalReminderEnabled) ?? false;
+    if (!enabled) return;
+
+    final hour = prefs.getInt(prefJournalReminderHour) ?? 20;
+    final minute = prefs.getInt(prefJournalReminderMinute) ?? 0;
+    final now = tz.TZDateTime.now(tz.local);
+    var when =
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (!when.isAfter(now)) when = when.add(const Duration(days: 1));
+
+    final details = _buildNotificationDetails(channelChat);
+    try {
+      await _getPlugin().zonedSchedule(
+        journalReminderId,
+        'Journal 📔',
+        'Wie war dein Tag? Kurz festhalten?',
+        when,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time, // täglich
+        payload: 'journal_reminder',
+      );
+    } catch (_) {
+      // Silent fail
+    }
   }
 }

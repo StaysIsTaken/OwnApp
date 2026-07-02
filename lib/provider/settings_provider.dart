@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:productivity/dataservice/local_notification_manager.dart';
 
 class SettingsProvider extends ChangeNotifier {
   static const String _timeFormatKey = 'use_24h_format';
@@ -15,6 +16,9 @@ class SettingsProvider extends ChangeNotifier {
   double _aiTemperature = 0.7;
   int _aiMaxTokens = 500;
   String _weatherCity = '';
+  bool _journalReminderEnabled = false;
+  int _journalReminderHour = 20;
+  int _journalReminderMinute = 0;
 
   bool get use24hFormat => _use24hFormat;
   bool get isDarkMode => _isDarkMode;
@@ -22,6 +26,9 @@ class SettingsProvider extends ChangeNotifier {
   double get aiTemperature => _aiTemperature;
   int get aiMaxTokens => _aiMaxTokens;
   String get weatherCity => _weatherCity;
+  bool get journalReminderEnabled => _journalReminderEnabled;
+  int get journalReminderHour => _journalReminderHour;
+  int get journalReminderMinute => _journalReminderMinute;
 
   SettingsProvider() {
     _loadSettings();
@@ -35,6 +42,12 @@ class SettingsProvider extends ChangeNotifier {
     _aiTemperature = prefs.getDouble(_aiTemperatureKey) ?? 0.7;
     _aiMaxTokens = prefs.getInt(_aiMaxTokensKey) ?? 500;
     _weatherCity = prefs.getString(_weatherCityKey) ?? '';
+    _journalReminderEnabled =
+        prefs.getBool(LocalNotificationManager.prefJournalReminderEnabled) ?? false;
+    _journalReminderHour =
+        prefs.getInt(LocalNotificationManager.prefJournalReminderHour) ?? 20;
+    _journalReminderMinute =
+        prefs.getInt(LocalNotificationManager.prefJournalReminderMinute) ?? 0;
     notifyListeners();
   }
 
@@ -45,6 +58,24 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_weatherCityKey, v);
+  }
+
+  Future<void> setJournalReminderEnabled(bool value) async {
+    _journalReminderEnabled = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(LocalNotificationManager.prefJournalReminderEnabled, value);
+    await LocalNotificationManager().applyJournalReminder();
+  }
+
+  Future<void> setJournalReminderTime(int hour, int minute) async {
+    _journalReminderHour = hour;
+    _journalReminderMinute = minute;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(LocalNotificationManager.prefJournalReminderHour, hour);
+    await prefs.setInt(LocalNotificationManager.prefJournalReminderMinute, minute);
+    await LocalNotificationManager().applyJournalReminder();
   }
 
   Future<void> setUse24hFormat(bool value) async {

@@ -66,6 +66,8 @@ void main() async {
     // re-enable from the settings page later.
     LocalNotificationManager().requestPermissions();
     BackgroundTaskManager.init();
+    // Tägliche Journal-Erinnerung (falls aktiviert) neu einplanen.
+    LocalNotificationManager().applyJournalReminder();
   }
 }
 
