@@ -10,6 +10,19 @@
 	<string>Für das Scannen von Barcodes (Vorräte) wird Zugriff auf die Kamera benötigt.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Für die lokale Wetteranzeige wird dein Standort verwendet. Alternativ kannst du eine Stadt in den Einstellungen angeben.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>de.home-anft.ownapp</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ownapp</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

@@ -4,6 +4,7 @@ import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/ai_model.dart';
 import 'package:productivity/dataservice/ai_service.dart';
 import 'package:productivity/dataservice/ai_settings_service.dart';
+import 'package:productivity/dataservice/journal_reminder_service.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/widgets/settings_tile.dart';
 
@@ -61,6 +62,19 @@ class _SettingsBodyState extends State<_SettingsBody> {
     _loadNotifSettings();
     _loadAIModels();
     _loadProviders();
+    _loadJournalReminder();
+  }
+
+  Future<void> _loadJournalReminder() async {
+    try {
+      final r = await JournalReminderService.get();
+      if (!mounted) return;
+      await context
+          .read<SettingsProvider>()
+          .hydrateJournalReminder(r.enabled, r.hour, r.minute);
+    } catch (_) {
+      // offline/nicht eingeloggt -> lokaler Prefs-Stand bleibt
+    }
   }
 
   String _providerLabel(String p) {

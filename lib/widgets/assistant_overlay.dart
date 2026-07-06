@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:math';
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/provider/user_provider.dart';
@@ -41,6 +43,8 @@ class _AssistantFloating extends StatefulWidget {
 class _AssistantFloatingState extends State<_AssistantFloating> {
   bool _open = false;
   int _consumedCheckin = 0;
+  final AppLinks _appLinks = AppLinks();
+  StreamSubscription<Uri>? _linkSub;
 
   @override
   void initState() {
@@ -48,10 +52,27 @@ class _AssistantFloatingState extends State<_AssistantFloating> {
     AssistantSignals.instance.journalCheckin.addListener(_maybeCheckin);
     // Auch beim Start prüfen (Kaltstart per Notification-Tap).
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeCheckin());
+    _initDeepLinks();
+  }
+
+  Future<void> _initDeepLinks() async {
+    _linkSub = _appLinks.uriLinkStream.listen(_handleUri);
+    try {
+      final initial = await _appLinks.getInitialLink();
+      if (initial != null) _handleUri(initial);
+    } catch (_) {}
+  }
+
+  void _handleUri(Uri uri) {
+    // z.B. ownapp://journal-checkin  (Click-Ziel der ntfy-Push)
+    if ('${uri.host}${uri.path}'.contains('journal-checkin')) {
+      AssistantSignals.instance.requestJournalCheckin();
+    }
   }
 
   @override
   void dispose() {
+    _linkSub?.cancel();
     AssistantSignals.instance.journalCheckin.removeListener(_maybeCheckin);
     super.dispose();
   }

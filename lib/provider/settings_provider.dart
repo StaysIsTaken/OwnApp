@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
+import 'package:productivity/dataservice/journal_reminder_service.dart';
 
 class SettingsProvider extends ChangeNotifier {
   static const String _timeFormatKey = 'use_24h_format';
@@ -60,12 +61,26 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setString(_weatherCityKey, v);
   }
 
+  /// Übernimmt den serverseitigen Stand OHNE erneut ans Backend zu schreiben.
+  Future<void> hydrateJournalReminder(bool enabled, int hour, int minute) async {
+    _journalReminderEnabled = enabled;
+    _journalReminderHour = hour;
+    _journalReminderMinute = minute;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(LocalNotificationManager.prefJournalReminderEnabled, enabled);
+    await prefs.setInt(LocalNotificationManager.prefJournalReminderHour, hour);
+    await prefs.setInt(LocalNotificationManager.prefJournalReminderMinute, minute);
+  }
+
   Future<void> setJournalReminderEnabled(bool value) async {
     _journalReminderEnabled = value;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(LocalNotificationManager.prefJournalReminderEnabled, value);
-    await LocalNotificationManager().applyJournalReminder();
+    // Serverseitig speichern -> Backend löst zur Uhrzeit aus (n8n/ntfy).
+    await JournalReminderService.save(
+        enabled: value, hour: _journalReminderHour, minute: _journalReminderMinute);
   }
 
   Future<void> setJournalReminderTime(int hour, int minute) async {
@@ -75,7 +90,8 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(LocalNotificationManager.prefJournalReminderHour, hour);
     await prefs.setInt(LocalNotificationManager.prefJournalReminderMinute, minute);
-    await LocalNotificationManager().applyJournalReminder();
+    await JournalReminderService.save(
+        enabled: _journalReminderEnabled, hour: hour, minute: minute);
   }
 
   Future<void> setUse24hFormat(bool value) async {
