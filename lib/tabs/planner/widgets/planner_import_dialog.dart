@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:productivity/provider/planner_provider.dart';
 
 class PlannerImportDialog extends StatefulWidget {
-  const PlannerImportDialog({Key? key}) : super(key: key);
+  const PlannerImportDialog({super.key});
 
   @override
   State<PlannerImportDialog> createState() => _PlannerImportDialogState();

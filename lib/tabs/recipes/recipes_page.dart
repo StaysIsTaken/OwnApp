@@ -12,6 +12,7 @@ import 'package:productivity/tabs/recipes/manage_categories_page.dart';
 import 'package:productivity/tabs/recipes/manage_ingredients_page.dart';
 import 'package:productivity/tabs/recipes/manage_units_page.dart';
 import 'package:productivity/tabs/recipes/recipe_form_page.dart';
+import 'package:productivity/utils/snack.dart';
 
 // ─────────────────────────────────────────────
 //  RecipesPage  –  main recipe list
@@ -155,6 +156,78 @@ class _RecipesPageContentState extends State<_RecipesPageContent> {
     if (changed == true) await _load();
   }
 
+  /// Verbucht das Rezept als gekocht: Zutaten werden vom Vorrat abgezogen.
+  /// Fragt vorher nach den Portionen, weil davon die Menge abhängt.
+  Future<void> _cook(Recipe recipe) async {
+    final portionen = await showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        var wert = recipe.servings;
+        return StatefulBuilder(
+          builder: (ctx, setLocal) => AlertDialog(
+            title: Text('${recipe.name} gekocht?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Die Zutaten werden vom Vorrat abgezogen.'),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Text('Portionen'),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: wert > 1 ? () => setLocal(() => wert--) : null,
+                    ),
+                    Text('$wert', style: Theme.of(ctx).textTheme.titleMedium),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () => setLocal(() => wert++),
+                    ),
+                  ],
+                ),
+                if (wert != recipe.servings) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Rezept ist für ${recipe.servings} Portionen — '
+                    'Mengen werden entsprechend umgerechnet.',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Abbrechen'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, wert),
+                child: const Text('Verbuchen'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (portionen == null) return;
+
+    try {
+      final luecken = await RecipeService.cook(recipe.id, servings: portionen);
+      if (luecken.isEmpty) {
+        showSnack('${recipe.name} verbucht — Vorrat aktualisiert');
+      } else {
+        // Teilweise gebucht: der Nutzer soll wissen, was fehlte.
+        showErrorSnack(
+          'Verbucht, aber nicht vollständig: ${luecken.join(' · ')}',
+        );
+      }
+    } catch (e) {
+      showErrorSnack('Konnte nicht verbucht werden: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -277,6 +350,7 @@ class _RecipesPageContentState extends State<_RecipesPageContent> {
                             ingredientMap: _ingredientMap,
                             unitMap: _unitMap,
                             onTap: () => _openForm(recipe: filtered[i]),
+                            onCooked: () => _cook(filtered[i]),
                           ),
                         ),
             ),
@@ -344,6 +418,7 @@ class _RecipeCard extends StatelessWidget {
   final Map<String, Ingredient> ingredientMap;
   final Map<String, Unit> unitMap;
   final VoidCallback onTap;
+  final VoidCallback onCooked;
 
   const _RecipeCard({
     required this.recipe,
@@ -351,6 +426,7 @@ class _RecipeCard extends StatelessWidget {
     required this.ingredientMap,
     required this.unitMap,
     required this.onTap,
+    required this.onCooked,
   });
 
   String _fmtAmount(double v) =>
@@ -404,9 +480,9 @@ class _RecipeCard extends StatelessWidget {
                             children: categoryNames.map((name) => Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: colors.primary.withOpacity(0.1),
+                                color: colors.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: colors.primary.withOpacity(0.2), width: 0.5),
+                                border: Border.all(color: colors.primary.withValues(alpha: 0.2), width: 0.5),
                               ),
                               child: Text(
                                 name,
@@ -421,6 +497,11 @@ class _RecipeCard extends StatelessWidget {
                         ],
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.restaurant_rounded),
+                    tooltip: 'Gekocht – Zutaten vom Vorrat abziehen',
+                    onPressed: onCooked,
                   ),
                   Icon(Icons.chevron_right_rounded, color: colors.outline),
                 ],

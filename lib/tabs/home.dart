@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/dataservice/api_error.dart';
+import 'package:productivity/dataservice/rechte_zuordnung.dart';
+import 'package:productivity/provider/permission_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/pantry_extras.dart';
@@ -8,6 +12,14 @@ import 'package:productivity/dataservice/task_service.dart';
 import 'package:productivity/dataservice/shopping_list_service.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/ingredient_service.dart';
+import 'package:productivity/tabs/dashboard/custom/custom_tile_card.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_editor.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
+import 'package:productivity/tabs/dashboard/dashboard_prefs.dart';
+import 'package:productivity/widgets/dashboard/collapsible_section.dart';
+import 'package:productivity/widgets/dashboard/reorderable_tile.dart';
+import 'package:productivity/widgets/platform_draggable.dart';
+import 'package:productivity/utils/snack.dart';
 
 class HomePage extends BasePage {
   const HomePage({super.key}) : super(title: 'Home');
@@ -40,10 +52,135 @@ class _HomePageContentState extends State<_HomePageContent> {
   bool _loading = true;
   String? _error;
 
+  // ── Anordnung der Übersicht (Seite "home") ──────────────────────────────
+  List<String> _order = DashboardPrefs.defaultOrder(DashboardPrefs.keyHome);
+  Set<String> _hidden = {};
+
+  /// Bereiche ohne Recht – ihre Kacheln bleiben weg.
+  Set<String> _gesperrteQuellen = {};
+  List<CustomTile> _customTiles = [];
+  bool _arranging = false;
+
   @override
   void initState() {
     super.initState();
+    _loadLayout();
     _loadDashboardData();
+  }
+
+  Future<void> _loadLayout() async {
+    final layout = await DashboardPrefs.load(DashboardPrefs.keyHome);
+    if (!mounted) return;
+    setState(() {
+      _order = layout.order;
+      _hidden = layout.hidden;
+      _customTiles = layout.tiles;
+    });
+  }
+
+  Future<void> _persist(
+    List<String> order, Set<String> hidden, List<CustomTile> tiles) async {
+    final ok = await DashboardPrefs.save(
+      DashboardPrefs.keyHome, order, hidden, tiles: tiles);
+    if (!mounted) return;
+    if (!ok) {
+      showErrorSnack('Nur auf diesem Gerät gespeichert — Server nicht erreichbar');
+    }
+  }
+
+  Future<void> _moveTile(String from, String to) async {
+    final order = List<String>.from(_order);
+    final alt = order.indexOf(from);
+    final neu = order.indexOf(to);
+    if (alt < 0 || neu < 0 || alt == neu) return;
+    order.removeAt(alt);
+    order.insert(neu, from);
+    setState(() => _order = order);
+    await _persist(order, _hidden, _customTiles);
+  }
+
+  Future<void> _addCustomTile() async {
+    final neu = await showTileEditor(context);
+    if (neu == null || !mounted) return;
+    final tiles = [..._customTiles, neu];
+    final order = [neu.id, ..._order];
+    setState(() {
+      _customTiles = tiles;
+      _order = order;
+    });
+    await _persist(order, _hidden, tiles);
+  }
+
+  Future<void> _editCustomTile(CustomTile tile) async {
+    final geaendert = await showTileEditor(context, vorhanden: tile);
+    if (geaendert == null || !mounted) return;
+    final tiles =
+        _customTiles.map((t) => t.id == tile.id ? geaendert : t).toList();
+    setState(() => _customTiles = tiles);
+    await _persist(_order, _hidden, tiles);
+  }
+
+  Future<void> _deleteCustomTile(CustomTile tile) async {
+    final tiles = _customTiles.where((t) => t.id != tile.id).toList();
+    final order = _order.where((k) => k != tile.id).toList();
+    setState(() {
+      _customTiles = tiles;
+      _order = order;
+    });
+    await _persist(order, _hidden, tiles);
+  }
+
+  /// Die vier eingebauten Abschnitte plus die selbst gebauten Kacheln,
+  /// in der gespeicherten Reihenfolge und ziehbar.
+  List<Widget> _uebersichtsKacheln(ColorScheme colors, TextTheme text) {
+    final byKey = <String, Widget>{
+      'taskstats': _buildTaskStatistics(colors, text),
+      'tasksdue': _buildTasksDueToday(colors, text),
+      'shopping': _buildOpenShoppingItems(colors, text),
+      'pantry': _buildLowPantryItems(colors, text),
+    };
+
+    final daten = DashboardData(
+      tasks: _tasks,
+      shoppingItems: _shoppingItems,
+      pantryItems: _pantryItems,
+      ingredientMap: _ingredientMap,
+    );
+    for (final t in _customTiles) {
+      byKey[t.id] = CustomTileCard(
+        tile: t,
+        data: daten,
+        arranging: _arranging,
+        onEdit: () => _editCustomTile(t),
+        onDelete: () => _deleteCustomTile(t),
+      );
+    }
+
+    final rechte = context.watch<PermissionProvider>();
+
+    bool erlaubt(String key) {
+      final noetig = rechtJeKachel[key];
+      if (noetig != null && !rechte.darf(noetig)) return false;
+      final quelle = quelleJeKachel[key];
+      return quelle == null || !_gesperrteQuellen.contains(quelle);
+    }
+
+    final sichtbar = _order
+        .where((k) => !_hidden.contains(k) && byKey.containsKey(k) && erlaubt(k))
+        .toList();
+
+    return [
+      for (final k in sichtbar) ...[
+        ReorderableTile(
+          key: ValueKey(k),
+          tileKey: k,
+          enabled: _arranging,
+          onReorder: _moveTile,
+          child: byKey[k]!,
+        ),
+        const SizedBox(height: 16),
+      ],
+    ];
   }
 
   Future<void> _loadDashboardData() async {
@@ -51,12 +188,39 @@ class _HomePageContentState extends State<_HomePageContent> {
       _loading = true;
       _error = null;
     });
+    final rechte = context.read<PermissionProvider>();
+    final gesperrt = <String>{};
+    var versucht = 0;
+    var gescheitert = 0;
+
+    /// Jede Quelle fuer sich. Vorher hing alles in einem `Future.wait`:
+    /// ein einziges 403 hat die ganze Seite durch eine Fehlermeldung
+    /// ersetzt, statt nur die betroffene Kachel wegzulassen.
+    Future<List<T>> hole<T>(String quelle, Future<List<T>> Function() laden) async {
+      final noetig = rechtJeQuelle[quelle];
+      if (noetig != null && !rechte.darf(noetig)) {
+        gesperrt.add(quelle);
+        return <T>[];
+      }
+      versucht++;
+      try {
+        return await laden();
+      } catch (e) {
+        if (ApiFehler.istVerboten(e)) {
+          gesperrt.add(quelle);
+        } else {
+          gescheitert++;
+        }
+        return <T>[];
+      }
+    }
+
     try {
       final results = await Future.wait([
-        TaskService.loadAll(),
-        ShoppingListService.loadAll(),
-        PantryService.loadAll(),
-        IngredientService.loadAll(),
+        hole('tasks', TaskService.loadAll),
+        hole('shopping', ShoppingListService.loadAll),
+        hole('pantry', PantryService.loadAll),
+        hole('ingredients', IngredientService.loadAll),
       ]);
 
       if (!mounted) return;
@@ -66,6 +230,10 @@ class _HomePageContentState extends State<_HomePageContent> {
         _pantryItems = results[2] as List<PantryItem>;
         final ingredients = results[3] as List<Ingredient>;
         _ingredientMap = {for (var i in ingredients) i.id: i};
+        _gesperrteQuellen = gesperrt;
+        _error = (versucht > 0 && gescheitert == versucht)
+            ? 'Der Server ist gerade nicht erreichbar.'
+            : null;
         _loading = false;
       });
     } catch (e) {
@@ -96,6 +264,33 @@ class _HomePageContentState extends State<_HomePageContent> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_error != null) ...[
+                Card(
+                  color: colors.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: colors.onErrorContainer),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: text.bodyMedium?.copyWith(
+                              color: colors.onErrorContainer,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _loadDashboardData,
+                          child: const Text('Erneut'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Text('Willkommen!', style: text.headlineLarge),
               const SizedBox(height: 8),
               Text(
@@ -104,17 +299,46 @@ class _HomePageContentState extends State<_HomePageContent> {
               ),
               const SizedBox(height: 32),
 
-              // ── Dashboard Section ────────────────────
-              Text('Übersicht', style: text.titleLarge),
+              // ── Übersicht ───────────────────────────
+              CollapsibleSection(
+                sectionKey: 'home.uebersicht',
+                title: 'Übersicht',
+                actions: [
+                  if (_arranging)
+                    IconButton(
+                      icon: const Icon(Icons.add_rounded),
+                      tooltip: 'Kachel hinzufügen',
+                      onPressed: _addCustomTile,
+                    ),
+                  IconButton(
+                    icon: Icon(_arranging
+                        ? Icons.check_rounded
+                        : Icons.edit_outlined),
+                    tooltip: _arranging
+                        ? 'Bearbeiten beenden'
+                        : 'Übersicht bearbeiten',
+                    isSelected: _arranging,
+                    onPressed: () => setState(() => _arranging = !_arranging),
+                  ),
+                ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_arranging)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          usesDirectDrag
+                              ? 'Kachel auf eine andere ziehen · + fügt eine neue hinzu.'
+                              : 'Kachel gedrückt halten und ziehen · + fügt eine neue hinzu.',
+                          style: text.bodySmall?.copyWith(color: colors.primary),
+                        ),
+                      ),
+                    ..._uebersichtsKacheln(colors, text),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
-              _buildTaskStatistics(colors, text),
-              const SizedBox(height: 16),
-              _buildTasksDueToday(colors, text),
-              const SizedBox(height: 16),
-              _buildOpenShoppingItems(colors, text),
-              const SizedBox(height: 16),
-              _buildLowPantryItems(colors, text),
-              const SizedBox(height: 32),
 
               // Main Modules Section
               Text('Hauptmodule', style: text.titleLarge),

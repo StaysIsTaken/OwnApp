@@ -41,12 +41,13 @@ class CategoryService {
     await ApiClient.dio.delete('$_path/$id');
   }
 
-  /// Inserts or replaces – convenience wrapper kept for API compatibility.
-  static Future<void> upsert(Category category) async {
-    try {
-      await update(category);
-    } catch (_) {
-      await create(category);
-    }
+  /// Legt neu an oder aktualisiert – entschieden an der id, nicht am Fehlerfall.
+  ///
+  /// Vorher lief hier immer erst ein `update`, und JEDER Fehler führte zum
+  /// `create`. Beim Anlegen kostete das einen überflüssigen Request, und beim
+  /// Bearbeiten legte ein Netzwerkaussetzer oder ein 500 still ein Duplikat an,
+  /// statt den Fehler zu melden.
+  static Future<Category> upsert(Category category) async {
+    return category.id.isEmpty ? create(category) : update(category);
   }
 }

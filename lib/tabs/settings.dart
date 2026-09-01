@@ -29,6 +29,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
   bool _notifChat = true;
   bool _notifTasks = true;
   bool _notifPantry = true;
+  bool _notifPlanner = true;
   bool _notifPermitted = true;
   bool _loaded = false;
   List<AIModel> _aiModels = [];
@@ -298,6 +299,8 @@ class _SettingsBodyState extends State<_SettingsBody> {
         await mgr.isCategoryEnabled(LocalNotificationManager.prefTasks);
     final pantry =
         await mgr.isCategoryEnabled(LocalNotificationManager.prefPantry);
+    final planner =
+        await mgr.isCategoryEnabled(LocalNotificationManager.prefPlanner);
     final permitted = await mgr.areNotificationsEnabled();
 
     if (!mounted) return;
@@ -306,6 +309,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
       _notifChat = chat;
       _notifTasks = tasks;
       _notifPantry = pantry;
+      _notifPlanner = planner;
       _notifPermitted = permitted;
       _loaded = true;
     });
@@ -321,6 +325,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
       if (key == LocalNotificationManager.prefChat) _notifChat = value;
       if (key == LocalNotificationManager.prefTasks) _notifTasks = value;
       if (key == LocalNotificationManager.prefPantry) _notifPantry = value;
+      if (key == LocalNotificationManager.prefPlanner) _notifPlanner = value;
     });
     await LocalNotificationManager().setCategoryEnabled(key, value);
   }
@@ -461,6 +466,21 @@ class _SettingsBodyState extends State<_SettingsBody> {
                     onChanged: _notifEnabled
                         ? (v) =>
                             _setCategory(LocalNotificationManager.prefPantry, v)
+                        : null,
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: Icon(Icons.event_outlined,
+                        color: _notifEnabled
+                            ? colors.primary
+                            : colors.outlineVariant),
+                    title: const Text('Termine'),
+                    subtitle: const Text(
+                        'Erinnerung vor Terminbeginn, auch bei geschlossener App'),
+                    value: _notifPlanner,
+                    onChanged: _notifEnabled
+                        ? (v) => _setCategory(
+                            LocalNotificationManager.prefPlanner, v)
                         : null,
                   ),
                 ],

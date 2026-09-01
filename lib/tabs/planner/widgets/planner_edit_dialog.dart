@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/planner_recurrence.dart';
-import 'package:productivity/dataclasses/User.dart';
+import 'package:productivity/dataclasses/user.dart';
 import 'package:productivity/dataservice/user_service.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/provider/planner_provider.dart';
@@ -53,13 +53,13 @@ class PlannerEditDialog extends StatefulWidget {
   final void Function(String? scope)? onDelete;
 
   const PlannerEditDialog({
-    Key? key,
+    super.key,
     this.entry,
     this.initialScheduledAt,
     this.initialEndsAt,
     this.onDelete,
     required this.onSubmit,
-  }) : super(key: key);
+  });
 
   @override
   State<PlannerEditDialog> createState() => _PlannerEditDialogState();

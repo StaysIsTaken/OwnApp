@@ -144,6 +144,8 @@ class _UnitFormState extends State<_UnitForm> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _symbolCtrl;
+  late final TextEditingController _factorCtrl;
+  UnitDimension? _dimension;
   bool _saving = false;
 
   @override
@@ -151,12 +153,18 @@ class _UnitFormState extends State<_UnitForm> {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.unit?.name ?? '');
     _symbolCtrl = TextEditingController(text: widget.unit?.symbol ?? '');
+    _dimension = widget.unit?.dimension;
+    final f = widget.unit?.factor ?? 1.0;
+    _factorCtrl = TextEditingController(
+      text: f % 1 == 0 ? f.toInt().toString() : f.toString(),
+    );
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _symbolCtrl.dispose();
+    _factorCtrl.dispose();
     super.dispose();
   }
 
@@ -165,9 +173,12 @@ class _UnitFormState extends State<_UnitForm> {
     setState(() => _saving = true);
 
     final unit = Unit(
-      id: widget.unit?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+      // Leere id = neu (siehe UnitService.upsert).
+      id: widget.unit?.id ?? '',
       name: _nameCtrl.text.trim(),
       symbol: _symbolCtrl.text.trim(),
+      dimension: _dimension,
+      factor: double.tryParse(_factorCtrl.text.replaceAll(',', '.')) ?? 1.0,
     );
     await widget.onSave(unit);
     if (mounted) Navigator.pop(context);
@@ -227,6 +238,53 @@ class _UnitFormState extends State<_UnitForm> {
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Symbol eingeben' : null,
             ),
+            const SizedBox(height: 20),
+
+            // ── Umrechnung ──────────────────────────────
+            Text('Umrechnung', style: text.labelLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Nur Einheiten derselben Art lassen sich verrechnen. '
+              'Masse gegen Volumen geht nicht — dafür bräuchte es die Dichte '
+              'der jeweiligen Zutat.',
+              style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<UnitDimension?>(
+              initialValue: _dimension,
+              decoration: const InputDecoration(labelText: 'Art'),
+              items: [
+                const DropdownMenuItem<UnitDimension?>(
+                  value: null,
+                  child: Text('Nicht umrechenbar'),
+                ),
+                for (final d in UnitDimension.values)
+                  DropdownMenuItem<UnitDimension?>(
+                    value: d,
+                    child: Text('${d.label} (Basis: ${d.baseSymbol})'),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _dimension = v),
+            ),
+            if (_dimension != null) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _factorCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Entspricht wie viel ${_dimension!.baseSymbol}?',
+                  hintText: 'z. B. 1000 für kg',
+                ),
+                validator: (v) {
+                  if (_dimension == null) return null;
+                  final d = double.tryParse((v ?? '').replaceAll(',', '.'));
+                  if (d == null || d <= 0) return 'Zahl größer als 0 eingeben';
+                  return null;
+                },
+              ),
+            ],
+
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _saving ? null : _submit,

@@ -15,12 +15,16 @@ class NotificationService {
   WebSocketChannel? _channel;
   bool _isConnected = false;
   Timer? _heartbeatTimer;
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
+  bool _manuallyDisconnected = false;
 
   static final GlobalKey<ScaffoldMessengerState> messengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
   Future<void> init() async {
     if (_isConnected) return;
+    _manuallyDisconnected = false;
 
     final token = await LoginService.getToken();
     if (token == null) return;
@@ -34,7 +38,9 @@ class NotificationService {
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      await _channel!.ready;
       _isConnected = true;
+      _reconnectAttempts = 0;
 
       _heartbeatTimer?.cancel();
       _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
@@ -45,20 +51,34 @@ class NotificationService {
         (event) {
           _handleNotification(event);
         },
-        onDone: () {
-          _isConnected = false;
-          _heartbeatTimer?.cancel();
-          Future.delayed(const Duration(seconds: 5), () => init());
-        },
-        onError: (e) {
-          _isConnected = false;
-          _heartbeatTimer?.cancel();
-          Future.delayed(const Duration(seconds: 5), () => init());
-        },
+        onDone: _scheduleReconnect,
+        onError: (_) => _scheduleReconnect(),
       );
-    } catch (e) {
-      _isConnected = false;
+    } catch (_) {
+      // Auch ein fehlgeschlagener Verbindungsaufbau muss erneut versucht
+      // werden – vorher endete der Dienst hier still und kam nie zurueck.
+      _scheduleReconnect();
     }
+  }
+
+  /// Plant einen neuen Verbindungsversuch mit wachsendem Abstand.
+  ///
+  /// Vorher wurde stur alle 5 Sekunden neu verbunden – bei laengerem
+  /// Serverausfall hämmerte die App endlos dagegen. Und ein eingeplanter
+  /// Versuch ueberlebte `disconnect()`, lief also nach dem Logout weiter.
+  void _scheduleReconnect() {
+    _isConnected = false;
+    _heartbeatTimer?.cancel();
+    _channel = null;
+    if (_manuallyDisconnected) return;
+
+    // Exponent abklemmen: 5s, 10s, 20s, 40s, dann konstant 60s. Ohne Deckel
+    // wuerde der Shift irgendwann ueberlaufen (auf Web sind ints Doubles).
+    const maxExponent = 4;
+    final sekunden = (5 * (1 << _reconnectAttempts)).clamp(5, 60);
+    if (_reconnectAttempts < maxExponent) _reconnectAttempts++;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(seconds: sekunden), init);
   }
 
   void _handleNotification(dynamic event) {
@@ -92,10 +112,15 @@ class NotificationService {
         _showPantryExpiryWarning(data);
       }
       // Handle Pantry Expired Items
-      else if (data['type'] == 'pantry_expiry_expired') {
+      // Das Backend sendet 'pantry_expired' – vorher stand hier
+      // 'pantry_expiry_expired', die Bedingung griff also nie und jede
+      // "Vorrat abgelaufen"-Meldung wurde still verworfen.
+      else if (data['type'] == 'pantry_expired') {
         _showPantryExpired(data);
       }
-    } catch (e) {}
+    } catch (_) {
+      // Fehlerhafte/unbekannte WS-Nachricht: ignorieren, Verbindung bleibt bestehen.
+    }
   }
 
   /// Stable notification ID derived from a chat ID so successive messages
@@ -161,11 +186,9 @@ class NotificationService {
   void _showPantryExpired(Map<String, dynamic> data) {
     final title = data['title']?.toString() ?? '❌ Vorrat abgelaufen!';
     final baseBody = data['body']?.toString() ?? 'Ein Vorrat ist abgelaufen.';
-    final daysSinceExpiry = (data['daysSinceExpiry'] as num?)?.toInt() ?? 0;
+    final daysExpired = (data['daysExpired'] as num?)?.toInt() ?? 0;
 
-    final timeText = daysSinceExpiry == 1
-        ? 'seit 1 Tag'
-        : 'seit $daysSinceExpiry Tagen';
+    final timeText = daysExpired == 1 ? 'seit 1 Tag' : 'seit $daysExpired Tagen';
 
     final body = '$baseBody ($timeText)';
     final pantryItemId = data['pantryItemId']?.toString() ?? data['itemId']?.toString();
@@ -240,8 +263,12 @@ class NotificationService {
   }
 
   void disconnect() {
+    _manuallyDisconnected = true;
+    _reconnectTimer?.cancel();
     _heartbeatTimer?.cancel();
     _channel?.sink.close();
+    _channel = null;
     _isConnected = false;
+    _reconnectAttempts = 0;
   }
 }

@@ -4,13 +4,29 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Statische Analyse muss sauber sein, bevor gebaut wird.
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter pub get
+      - run: flutter analyze
+
   build-and-push:
+    needs: analyze
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read

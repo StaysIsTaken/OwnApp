@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:provider/provider.dart';
 import '../dataservice/login_service.dart';
+import 'package:productivity/utils/snack.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -57,19 +58,15 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
         username: _usernameController.text.trim(),
         password: _passwordController.text,
       );
-      if (!mounted) return;
       final user = await LoginService.currentUser;
+      // Guard erst NACH dem letzten await – sonst kann die Seite waehrend
+      // `currentUser` verschwinden und der Zugriff auf context wirft.
+      if (!mounted) return;
       context.read<UserProvider>().login(user);
       Navigator.pushReplacementNamed(context, '/home');
     } on DioException catch (e) {
-      if (!mounted) return;
       final message = e.response?.data['detail'] ?? 'Falsche Zugangsdaten';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      showErrorSnack(message);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -104,7 +101,7 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
                             width: 72,
                             height: 72,
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withOpacity(0.12),
+                              color: colorScheme.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Icon(
@@ -125,7 +122,7 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
                         Text(
                           'Melde dich an um fortzufahren.',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurface.withOpacity(0.55),
+                            color: colorScheme.onSurface.withValues(alpha: 0.55),
                           ),
                         ),
                         const SizedBox(height: 36),

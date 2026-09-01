@@ -3,7 +3,11 @@ import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/meal_plan.dart';
 import 'package:productivity/dataclasses/recipe.dart';
 import 'package:productivity/dataservice/meal_plan_service.dart';
+import 'package:productivity/dataclasses/shopping_suggestion.dart';
 import 'package:productivity/dataservice/recipe_service.dart';
+import 'package:productivity/dataservice/shopping_list_service.dart';
+import 'package:productivity/dataclasses/pantry_extras.dart';
+import 'package:productivity/utils/snack.dart';
 import 'package:intl/intl.dart';
 
 class MealPlanPage extends BasePage {
@@ -136,9 +140,9 @@ class _MealPlanListState extends State<_MealPlanList> {
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () async {
+                        final nav = Navigator.of(context);
                         await MealPlanService.delete(entry.id);
-                        if (!mounted) return;
-                        Navigator.pop(context);
+                        nav.pop();
                         _load();
                       },
                     ),
@@ -150,6 +154,7 @@ class _MealPlanListState extends State<_MealPlanList> {
                   ElevatedButton(
                     onPressed: () async {
                       if (selRecipeId == null) return;
+                      final nav = Navigator.of(context);
                       final newEntry = MealPlanEntry(
                         id: entry?.id ?? '',
                         recipeId: selRecipeId!,
@@ -158,8 +163,7 @@ class _MealPlanListState extends State<_MealPlanList> {
                         servings: int.tryParse(servingsCtrl.text) ?? 2,
                       );
                       await MealPlanService.upsert(newEntry);
-                      if (!mounted) return;
-                      Navigator.pop(context);
+                      nav.pop();
                       _load();
                     },
                     child: const Text('Speichern'),
@@ -182,9 +186,24 @@ class _MealPlanListState extends State<_MealPlanList> {
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showEditDialog(),
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (_entries.isNotEmpty) ...[
+            FloatingActionButton.small(
+              onPressed: _generateShoppingList,
+              tooltip: 'Einkaufsliste aus dem Plan erzeugen',
+              heroTag: 'gen-shopping',
+              child: const Icon(Icons.shopping_cart_checkout),
+            ),
+            const SizedBox(height: 16),
+          ],
+          FloatingActionButton(
+            onPressed: () => _showEditDialog(),
+            heroTag: 'add-meal',
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
       body: _entries.isEmpty
           ? const Center(
@@ -226,7 +245,7 @@ class _MealPlanListState extends State<_MealPlanList> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
-                          color: colors.outlineVariant.withOpacity(0.5),
+                          color: colors.outlineVariant.withValues(alpha: 0.5),
                         ),
                       ),
                       child: ListTile(
@@ -250,6 +269,113 @@ class _MealPlanListState extends State<_MealPlanList> {
             ),
     );
   }
+
+  /// Leitet aus den geplanten Rezepten ab, was noch eingekauft werden muss,
+  /// zeigt die Rechnung und legt die bestätigten Posten an.
+  Future<void> _generateShoppingList() async {
+    if (_entries.isEmpty) return;
+
+    // Zeitraum = was tatsächlich im Plan steht.
+    final tage = _entries.map((e) => e.date).toList()..sort();
+    final von = tage.first;
+    final bis = tage.last;
+
+    List<ShoppingSuggestion> vorschlaege;
+    try {
+      vorschlaege = await MealPlanService.shoppingSuggestions(from: von, to: bis);
+    } catch (e) {
+      showErrorSnack('Konnte den Bedarf nicht berechnen: $e');
+      return;
+    }
+
+    final offen = vorschlaege.where((v) => v.toBuy > 0).toList();
+    if (!mounted) return;
+    if (offen.isEmpty) {
+      showSnack('Alles da — nichts einzukaufen');
+      return;
+    }
+
+    final gewaehlt = {for (final v in offen) v.ingredientId: true};
+    final bestaetigt = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Einkaufsliste erzeugen'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Text(
+                  '${DateFormat('dd.MM.').format(von)} – '
+                  '${DateFormat('dd.MM.').format(bis)}',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                for (final v in offen)
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: gewaehlt[v.ingredientId],
+                    onChanged: (an) =>
+                        setLocal(() => gewaehlt[v.ingredientId] = an ?? false),
+                    title: Text(
+                      '${v.ingredientName} · '
+                      '${_fmtMenge(v.toBuy)}${v.unitSymbol != null ? ' ${v.unitSymbol}' : ''}',
+                    ),
+                    subtitle: Text(
+                      v.pantryComparable
+                          ? 'Bedarf ${_fmtMenge(v.needed)}, '
+                            'Vorrat ${_fmtMenge(v.inPantry)}'
+                          : 'Bedarf ${_fmtMenge(v.needed)} · '
+                            'Vorrat in anderer Einheit, nicht verrechnet',
+                      style: Theme.of(ctx).textTheme.bodySmall,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Auf die Liste'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (bestaetigt != true) return;
+
+    final zuAnlegen = offen.where((v) => gewaehlt[v.ingredientId] == true);
+    var angelegt = 0;
+    try {
+      for (final v in zuAnlegen) {
+        await ShoppingListService.upsert(ShoppingListItem(
+          id: '',
+          ingredientId: v.ingredientId,
+          unitId: v.unitId ?? '',
+          amount: v.toBuy,
+          isBought: false,
+        ));
+        angelegt++;
+      }
+    } catch (e) {
+      showErrorSnack('Nach $angelegt Posten abgebrochen: $e');
+      return;
+    }
+    showSnack(
+      angelegt == 1
+          ? '1 Posten auf die Einkaufsliste'
+          : '$angelegt Posten auf die Einkaufsliste',
+    );
+  }
+
+  String _fmtMenge(double v) =>
+      v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(2);
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();

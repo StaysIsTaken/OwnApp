@@ -1,6 +1,11 @@
 name: iOS-ipa-build
+
+# Baut eine unsignierte IPA und veröffentlicht eine AltStore-/SideStore-Quelle
+# auf GitHub Pages. Signiert wird erst auf dem Gerät durch AltStore mit der
+# eigenen Apple-ID – deshalb ist hier kein Zertifikat nötig.
 on:
   workflow_dispatch:
+
 jobs:
   build-ios:
     name: 🎉 iOS Build
@@ -8,55 +13,80 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          architecture: x64
+          # Kein `architecture: x64`: macos-latest läuft auf ARM. Ein
+          # erzwungener x64-Flutter würde über Rosetta laufen – langsam
+          # und unnötig fehleranfällig.
+
       - run: flutter pub get
-      - run: pod repo update
-        working-directory: ios
-      - run: flutter build ios --release --no-codesign
-      - run: mkdir Payload
+
+      # Version aus der Lauf-Nummer ableiten und ÜBERALL dieselbe verwenden:
+      # in der IPA und in apps.json. Sonst vergleicht AltStore die Version der
+      # Quelle mit der installierten aus der Info.plist – und die stammte
+      # bisher aus pubspec (0.1.0), während apps.json 1.0.<n> meldete.
+      - name: Version bestimmen
+        id: version
+        run: echo "value=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      # `flutter build ios` ruft `pod install` selbst auf. Das frühere
+      # `pod repo update` lud jedes Mal das komplette CocoaPods-Spec-Repo.
+      - name: IPA bauen
+        run: |
+          flutter build ios --release --no-codesign \
+            --build-name=${{ steps.version.outputs.value }} \
+            --build-number=${{ github.run_number }}
+
+      - name: Als IPA verpacken
         working-directory: build/ios/iphoneos
-      - run: mv Runner.app/ Payload
-        working-directory: build/ios/iphoneos
-      - name: Zip output
-        run: zip -qq -r -9 FlutterIpaExport.ipa Payload
-        working-directory: build/ios/iphoneos
-      - name: Upload binaries to release
+        run: |
+          mkdir -p Payload
+          mv Runner.app Payload/
+          zip -qq -r -9 FlutterIpaExport.ipa Payload
+
+      - name: Release aktualisieren
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: build/ios/iphoneos/FlutterIpaExport.ipa
           tag: v1.0
           overwrite: true
-          body: "This is first release"
-      # ---------- NEU ab hier ----------
-      - name: apps.json erzeugen
+          body: "Automatischer Build ${{ steps.version.outputs.value }}"
+
+      - name: AltStore-Quelle erzeugen
         run: |
           IPA=build/ios/iphoneos/FlutterIpaExport.ipa
           SIZE=$(stat -f%z "$IPA")
           mkdir -p public
+          # Icon mitveröffentlichen – ohne iconURL zeigt AltStore die App leer an.
+          cp web/icons/Icon-512.png public/icon.png
           cat > public/apps.json <<EOF
           {
             "name": "JP's Apps",
             "identifier": "de.jpanft.source",
             "apps": [{
               "name": "Home App",
-              "bundleIdentifier": "com.example.productivity",
+              "bundleIdentifier": "de.jpanft.homeapp",
               "developerName": "JP",
+              "subtitle": "Haushalt, Vorrat, Planer",
               "localizedDescription": "Automatischer Build aus CI",
+              "iconURL": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/icon.png",
+              "tintColor": "0175C2",
               "versions": [{
-                "version": "1.0.${{ github.run_number }}",
+                "version": "${{ steps.version.outputs.value }}",
                 "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
                 "downloadURL": "https://github.com/${{ github.repository }}/releases/download/v1.0/FlutterIpaExport.ipa",
                 "size": $SIZE,
-                "minOSVersion": "15.0"
+                "minOSVersion": "13.0"
               }]
             }]
           }
           EOF
+          echo "── apps.json ──"; cat public/apps.json
+
       - name: Auf GitHub Pages veröffentlichen
         uses: peaceiris/actions-gh-pages@v4
         with:

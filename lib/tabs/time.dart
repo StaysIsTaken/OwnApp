@@ -56,6 +56,7 @@ class _TimePageState extends State<_TimePageContent> {
     });
     try {
       final entries = await TimeEntryService.loadAll();
+      if (!mounted) return;
       setState(() {
         _entries = entries;
         _isLoading = false;
@@ -99,6 +100,7 @@ class _TimePageState extends State<_TimePageContent> {
           description: _descriptionController.text,
         );
         final result = await TimeEntryService.update(updated);
+        if (!mounted) return;
         setState(() {
           final idx = _entries.indexWhere((e) => e.id == result.id);
           if (idx >= 0) _entries[idx] = result;
@@ -115,6 +117,7 @@ class _TimePageState extends State<_TimePageContent> {
           description: _descriptionController.text,
         );
         final result = await TimeEntryService.create(entry);
+        if (!mounted) return;
         setState(() => _entries.add(result));
         _showSnack('Zeit eingetragen');
       }
@@ -128,6 +131,7 @@ class _TimePageState extends State<_TimePageContent> {
   Future<void> _deleteEntry(TimeEntry entry) async {
     try {
       await TimeEntryService.delete(entry.id);
+      if (!mounted) return;
       setState(() => _entries.remove(entry));
       _showSnack('Eintrag gelöscht');
     } catch (e) {
@@ -139,6 +143,7 @@ class _TimePageState extends State<_TimePageContent> {
     try {
       final updated = entry.copyWith(endTime: DateTime.now());
       final result = await TimeEntryService.update(updated);
+      if (!mounted) return;
       setState(() {
         final idx = _entries.indexWhere((e) => e.id == result.id);
         if (idx >= 0) _entries[idx] = result;
@@ -508,7 +513,7 @@ class _TimePageState extends State<_TimePageContent> {
                               style: TextStyle(
                                 color: _startTime != null
                                   ? colors.onSurface
-                                  : colors.onSurfaceVariant.withOpacity(0.6)
+                                  : colors.onSurfaceVariant.withValues(alpha: 0.6)
                               ),
                             ),
                           ),
@@ -660,7 +665,7 @@ class _TimePageState extends State<_TimePageContent> {
                         style: TextStyle(
                           color: _startTime != null
                             ? colors.onSurface
-                            : colors.onSurfaceVariant.withOpacity(0.6)
+                            : colors.onSurfaceVariant.withValues(alpha: 0.6)
                         ),
                       ),
                     ),

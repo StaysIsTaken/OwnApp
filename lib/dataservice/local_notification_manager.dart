@@ -40,12 +40,14 @@ class LocalNotificationManager {
   static const String channelTasks = 'tasks_channel';
   static const String channelPantry = 'pantry_channel';
   static const String channelChat = 'chat_channel';
+  static const String channelPlanner = 'planner_channel';
 
   // ──── User-controllable Settings (SharedPreferences keys) ────
   static const String prefEnabled = 'notif_enabled';
   static const String prefChat = 'notif_chat';
   static const String prefTasks = 'notif_tasks';
   static const String prefPantry = 'notif_pantry';
+  static const String prefPlanner = 'notif_planner';
 
   // ──── Initialization ─────────────────────────────────
   Future<void> init() async {
@@ -263,6 +265,9 @@ class LocalNotificationManager {
     if (channelId == channelTasks) return await isCategoryEnabled(prefTasks);
     if (channelId == channelPantry) return await isCategoryEnabled(prefPantry);
     if (channelId == channelChat) return await isCategoryEnabled(prefChat);
+    if (channelId == channelPlanner) {
+      return await isCategoryEnabled(prefPlanner);
+    }
     return true;
   }
 
@@ -304,6 +309,16 @@ class LocalNotificationManager {
           channelChat,
           'Chat',
           channelDescription: 'Neue Nachrichten im Chat',
+          importance: Importance.high,
+          priority: Priority.high,
+          enableVibration: true,
+          icon: '@mipmap/ic_launcher',
+        );
+      case channelPlanner:
+        return const AndroidNotificationDetails(
+          channelPlanner,
+          'Termine',
+          channelDescription: 'Erinnerungen an anstehende Termine',
           importance: Importance.high,
           priority: Priority.high,
           enableVibration: true,

@@ -5,8 +5,7 @@ import 'package:flutter/services.dart';
 /// Gibt beim Schließen einen Hex-String '#RRGGBB' zurück (oder null bei Abbruch).
 class ColorPickerDialog extends StatefulWidget {
   final String initialColor;
-  const ColorPickerDialog({Key? key, required this.initialColor})
-      : super(key: key);
+  const ColorPickerDialog({super.key, required this.initialColor});
 
   @override
   State<ColorPickerDialog> createState() => _ColorPickerDialogState();

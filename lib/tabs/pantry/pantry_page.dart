@@ -14,6 +14,7 @@ import 'package:productivity/dataservice/receipt_service.dart';
 import 'package:productivity/tabs/pantry/barcode_scan_page.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:productivity/utils/snack.dart';
 
 class PantryPage extends BasePage {
   const PantryPage({super.key}) : super(title: 'Vorräte');
@@ -285,9 +286,7 @@ class _PantryListState extends State<_PantryList> {
       await PantryService.upsert(updated);
       _load();
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      showErrorSnack('Fehler: $e');
     }
   }
 
@@ -449,9 +448,9 @@ class _PantryListState extends State<_PantryList> {
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () async {
+                          final nav = Navigator.of(context);
                           await PantryService.delete(item.id);
-                          if (!mounted) return;
-                          Navigator.pop(context);
+                          nav.pop();
                           _load();
                         },
                       ),
@@ -474,6 +473,7 @@ class _PantryListState extends State<_PantryList> {
                           );
                           return;
                         }
+                        final nav = Navigator.of(context);
                         final newItem = PantryItem(
                           id: item?.id ?? '',
                           ingredientId: selIngId!,
@@ -482,11 +482,9 @@ class _PantryListState extends State<_PantryList> {
                           amount: double.tryParse(qtyCtrl.text) ?? 1,
                           minAmount: double.tryParse(minQtyCtrl.text) ?? 0,
                           expiryDate: selExpiry,
-                          updatedAt: DateTime.now(),
                         );
                         await PantryService.upsert(newItem);
-                        if (!mounted) return;
-                        Navigator.pop(context);
+                        nav.pop();
                         _load();
                       },
                       child: const Text('Speichern'),
@@ -550,7 +548,7 @@ class _PantryListState extends State<_PantryList> {
                     hintText: 'Vorräte suchen...',
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
-                    fillColor: colors.surfaceContainerHighest.withOpacity(0.3),
+                    fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.3),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -660,7 +658,7 @@ class _PantryCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colors.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/subtask.dart';
-import 'package:productivity/dataclasses/User.dart';
+import 'package:productivity/dataclasses/user.dart';
 import 'package:productivity/dataservice/login_service.dart';
 import 'package:productivity/dataservice/task_service.dart';
 import 'package:productivity/dataservice/subtask_service.dart';
@@ -55,6 +55,7 @@ class _TasksPageState extends State<_TasksPageContent> {
     try {
       final user = await LoginService.currentUser;
       final users = await UserService.getAllUsers();
+      if (!mounted) return;
       setState(() {
         _currentUser = user;
         _users = users;
@@ -93,6 +94,7 @@ class _TasksPageState extends State<_TasksPageContent> {
         }),
       );
 
+      if (!mounted) return;
       setState(() {
         _tasks = tasks;
         _subtasksByTaskId = subtaskMap;
@@ -132,6 +134,7 @@ class _TasksPageState extends State<_TasksPageContent> {
       );
 
       final result = await TaskService.create(newTask);
+      if (!mounted) return;
       setState(() => _tasks.add(result));
       _resetForm();
       _showSnack('Task erstellt');
@@ -144,6 +147,7 @@ class _TasksPageState extends State<_TasksPageContent> {
     try {
       final updated = task.copyWith(kanbanState: newState);
       await TaskService.update(updated);
+      if (!mounted) return;
       setState(() {
         final idx = _tasks.indexWhere((t) => t.id == task.id);
         if (idx >= 0) _tasks[idx] = updated;
@@ -156,6 +160,7 @@ class _TasksPageState extends State<_TasksPageContent> {
   Future<void> _deleteTask(Task task) async {
     try {
       await TaskService.delete(task.id);
+      if (!mounted) return;
       setState(() => _tasks.removeWhere((t) => t.id == task.id));
       _showSnack('Task gelöscht');
     } catch (e) {
@@ -167,6 +172,7 @@ class _TasksPageState extends State<_TasksPageContent> {
     try {
       final updated = task.copyWith(userId: newUser.id);
       await TaskService.update(updated);
+      if (!mounted) return;
       setState(() {
         final idx = _tasks.indexWhere((t) => t.id == task.id);
         if (idx >= 0) _tasks[idx] = updated;
@@ -440,6 +446,7 @@ class _TasksPageState extends State<_TasksPageContent> {
       );
 
       final result = await SubTaskService.create(newSubTask);
+      if (!mounted) return;
       setState(() {
         if (_subtasksByTaskId[taskId] == null) {
           _subtasksByTaskId[taskId] = [];
@@ -452,28 +459,10 @@ class _TasksPageState extends State<_TasksPageContent> {
     }
   }
 
-  Future<void> _updateSubTask(SubTask subTask) async {
-    try {
-      await SubTaskService.update(subTask);
-      setState(() {
-        final taskId = subTask.taskId;
-        if (_subtasksByTaskId[taskId] != null) {
-          final idx = _subtasksByTaskId[taskId]!.indexWhere(
-            (s) => s.id == subTask.id,
-          );
-          if (idx >= 0) {
-            _subtasksByTaskId[taskId]![idx] = subTask;
-          }
-        }
-      });
-    } catch (e) {
-      _showSnack('Fehler beim Aktualisieren: $e');
-    }
-  }
-
   Future<void> _deleteSubTask(String taskId, String subTaskId) async {
     try {
       await SubTaskService.delete(subTaskId);
+      if (!mounted) return;
       setState(() {
         if (_subtasksByTaskId[taskId] != null) {
           _subtasksByTaskId[taskId]!.removeWhere((s) => s.id == subTaskId);
@@ -488,6 +477,7 @@ class _TasksPageState extends State<_TasksPageContent> {
   Future<void> _toggleSubTaskCompleted(SubTask subTask) async {
     try {
       final result = await SubTaskService.toggleCompleted(subTask.id);
+      if (!mounted) return;
       setState(() {
         final taskId = subTask.taskId;
         if (_subtasksByTaskId[taskId] != null) {
@@ -590,8 +580,9 @@ class _TasksPageState extends State<_TasksPageContent> {
                               firstDate: DateTime(2020),
                               lastDate: DateTime(2100),
                             );
-                            if (picked != null)
+                            if (picked != null) {
                               setState(() => _dueDate = picked);
+                            }
                           },
                           child: InputDecorator(
                             decoration: InputDecoration(

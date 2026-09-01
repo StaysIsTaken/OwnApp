@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/planner_entry_type.dart';
+import 'package:productivity/dataservice/planner_notification_scheduler.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 
 class PlannerProvider extends ChangeNotifier {
@@ -13,6 +14,20 @@ class PlannerProvider extends ChangeNotifier {
   List<PlannerEntryType> get types => _types;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  /// Erinnerungen für einen einzelnen Termin auffrischen.
+  ///
+  /// Beim vollständigen Laden übernimmt der `NotificationScheduler` das
+  /// gemeinsam mit den Aufgaben (wegen des iOS-Limits von 64); für einzelne
+  /// Änderungen genügt der direkte Weg.
+  Future<void> _syncEntryNotification(PlannerEntry entry) async {
+    try {
+      await PlannerNotificationScheduler.schedule(entry);
+    } catch (_) {
+      // Erinnerungen sind Beiwerk – ein Fehler hier darf das Speichern
+      // des Termins nicht scheitern lassen.
+    }
+  }
 
   Future<void> loadEntries() async {
     _isLoading = true;
@@ -60,6 +75,7 @@ class PlannerProvider extends ChangeNotifier {
       );
 
       _entries.add(newEntry);
+      await _syncEntryNotification(newEntry);
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -105,6 +121,7 @@ class PlannerProvider extends ChangeNotifier {
       final index = _entries.indexWhere((e) => e.id == id);
       if (index >= 0) {
         _entries[index] = updated;
+        await _syncEntryNotification(updated);
       }
       _error = null;
     } catch (e) {
@@ -257,6 +274,7 @@ class PlannerProvider extends ChangeNotifier {
     try {
       await PlannerService.delete(id);
       _entries.removeWhere((e) => e.id == id);
+      await PlannerNotificationScheduler.cancel(id);
       _error = null;
     } catch (e) {
       _error = e.toString();

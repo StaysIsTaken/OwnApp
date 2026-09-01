@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/main.dart';
+import 'package:productivity/dataservice/rechte_zuordnung.dart';
+import 'package:productivity/provider/permission_provider.dart';
+import 'package:provider/provider.dart';
 import 'drawer/drawer_header.dart';
 import 'drawer/drawer_footer.dart';
 import 'drawer/drawer_nav_tile.dart';
@@ -132,6 +135,16 @@ class _DrawerWidgetState extends State<DrawerWidget>
     ),
   ];
 
+  /// Erscheint nur, wer verwalten darf. Das ist Hoeflichkeit, keine
+  /// Absicherung — die Seite selbst und jeder Endpunkt dahinter pruefen
+  /// weiterhin selbst.
+  static const _adminItem = NavItem(
+    icon: Icons.admin_panel_settings_outlined,
+    iconActive: Icons.admin_panel_settings_rounded,
+    label: 'Benutzer & Rollen',
+    route: AppRoutes.admin,
+  );
+
   static const _settingsItem = NavItem(
     icon: Icons.settings_outlined,
     iconActive: Icons.settings_rounded,
@@ -163,6 +176,7 @@ class _DrawerWidgetState extends State<DrawerWidget>
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentRoute = _currentRoute(context);
+    final rechte = context.watch<PermissionProvider>();
 
     return Drawer(
       width: 285,
@@ -179,24 +193,21 @@ class _DrawerWidgetState extends State<DrawerWidget>
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                 children: [
-                  const DrawerSectionLabel(label: 'NAVIGATION'),
-                  const SizedBox(height: 4),
-                  ..._mainItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
+                  ..._abschnitt('NAVIGATION', _mainItems, currentRoute,
+                      scheme, isDark, rechte, erster: true),
 
-                  const SizedBox(height: 24),
-                  const DrawerSectionLabel(label: 'WISSENSMANAGEMENT'),
-                  const SizedBox(height: 4),
-                  ..._knowledgeItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
+                  ..._abschnitt('WISSENSMANAGEMENT', _knowledgeItems,
+                      currentRoute, scheme, isDark, rechte),
 
-                  const SizedBox(height: 24),
-                  const DrawerSectionLabel(label: 'VORRÄTE'),
-                  const SizedBox(height: 4),
-                  ..._pantryItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
+                  ..._abschnitt('VORRÄTE', _pantryItems, currentRoute,
+                      scheme, isDark, rechte),
 
-                  const SizedBox(height: 24),
-                  const DrawerSectionLabel(label: 'VERWALTUNG'),
-                  const SizedBox(height: 4),
-                  ..._managementItems.map((item) => _buildTile(item, currentRoute, scheme, isDark)),
+                  ..._abschnitt('VERWALTUNG', _managementItems, currentRoute,
+                      scheme, isDark, rechte),
+
+                  if (rechte.darfVerwalten)
+                    ..._abschnitt('ADMINISTRATION', const [_adminItem],
+                        currentRoute, scheme, isDark, rechte),
                 ],
               ),
             ),
@@ -210,6 +221,38 @@ class _DrawerWidgetState extends State<DrawerWidget>
         ),
       ),
     );
+  }
+
+  /// Ein Abschnitt samt Ueberschrift – faellt ganz weg, wenn kein einziger
+  /// Eintrag uebrig bleibt. Sonst staende da eine Ueberschrift ueber nichts.
+  List<Widget> _abschnitt(String titel, List<NavItem> items,
+      String currentRoute, ColorScheme scheme, bool isDark,
+      PermissionProvider rechte, {bool erster = false}) {
+    final tiles = _tiles(items, currentRoute, scheme, isDark, rechte);
+    if (tiles.isEmpty) return const [];
+    return [
+      if (!erster) const SizedBox(height: 24),
+      DrawerSectionLabel(label: titel),
+      const SizedBox(height: 4),
+      ...tiles,
+    ];
+  }
+
+  /// Zeigt nur, was der Nutzer auch benutzen darf.
+  ///
+  /// Das ist Hoeflichkeit, keine Absicherung: geprueft wird an jedem
+  /// Endpunkt im Backend. Aber ein Menue voller Eintraege, die alle in eine
+  /// Fehlermeldung fuehren, ist schlechter als ein kuerzeres Menue.
+  ///
+  /// Ein Eintrag ohne Zuordnung bleibt sichtbar – der gutmuetige Fall.
+  List<Widget> _tiles(List<NavItem> items, String currentRoute,
+      ColorScheme scheme, bool isDark, PermissionProvider rechte) {
+    return [
+      for (final item in items)
+        if (rechtJeRoute[item.route] == null ||
+            rechte.darf(rechtJeRoute[item.route]!))
+          _buildTile(item, currentRoute, scheme, isDark),
+    ];
   }
 
   Widget _buildTile(NavItem item, String currentRoute, ColorScheme scheme, bool isDark) {

@@ -28,12 +28,12 @@ class RecipeService {
         getCategories(recipe.id),
       ]);
 
-      final ingsRaw = results[0] as List<dynamic>;
+      final ingsRaw = results[0];
       final ings = ingsRaw
           .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      final catsRaw = results[1] as List<dynamic>;
+      final catsRaw = results[1];
       final catIds = catsRaw
           .map((e) {
             final map = e as Map<String, dynamic>;
@@ -152,13 +152,10 @@ class RecipeService {
 
   /// Synchronizes a recipe and its ingredients/categories with the backend
   static Future<void> upsert(Recipe recipe) async {
-    Recipe savedRecipe;
-
-    try {
-      savedRecipe = await update(recipe);
-    } catch (e) {
-      savedRecipe = await create(recipe);
-    }
+    // An der id entscheiden, nicht am Fehlerfall: ein Netzwerkaussetzer beim
+    // Bearbeiten haette sonst still ein zweites Rezept angelegt.
+    final savedRecipe =
+        recipe.id.isEmpty ? await create(recipe) : await update(recipe);
 
     await syncCategories(savedRecipe.id, recipe.categoryIds);
 
@@ -180,5 +177,18 @@ class RecipeService {
         await updateIngredient(savedRecipe.id, ri.id!, ri.toJson());
       }
     }
+  }
+
+  /// Verbucht das Rezept als gekocht und zieht die Zutaten vom Vorrat ab.
+  /// Gibt die Meldungen zu Zutaten zurück, die nicht (voll) abgezogen werden
+  /// konnten – leere Liste heißt: alles sauber gebucht.
+  static Future<List<String>> cook(String recipeId, {int? servings}) async {
+    final response = await ApiClient.dio.post(
+      '$_path/$recipeId/cook',
+      queryParameters: {'servings': ?servings},
+    );
+    return (response.data['shortages'] as List<dynamic>? ?? [])
+        .map((e) => '${e['ingredientName']}: ${e['note']}')
+        .toList();
   }
 }

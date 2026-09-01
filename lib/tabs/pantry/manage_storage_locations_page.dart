@@ -81,7 +81,7 @@ class _LocationListState extends State<_LocationList> {
                 filled: true,
                 fillColor: Theme.of(
                   context,
-                ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -103,13 +103,13 @@ class _LocationListState extends State<_LocationList> {
                   child: ElevatedButton(
                     onPressed: () async {
                       if (ctrl.text.trim().isEmpty) return;
+                      final nav = Navigator.of(context);
                       final newLoc = StorageLocation(
                         id: loc?.id ?? '',
                         name: ctrl.text.trim(),
                       );
                       await PantryService.upsertLocation(newLoc);
-                      if (!mounted) return;
-                      Navigator.pop(context);
+                      nav.pop();
                       _load();
                     },
                     style: ElevatedButton.styleFrom(
@@ -151,7 +151,7 @@ class _LocationListState extends State<_LocationList> {
                   Icon(
                     Icons.warehouse_outlined,
                     size: 64,
-                    color: colors.outline.withOpacity(0.5),
+                    color: colors.outline.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -172,7 +172,7 @@ class _LocationListState extends State<_LocationList> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: BorderSide(
-                      color: colors.outlineVariant.withOpacity(0.5),
+                      color: colors.outlineVariant.withValues(alpha: 0.5),
                     ),
                   ),
                   child: ListTile(

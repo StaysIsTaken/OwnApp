@@ -24,6 +24,7 @@ import 'package:productivity/tabs/calendar/calendar_page.dart';
 import 'package:productivity/tabs/planner/planner_tab.dart';
 import 'package:productivity/tabs/planner/manage_planner_types_page.dart';
 import 'package:productivity/tabs/assistant/assistant_page.dart';
+import 'package:productivity/tabs/admin/admin_page.dart';
 import 'package:productivity/widgets/assistant_overlay.dart';
 import 'package:flutter/foundation.dart';
 import 'package:productivity/widgets/drawer.dart';
@@ -33,6 +34,7 @@ import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/dataservice/background_task_manager.dart';
 import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/provider/chat_provider.dart';
+import 'package:productivity/provider/permission_provider.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -51,6 +53,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => PlannerProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => PermissionProvider()),
       ],
       child: const MyApp(),
     ),
@@ -148,6 +151,7 @@ class AppRoutes {
   static const String planner = '/planner';
   static const String plannerTypes = '/planner-types';
   static const String assistant = '/assistant';
+  static const String admin = '/admin';
 
   static final Map<String, WidgetBuilder> routes = {
     login: (_) => const Login(),
@@ -177,6 +181,7 @@ class AppRoutes {
     planner: (_) => const PlannerTab(),
     plannerTypes: (_) => const ManagePlannerTypesPage(),
     assistant: (_) => const AssistantPage(),
+    admin: (_) => const AdminPage(),
   };
 }
 
@@ -238,7 +243,7 @@ class _LoginRequiredView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: colors.primaryContainer.withOpacity(0.4),
+                color: colors.primaryContainer.withValues(alpha: 0.4),
                 shape: BoxShape.circle,
               ),
               child: Icon(

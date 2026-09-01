@@ -62,7 +62,7 @@ class _RegistrationClosedScreen extends StatelessWidget {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      color: colorScheme.error.withOpacity(0.12),
+                      color: colorScheme.error.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Icon(
@@ -82,7 +82,7 @@ class _RegistrationClosedScreen extends StatelessWidget {
                     'Die Registrierung ist aktuell deaktiviert.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface.withOpacity(0.55),
+                      color: colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -226,7 +226,7 @@ class _RegisterFormState extends State<_RegisterForm>
                             width: 72,
                             height: 72,
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withOpacity(0.12),
+                              color: colorScheme.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Icon(
@@ -247,7 +247,7 @@ class _RegisterFormState extends State<_RegisterForm>
                         Text(
                           'Erstelle deinen persönlichen Account.',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurface.withOpacity(0.55),
+                            color: colorScheme.onSurface.withValues(alpha: 0.55),
                           ),
                         ),
                         const SizedBox(height: 36),

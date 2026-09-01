@@ -161,7 +161,7 @@ class PlannerEntryCard extends StatelessWidget {
                   label: Text(entry.type ?? 'Ohne Typ'),
                   backgroundColor: _getColorFromHex(
                     entry.color,
-                  ).withOpacity(0.2),
+                  ).withValues(alpha: 0.2),
                   labelStyle: TextStyle(color: _getColorFromHex(entry.color)),
                 ),
                 const SizedBox(width: 8),

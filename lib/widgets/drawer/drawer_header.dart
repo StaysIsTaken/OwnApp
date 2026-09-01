@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:productivity/dataclasses/User.dart';
+import 'package:productivity/dataclasses/user.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:provider/provider.dart';
@@ -51,7 +51,7 @@ class DrawerHeaderWidget extends StatelessWidget {
           Text(
             user?.username ?? 'Kein Benutzer',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.75),
+              color: Colors.white.withValues(alpha: 0.75),
               fontSize: 12.5,
             ),
           ),
@@ -75,8 +75,8 @@ class _Avatar extends StatelessWidget {
       height: 56,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withOpacity(0.2),
-        border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+        color: Colors.white.withValues(alpha: 0.2),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
       ),
       child: Center(
         child: Text(
@@ -89,38 +89,6 @@ class _Avatar extends StatelessWidget {
             letterSpacing: 1,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ProBadge extends StatelessWidget {
-  const _ProBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.4)),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.bolt_rounded, color: Colors.white, size: 13),
-          SizedBox(width: 4),
-          Text(
-            'PRO',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
       ),
     );
   }

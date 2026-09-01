@@ -27,8 +27,8 @@ class DrawerFooterWidget extends StatelessWidget {
         border: Border(
           top: BorderSide(
             color: isDark
-                ? Colors.white.withOpacity(0.08)
-                : Colors.black.withOpacity(0.07),
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.07),
             width: 1,
           ),
         ),
@@ -37,7 +37,7 @@ class DrawerFooterWidget extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor: scheme.primary.withOpacity(0.15),
+            backgroundColor: scheme.primary.withValues(alpha: 0.15),
             child: Icon(Icons.logout_rounded, size: 16, color: scheme.primary),
           ),
           const SizedBox(width: 12),

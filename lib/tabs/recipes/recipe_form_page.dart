@@ -28,6 +28,8 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _descCtrl;
+  /// Bezugsgroesse der Zutatenmengen – Essensplan und "gekocht" rechnen darauf.
+  int _servings = 2;
 
   List<String> _selectedCategoryIds = [];
   List<_IngredientEntry> _entries = [];
@@ -47,6 +49,7 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
     final r = widget.recipe;
     _nameCtrl = TextEditingController(text: r?.name ?? '');
     _descCtrl = TextEditingController(text: r?.description ?? '');
+    _servings = r?.servings ?? 2;
     _selectedCategoryIds = List<String>.from(r?.categoryIds ?? []);
     _entries =
         r?.ingredients
@@ -98,10 +101,13 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
     setState(() => _saving = true);
 
     final recipe = Recipe(
-      id: widget.recipe?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+      // Leere id = neu. Eine erfundene id wuerde upsert() faelschlich zu
+      // einem PUT auf ein nicht existierendes Rezept verleiten.
+      id: widget.recipe?.id ?? '',
       name: _nameCtrl.text.trim(),
       categoryIds: _selectedCategoryIds,
       description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+      servings: _servings,
       ingredients: _entries
           .map(
             (e) => RecipeIngredient(
@@ -274,7 +280,7 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                                   });
                                 },
                                 backgroundColor: colors.surfaceContainerHighest
-                                    .withOpacity(0.3),
+                                    .withValues(alpha: 0.3),
                                 selectedColor: colors.primary,
                                 checkmarkColor: colors.onPrimary,
                                 shape: RoundedRectangleBorder(
@@ -282,7 +288,7 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                                   side: BorderSide(
                                     color: isSelected
                                         ? colors.primary
-                                        : colors.outline.withOpacity(0.2),
+                                        : colors.outline.withValues(alpha: 0.2),
                                   ),
                                 ),
                                 padding: const EdgeInsets.symmetric(
@@ -303,6 +309,32 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
                         hintText: 'Zubereitung, Tipps …',
                         alignLabelWithHint: true,
                       ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ── Portionen ─────────────────────────
+                    Row(
+                      children: [
+                        const Icon(Icons.groups_outlined, size: 20),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text('Mengen gelten für … Portionen'),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline),
+                          onPressed: _servings > 1
+                              ? () => setState(() => _servings--)
+                              : null,
+                        ),
+                        Text(
+                          '$_servings',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: () => setState(() => _servings++),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 24),
 
@@ -578,8 +610,9 @@ class _AddIngredientSheetState extends State<_AddIngredientSheet> {
                     ],
                     decoration: const InputDecoration(labelText: 'Menge'),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty)
+                      if (v == null || v.trim().isEmpty) {
                         return 'Menge eingeben';
+                      }
                       final d = double.tryParse(v.replaceAll(',', '.'));
                       if (d == null || d <= 0) return 'Ungültige Menge';
                       return null;

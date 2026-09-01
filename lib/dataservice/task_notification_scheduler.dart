@@ -1,5 +1,6 @@
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
+import 'package:productivity/dataservice/planned_notification.dart';
 
 /// Schedules and cancels local notifications for tasks based on their
 /// due-date.
@@ -15,8 +16,48 @@ import 'package:productivity/dataservice/local_notification_manager.dart';
 class TaskNotificationScheduler {
   TaskNotificationScheduler._();
 
-  static const int _baseDayOf = 3000000;   // Day of due date
-  static const int _baseDayBefore = 4000000; // Day before due date
+  static const int baseDayOf = 3000000;      // Tag der Fälligkeit
+  static const int baseDayBefore = 4000000;  // Tag davor
+  static const int idRangeSize = 1000000;
+
+  /// Baut die Erinnerungen, ohne sie anzumelden.
+  ///
+  /// Getrennt von `schedule`, damit der `NotificationScheduler` Aufgaben und
+  /// Termine gemeinsam sortieren und auf das iOS-Limit kuerzen kann.
+  static List<PlannedNotification> plan(Task task) {
+    if (task.completed || task.dueDate == null) return const [];
+
+    final dueDate = task.dueDate!;
+    final now = DateTime.now();
+    final dueAt9 = DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
+    final geplant = <PlannedNotification>[];
+
+    if (dueAt9.isAfter(now)) {
+      geplant.add(PlannedNotification(
+        id: _idForDayOf(task.id),
+        title: '📋 Task fällig: ${task.title}',
+        body: task.description?.isNotEmpty == true
+            ? task.description!
+            : 'Diese Task ist heute fällig.',
+        when: dueAt9,
+        channelId: LocalNotificationManager.channelTasks,
+        payload: 'task:${task.id}',
+      ));
+    }
+
+    final dayBefore = dueAt9.subtract(const Duration(days: 1));
+    if (dayBefore.isAfter(now)) {
+      geplant.add(PlannedNotification(
+        id: _idForDayBefore(task.id),
+        title: '⏰ Bald fällig: ${task.title}',
+        body: 'Erinnerung: Diese Task ist morgen fällig.',
+        when: dayBefore,
+        channelId: LocalNotificationManager.channelTasks,
+        payload: 'task:${task.id}',
+      ));
+    }
+    return geplant;
+  }
 
   /// Schedules notifications for the given task.
   /// If the task is completed or has no due date, nothing happens.
@@ -67,22 +108,14 @@ class TaskNotificationScheduler {
     await LocalNotificationManager().cancel(_idForDayBefore(taskId));
   }
 
-  /// Re-schedules notifications for ALL given tasks. Useful for periodic
-  /// background syncs that pick up new tasks created on other devices.
-  static Future<void> rescheduleAll(List<Task> tasks) async {
-    for (final t in tasks) {
-      await schedule(t);
-    }
-  }
-
   // ──── ID helpers ────────────────────────────────────
   static int _idForDayOf(String taskId) {
     final hash = taskId.hashCode & 0x7FFFFFFF;
-    return _baseDayOf + (hash % 1000000);
+    return baseDayOf + (hash % 1000000);
   }
 
   static int _idForDayBefore(String taskId) {
     final hash = taskId.hashCode & 0x7FFFFFFF;
-    return _baseDayBefore + (hash % 1000000);
+    return baseDayBefore + (hash % 1000000);
   }
 }
