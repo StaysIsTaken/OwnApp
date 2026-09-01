@@ -76,9 +76,45 @@ Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mi
 - **Journal**: Tagebuch-Einträge mit Auswertungen/Analysen
 
 ### ⚙️ Einstellungen
+- **Serveradresse**: frei einstellbar, mit Erreichbarkeitsprüfung. Kein
+  eigener Bauvorgang nötig, um die App gegen einen anderen Server zu
+  betreiben. Ein Wechsel meldet ab – das Token gilt beim alten Server.
 - **Design-Anpassung**: Wechsel zwischen Hell- und Dunkelmodus
 - **Benutzereinstellungen**: Personalisiere App-Verhalten
 - **Kontoeinstellungen**: Verwalte Benutzerprofilinformationen
+
+### 📊 Dashboard (frei zusammenstellbar)
+- **Zwei Übersichtsseiten** (Home und Dashboard), Anordnung pro Konto im
+  Backend gespeichert – gilt auf allen Geräten.
+- **Dreistufiger Rückfall**: Backend (3 s Zeitlimit) → lokaler Cache →
+  Standard aus dem Code. Ist der Server weg, steht trotzdem etwas da.
+- **Kacheln per Drag & Drop** umsortieren, ein- und ausblenden;
+  Abschnitte auf- und zuklappen.
+- **Eigene Kacheln** aus Quelle × Darstellung × Filter: zehn Quellen, drei
+  Darstellungen (große Zahl, Liste, Balken). Welche Darstellung zu welcher
+  Quelle passt, ergibt sich aus deren Form.
+- **Filter nach Datentyp**: Feld → Operator (bei Zahlen `> < =`, bei Text
+  „enthält", bei Datum „in den letzten … Tagen") → Wert per Freitext,
+  Datumswähler oder Auswahlliste. Mehrere Bedingungen als UND.
+- Antippen öffnet die passende Seite.
+
+### 🛡️ Rechte in der Oberfläche
+- Das Menü zeigt nur, was der angemeldete Nutzer benutzen darf; ein leerer
+  Abschnitt verschwindet samt Überschrift.
+- Die Übersichtsseiten laden **jede Quelle einzeln**. Ein fehlendes Recht
+  lässt eine Kachel weg, statt die Seite abzureißen.
+- Wer angemeldet, aber noch nicht freigeschaltet ist, bekommt eine
+  Erklärung statt einer leeren App.
+- Das ist **Höflichkeit, keine Absicherung** – geprüft wird an jedem
+  Endpunkt im Backend.
+
+### 👥 Verwaltung (nur mit Verwaltungsrecht)
+- **Benutzer** mit Online-Punkt, „zuletzt gesehen" und Rollen; anlegen,
+  Rollen setzen, Passwort zurücksetzen, deaktivieren, löschen.
+- **Rollen** zusammenstellen: Rechte nach Bereich gruppiert. „Ändern"
+  setzt „Sehen" mit, „Sehen" wegnehmen nimmt „Ändern" mit.
+- **Standardrolle** festlegen: was ein neu angelegter Nutzer bekommt.
+- Der Löschdialog zeigt vorher, was verloren geht.
 
 ### 🔐 Authentifizierung
 - **Benutzer-Registrierung**: Erstelle neue Konten
@@ -96,7 +132,8 @@ lib/
 │   ├── user.dart                     # Benutzer-Authentifizierungs-Modell
 │   └── [weitere Modelle]             # Rezept, Vorrät, Zeiteintrag
 ├── dataservice/                       # API-Integrations-Schicht
-│   ├── api_client.dart               # Dio HTTP-Client Konfiguration
+│   ├── api_client.dart               # Dio HTTP-Client, Basis-Adresse
+│   ├── server_config.dart            # Serveradresse: speichern, prüfen
 │   ├── task_service.dart             # Task CRUD-Operationen
 │   ├── user_service.dart             # Benutzerverwaltung
 │   ├── login_service.dart            # Authentifizierung
@@ -173,12 +210,22 @@ lib/
    flutter pub get
    ```
 
-3. **API-Verbindung konfigurieren**
-   - Bearbeite `lib/dataservice/api_client.dart`
-   - Setze die `baseUrl` zu deinem Backend API-Endpoint:
-     ```dart
-     static const String baseUrl = 'http://your-api-url:port';
-     ```
+3. **API-Verbindung konfigurieren** – *nicht mehr im Code*
+
+   Die Serveradresse wird **in der App** eingestellt: unten am
+   Login-Bildschirm oder in den Einstellungen ganz oben. Es genügt der
+   Rechnername (`meinserver.de`) – `https://` wird ergänzt, `/api`
+   angehängt, und was daraus wird, steht vor dem Speichern da.
+
+   Vor dem Übernehmen prüft die App, ob dort wirklich diese API antwortet.
+   Eine falsche Adresse fiele sonst erst beim Anmelden auf und sähe aus wie
+   ein falsches Passwort.
+
+   Optional lässt sich beim Bauen eine **Vorgabe** mitgeben, die ohne
+   Einstellung gilt:
+   ```bash
+   flutter build web --release --dart-define=API_URL=https://api.example.de/api
+   ```
 
 4. **App ausführen**
    ```bash
@@ -358,7 +405,8 @@ Die App kommuniziert mit einem REST-API-Backend.
 
 ### API-Verbindungsprobleme
 - Backend-Server läuft
-- `api_client.dart` baseUrl korrekt
+- Serveradresse stimmt (Login-Bildschirm → unten, oder Einstellungen → Server).
+  Die App prüft die Erreichbarkeit dort selbst.
 - Netzwerk-Verbindung aktiv
 - Firewall/Proxy-Einstellungen prüfen
 
@@ -408,3 +456,23 @@ Jan-Philip Anft
 ---
 
 **Zuletzt aktualisiert**: Juni 2026
+
+## Zugehöriges Backend
+
+Die API liegt im Schwesterprojekt
+[OwnAPI](https://github.com/StaysIsTaken/OwnAPI). Aufsetzen dort ist ein
+Befehl (`./deploy/setup.sh prod`); Datenbank, Schema und Grundrollen
+entstehen dabei von selbst, und wer sich als Erster registriert, bekommt
+die Verwaltung.
+
+## Tests
+
+```bash
+flutter test
+flutter analyze
+```
+
+**86 Tests.** Neben Einheitentests auch Widget-Tests für das Menü: der
+Drawer wird mit einem eingeschränkten Rechtestand aufgebaut, und der Test
+sieht nach, was wirklich dasteht.
+
