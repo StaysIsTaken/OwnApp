@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:provider/provider.dart';
 import '../dataservice/login_service.dart';
+import 'package:productivity/dataservice/api_client.dart';
 import 'package:productivity/utils/snack.dart';
+import 'package:productivity/widgets/server_dialog.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -19,6 +21,24 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+
+  /// Nur der Rechnername – die volle Adresse wäre hier zu viel und steht
+  /// im Dialog.
+  String get _serverName {
+    final uri = Uri.tryParse(ApiClient.baseUrl);
+    return uri?.host.isNotEmpty == true ? uri!.host : ApiClient.baseUrl;
+  }
+
+  Future<void> _serverAendern() async {
+    final geaendert = await showDialog<bool>(
+      context: context,
+      builder: (_) => const ServerDialog(),
+    );
+    if (geaendert == true && mounted) {
+      setState(() {});
+      showSnack('Server geändert auf $_serverName');
+    }
+  }
 
   late final AnimationController _animController;
   late final Animation<double> _fadeAnim;
@@ -225,6 +245,22 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
                           ),
                         ),
                         const SizedBox(height: 24),
+
+                        // ── Server ───────────────────────────────
+                        // Hier und nicht nur in den Einstellungen: vor der
+                        // Anmeldung kommt man dort nicht hin, und wer sich
+                        // nicht anmelden kann, hat oft genau hier das
+                        // Problem.
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: _serverAendern,
+                            icon: const Icon(Icons.dns_outlined, size: 16),
+                            label: Text(
+                              _serverName,
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ),
+                        ),
 
                         // ── Footer ───────────────────────────────
                         Center(

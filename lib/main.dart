@@ -30,6 +30,7 @@ import 'package:flutter/foundation.dart';
 import 'package:productivity/widgets/drawer.dart';
 import 'package:productivity/widgets/auth_wrapper.dart';
 import 'package:productivity/dataservice/notification_service.dart';
+import 'package:productivity/dataservice/server_config.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/dataservice/background_task_manager.dart';
 import 'package:productivity/provider/planner_provider.dart';
@@ -40,6 +41,10 @@ import 'package:provider/provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('de_DE', null);
+
+  // Die eingestellte Serveradresse gilt ab jetzt. Muss VOR allem anderen
+  // stehen: der NotificationService baut seine WebSocket-Adresse daraus ab.
+  await ServerConfig.anwenden();
 
   // Initialize local notifications (works on iOS/Android, no-op on web)
   if (!kIsWeb) {

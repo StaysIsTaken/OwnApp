@@ -29,12 +29,8 @@ class NotificationService {
     final token = await LoginService.getToken();
     if (token == null) return;
 
-    final baseUrl = ApiClient.baseUrl;
-    final uri = Uri.parse(baseUrl);
-    final wsScheme = uri.scheme == 'https' ? 'wss' : 'ws';
-    final port = uri.hasPort ? ':${uri.port}' : '';
     final wsUrl =
-        '$wsScheme://${uri.host}$port${uri.path}/chat/ws/notifications?token=$token';
+        '${ApiClient.websocketUrl('/chat/ws/notifications')}?token=$token';
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));

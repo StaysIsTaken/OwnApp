@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:productivity/dataservice/api_client.dart';
+import 'package:productivity/provider/user_provider.dart';
+import 'package:productivity/widgets/server_dialog.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/ai_model.dart';
 import 'package:productivity/dataservice/ai_service.dart';
@@ -25,6 +28,19 @@ class _SettingsBody extends StatefulWidget {
 }
 
 class _SettingsBodyState extends State<_SettingsBody> {
+  /// Serveradresse aendern. Die Anmeldung gilt beim alten Server, deshalb
+  /// meldet der Dialog ab – die App landet danach beim Login.
+  Future<void> _serverAendern() async {
+    final geaendert = await showDialog<bool>(
+      context: context,
+      builder: (_) => const ServerDialog(),
+    );
+    if (geaendert == true && mounted) {
+      setState(() {});
+      context.read<UserProvider>().logout();
+    }
+  }
+
   bool _notifEnabled = true;
   bool _notifChat = true;
   bool _notifTasks = true;
@@ -356,6 +372,21 @@ class _SettingsBodyState extends State<_SettingsBody> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // ── Server ──
+        // Ganz oben, weil fast alles davon abhaengt: laeuft die App gegen
+        // den falschen Server, ist jede andere Einstellung nebensaechlich.
+        _SectionTitle('Server'),
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.dns_outlined, color: colors.primary),
+            title: const Text('API-Adresse'),
+            subtitle: Text(ApiClient.baseUrl),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _serverAendern,
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // ── Allgemein ──
         _SectionTitle('Allgemein'),
         Card(

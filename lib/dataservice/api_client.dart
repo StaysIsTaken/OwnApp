@@ -14,8 +14,38 @@ class ApiClient {
   // und deploy.yml). Ohne gesetzten Wert bleibt es bei der Produktiv-URL –
   // ein leerer String wuerde sonst jede Anfrage ins Leere laufen lassen.
   static const String _envUrl = String.fromEnvironment('API_URL');
-  static const String baseUrl =
+  static const String _vorgabe =
       _envUrl == '' ? 'https://api.home-anft.de/api' : _envUrl;
+
+  // Nicht mehr fest: die Adresse laesst sich in der App einstellen (siehe
+  // ServerConfig). Wer die App auf einem eigenen Server betreibt, haette
+  // sonst ein eigenes Bild bauen muessen.
+  static String _baseUrl = _vorgabe;
+
+  static String get baseUrl => _baseUrl;
+
+  /// Setzt die Adresse fuer alle kuenftigen Anfragen – auch fuer die
+  /// WebSockets, die ihre Adresse aus dieser hier ableiten.
+  static void setBaseUrl(String url) {
+    _baseUrl = url;
+    _dio.options.baseUrl = url;
+  }
+
+  /// WebSocket-Adresse zu einem Pfad unterhalb der API.
+  ///
+  ///     websocketUrl('/chat/ws/42')
+  ///     → wss://api.example.de/api/chat/ws/42
+  ///
+  /// An EINER Stelle, weil es vorher zwei gab: die eine hat den Port
+  /// beruecksichtigt, die andere nicht. Mit einer festen Domain (Port 443,
+  /// implizit) fiel das nie auf – sobald jemand seinen eigenen Server mit
+  /// Port eintraegt, verbindet die Haelfte der App ins Leere.
+  static String websocketUrl(String pfad) {
+    final uri = Uri.parse(_baseUrl);
+    final schema = uri.scheme == 'https' ? 'wss' : 'ws';
+    final port = uri.hasPort ? ':${uri.port}' : '';
+    return '$schema://${uri.host}$port${uri.path}$pfad';
+  }
 
   /// Wird aufgerufen, wenn das Backend 401 liefert – also wenn das Token
   /// abgelaufen oder ungültig ist. Der UserProvider hängt sich hier ein und
@@ -32,7 +62,7 @@ class ApiClient {
 
   static final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: baseUrl,
+      baseUrl: _vorgabe,
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(minutes: 5),
       headers: {'Content-Type': 'application/json'},

@@ -82,15 +82,7 @@ class ChatService {
   // --- WebSocket: Real-time ---
 
   static WebSocketChannel connect(String chatId, String token) {
-    final baseUrl = ApiClient.dio.options.baseUrl;
-    final uri = Uri.parse(baseUrl);
-    final wsScheme = uri.scheme == 'https' ? 'wss' : 'ws';
-
-    // uri.path enthält bereits '/api'
-    final wsUrl =
-        '$wsScheme://${uri.host}${uri.path}/chat/ws/$chatId?token=$token';
-    // → 'wss://api.home-anft.de/api/chat/ws/$chatId?token=$token' ✓
-
+    final wsUrl = '${ApiClient.websocketUrl('/chat/ws/$chatId')}?token=$token';
     return WebSocketChannel.connect(Uri.parse(wsUrl));
   }
 }
