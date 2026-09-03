@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/api_client.dart';
+import 'package:productivity/dataservice/biometric_service.dart';
 import 'package:productivity/dataservice/login_service.dart';
 import 'package:productivity/dataservice/server_config.dart';
 
@@ -59,6 +60,8 @@ class _ServerDialogState extends State<ServerDialog> {
     // wäre bestenfalls wirkungslos und schlimmstenfalls verwirrend, weil
     // die App kurz angemeldet aussähe.
     await LoginService.logout();
+    // Und die gemerkten Zugangsdaten gehören ebenfalls zum alten Server.
+    await BiometricService.vergessen();
     await ServerConfig.speichern(url);
     if (mounted) Navigator.pop(context, true);
   }
