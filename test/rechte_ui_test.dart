@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:productivity/dataclasses/dashboard_page.dart';
 import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/dataservice/rechte_zuordnung.dart';
 import 'package:productivity/provider/permission_provider.dart';
@@ -16,6 +17,8 @@ DioException _fehler(int? status, {dynamic data}) => DioException(
     );
 
 void main() {
+  _kuechenmodus();
+
   group('Fehler vom Server', () {
     test('403 ist verboten, 401 nicht', () {
       // 401 heisst "nicht angemeldet" und fuehrt woanders zum Abmelden —
@@ -104,6 +107,52 @@ void main() {
       ]) {
         expect(recht.split(':').length, 2, reason: recht);
       }
+    });
+  });
+}
+
+// ── Küchenmodus ────────────────────────────────────────────────────────
+
+void _kuechenmodus() {
+  group('Wer den Schalter sieht', () {
+    test('nur mit tablet:use', () {
+      final p = PermissionProvider();
+      p.uebernehmen({'planner:read', 'tasks:read'});
+      expect(p.darfTablet, isFalse);
+
+      p.uebernehmen({'tablet:use'});
+      expect(p.darfTablet, isTrue);
+    });
+
+    test('der Stern schließt es ein', () {
+      final p = PermissionProvider();
+      p.uebernehmen({'*'});
+      expect(p.darfTablet, isTrue);
+    });
+
+    test('ohne geladene Rechte nicht', () {
+      // Beim Start soll nicht kurz ein Schalter aufblitzen.
+      expect(PermissionProvider().darfTablet, isFalse);
+    });
+  });
+
+  group('Seiten aus dem Backend', () {
+    test('Tablet-Seiten erkennen sich selbst', () {
+      final s = DashboardSeite.fromJson({
+        'id': 1, 'key': 'kueche', 'name': 'Küche',
+        'mode': 'tablet', 'order_index': 0,
+      });
+      expect(s.istTablet, isTrue);
+    });
+
+    test('ohne Angabe ist es eine App-Seite', () {
+      // Ein altes Backend ohne dieses Feld darf nicht dazu führen, dass
+      // plötzlich alles in der Küchenansicht landet.
+      final s = DashboardSeite.fromJson({
+        'id': 1, 'key': 'home', 'name': 'Home', 'order_index': 0,
+      });
+      expect(s.mode, DashboardSeite.modeApp);
+      expect(s.istTablet, isFalse);
     });
   });
 }

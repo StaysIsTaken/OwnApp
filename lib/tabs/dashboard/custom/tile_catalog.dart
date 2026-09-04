@@ -7,6 +7,7 @@ import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/tabs/dashboard/custom/filter_fields.dart';
+import 'package:productivity/tabs/dashboard/custom/kopf_quellen.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_filter.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 
@@ -21,11 +22,27 @@ class TileCatalog {
   static const _tage = TileParam(
     key: 'days', label: 'Zeitraum in Tagen', min: 1, max: 90, standard: 7,
   );
+  /// Welche Woche: 0 = diese, 1 = nächste. Auch rückwärts, damit man
+  /// auf dem Tablet nachsehen kann, was letzte Woche war.
+  static const _wochenversatz = TileParam(
+    key: 'weeks',
+    label: 'Woche (0 = diese)',
+    min: -4,
+    max: 8,
+    standard: 0,
+  );
+
   static const _anzahl = TileParam(
     key: 'limit', label: 'Wie viele anzeigen', min: 1, max: 20, standard: 5,
   );
 
+  /// Alle Quellen: die des Rasters und die der Kopfblöcke.
+  ///
+  /// Getrennt gepflegt, weil ein Block ganz oben andere Sachen zeigen
+  /// soll als ein Kärtchen im Raster – zusammengeführt, weil Editor,
+  /// Speicherung und Darstellung dieselben sind.
   static final List<TileSource> sources = [
+    ...KopfQuellen.sources,
     // ── Termine ──────────────────────────────────────────────────────────
     TileSource(
       key: 'planner.upcoming',
@@ -73,6 +90,40 @@ class TileCatalog {
             e.scheduledAt.isAfter(jetzt) &&
             e.scheduledAt.isBefore(bis)).length;
         return TileData.scalar(n.toDouble(), unit: 'Termine');
+      },
+    ),
+
+    TileSource(
+      key: 'planner.week',
+      route: AppRoutes.planner,
+      fields: FilterFields.termine,
+      label: 'Wochenansicht',
+      group: 'Planer',
+      shape: TileShape.schedule,
+      params: const [_wochenversatz],
+      build: (d, p, f) {
+        final versatz = _int(p, 'weeks', 0);
+        final heute = DateTime.now().add(Duration(days: versatz * 7));
+        final montag = _tagesbeginn(
+            heute.subtract(Duration(days: heute.weekday - 1)));
+        final sonntagEnde = montag.add(const Duration(days: 7));
+
+        final termine = <TileScheduleItem>[];
+        for (final e in applyFilters(
+            d.plannerEntries.cast<PlannerEntry>(), f, FilterFields.termine)) {
+          if (e.parentId != null) continue;
+          if (e.scheduledAt.isBefore(montag)) continue;
+          if (!e.scheduledAt.isBefore(sonntagEnde)) continue;
+          termine.add(TileScheduleItem(
+            title: e.title,
+            start: e.scheduledAt,
+            end: e.endsAt,
+            color: e.color,
+            source: e.type,
+          ));
+        }
+        return TileData.schedule(termine,
+            emptyHint: 'Diese Woche ist nichts geplant');
       },
     ),
 
@@ -188,6 +239,123 @@ class TileCatalog {
       },
     ),
 
+    TileSource(
+      key: 'tasks.by_priority',
+      route: AppRoutes.tasks,
+      fields: FilterFields.aufgaben,
+      label: 'Aufgaben je Priorität',
+      group: 'Aufgaben',
+      shape: TileShape.distribution,
+      build: (d, p, f) {
+        const namen = {'low': 'Niedrig', 'medium': 'Mittel', 'high': 'Hoch'};
+        final zaehler = <String, double>{};
+        for (final t in applyFilters(
+            d.tasks.cast<Task>(), f, FilterFields.aufgaben)) {
+          final k = namen[t.priority] ?? t.priority;
+          zaehler[k] = (zaehler[k] ?? 0) + 1;
+        }
+        return TileData.distribution(zaehler, emptyHint: 'Keine Aufgaben');
+      },
+    ),
+    TileSource(
+      key: 'tasks.by_category',
+      route: AppRoutes.tasks,
+      fields: FilterFields.aufgaben,
+      label: 'Aufgaben je Kategorie',
+      group: 'Aufgaben',
+      shape: TileShape.distribution,
+      build: (d, p, f) {
+        final zaehler = <String, double>{};
+        for (final t in applyFilters(
+            d.tasks.cast<Task>(), f, FilterFields.aufgaben)) {
+          final k = (t.category?.isNotEmpty == true) ? t.category! : 'Ohne';
+          zaehler[k] = (zaehler[k] ?? 0) + 1;
+        }
+        return TileData.distribution(zaehler, emptyHint: 'Keine Aufgaben');
+      },
+    ),
+
+    // ── Zeiterfassung: Verteilungen ──────────────────────────────────────
+    TileSource(
+      key: 'time.by_description',
+      route: AppRoutes.time,
+      fields: FilterFields.zeiten,
+      label: 'Zeit je Tätigkeit',
+      group: 'Zeiterfassung',
+      shape: TileShape.distribution,
+      params: const [_tage],
+      build: (d, p, f) {
+        final tage = _int(p, 'days', 7);
+        final ab = _tagesbeginn(DateTime.now())
+            .subtract(Duration(days: tage - 1));
+        final zaehler = <String, double>{};
+        for (final e in applyFilters(
+            d.timeEntries.cast<TimeEntry>(), f, FilterFields.zeiten)) {
+          if (e.endTime == null) continue;
+          if (e.startTime.isBefore(ab)) continue;
+          final name = e.description.trim().isNotEmpty
+              ? e.description.trim()
+              : 'Ohne Beschreibung';
+          final stunden = e.endTime!.difference(e.startTime).inMinutes / 60.0;
+          zaehler[name] = (zaehler[name] ?? 0) + stunden;
+        }
+        // Nur die groessten sieben, der Rest zusammengefasst – ein
+        // Tortendiagramm mit dreissig Stuecken liest niemand.
+        return TileData.distribution(_grosseZuerst(zaehler, 7),
+            unit: 'h', emptyHint: 'Keine Zeiten');
+      },
+    ),
+
+    // ── Planer: Verteilung und Verlauf ───────────────────────────────────
+    TileSource(
+      key: 'planner.by_type',
+      route: AppRoutes.planner,
+      fields: FilterFields.termine,
+      label: 'Termine je Typ',
+      group: 'Planer',
+      shape: TileShape.distribution,
+      params: const [_tage],
+      build: (d, p, f) {
+        final jetzt = DateTime.now();
+        final bis = jetzt.add(Duration(days: _int(p, 'days', 7)));
+        final zaehler = <String, double>{};
+        for (final e in applyFilters(
+            d.plannerEntries.cast<PlannerEntry>(), f, FilterFields.termine)) {
+          if (e.parentId != null) continue;
+          if (e.scheduledAt.isBefore(jetzt) || e.scheduledAt.isAfter(bis)) {
+            continue;
+          }
+          final k = (e.type?.isNotEmpty == true) ? e.type! : 'Ohne Typ';
+          zaehler[k] = (zaehler[k] ?? 0) + 1;
+        }
+        return TileData.distribution(zaehler, emptyHint: 'Keine Termine');
+      },
+    ),
+    TileSource(
+      key: 'planner.per_day',
+      route: AppRoutes.planner,
+      fields: FilterFields.termine,
+      label: 'Termine je Tag',
+      group: 'Planer',
+      shape: TileShape.series,
+      params: const [_tage],
+      build: (d, p, f) {
+        final tage = _int(p, 'days', 7);
+        final heute = _tagesbeginn(DateTime.now());
+        final punkte = <String, double>{};
+        for (var i = 0; i < tage; i++) {
+          punkte[_kurzTag(heute.add(Duration(days: i)))] = 0;
+        }
+        for (final e in applyFilters(
+            d.plannerEntries.cast<PlannerEntry>(), f, FilterFields.termine)) {
+          if (e.parentId != null) continue;
+          final k = _kurzTag(_tagesbeginn(e.scheduledAt));
+          if (punkte.containsKey(k)) punkte[k] = punkte[k]! + 1;
+        }
+        return TileData.series(punkte, emptyHint: 'Keine Termine');
+      },
+    ),
+
     // ── Einkauf und Vorrat ───────────────────────────────────────────────
     TileSource(
       key: 'shopping.open',
@@ -300,4 +468,22 @@ class TileCatalog {
 
   static String _zahl(double v) =>
       v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+}
+
+/// Die groessten Eintraege zuerst, der lange Schwanz als "Sonstige".
+///
+/// Ohne das wird ein Tortendiagramm mit vielen kleinen Kategorien
+/// unleserlich – und die Legende laenger als das Diagramm.
+Map<String, double> _grosseZuerst(Map<String, double> werte, int wieViele) {
+  final sortiert = werte.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  if (sortiert.length <= wieViele) {
+    return {for (final e in sortiert) e.key: e.value};
+  }
+  final ergebnis = <String, double>{
+    for (final e in sortiert.take(wieViele)) e.key: e.value
+  };
+  final rest = sortiert.skip(wieViele).fold<double>(0, (a, e) => a + e.value);
+  if (rest > 0) ergebnis['Sonstige'] = rest;
+  return ergebnis;
 }

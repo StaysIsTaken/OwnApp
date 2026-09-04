@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_charts.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_week_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 
 /// Eine Darstellungsart im Katalog.
@@ -41,11 +43,50 @@ class TileViews {
       build: (ctx, d) => _List(data: d),
     ),
     TileView(
+      key: 'text',
+      label: 'Text',
+      icon: Icons.notes_rounded,
+      accepts: const {TileShape.text},
+      build: (ctx, d) => _Text(data: d),
+    ),
+    TileView(
+      key: 'week',
+      label: 'Wochenansicht',
+      icon: Icons.calendar_view_week_rounded,
+      accepts: const {TileShape.schedule},
+      build: (ctx, d) => TileWeekView(data: d),
+    ),
+    TileView(
       key: 'bars',
       label: 'Balkendiagramm',
       icon: Icons.bar_chart_rounded,
       accepts: const {TileShape.series, TileShape.distribution},
-      build: (ctx, d) => _Bars(data: d),
+      build: (ctx, d) => TileBarChart(data: d),
+    ),
+    TileView(
+      key: 'line',
+      label: 'Liniendiagramm',
+      icon: Icons.show_chart_rounded,
+      // Nur Verlaeufe: eine Linie durch Kategorien zu ziehen suggeriert
+      // einen Zusammenhang, den es nicht gibt.
+      accepts: const {TileShape.series},
+      build: (ctx, d) => TileLineChart(data: d),
+    ),
+    TileView(
+      key: 'pie',
+      label: 'Tortendiagramm',
+      icon: Icons.pie_chart_rounded,
+      // Nur Verteilungen: ein Kuchenstueck je Tag waere zeichenbar, wuerde
+      // aber nichts aussagen.
+      accepts: const {TileShape.distribution},
+      build: (ctx, d) => TilePieChart(data: d),
+    ),
+    TileView(
+      key: 'donut',
+      label: 'Ringdiagramm',
+      icon: Icons.donut_large_rounded,
+      accepts: const {TileShape.distribution},
+      build: (ctx, d) => TilePieChart(data: d, alsRing: true),
     ),
   ];
 
@@ -141,68 +182,36 @@ class _List extends StatelessWidget {
 // ── Balken ──────────────────────────────────────────────────────────────────
 /// Von Hand gezeichnet statt mit einem Diagramm-Paket: die App hat keines,
 /// und für Balken lohnt eine weitere Abhängigkeit über sechs Plattformen nicht.
-class _Bars extends StatelessWidget {
+
+/// Freier Text – vom Nutzer geschrieben oder aus den eigenen Daten geholt.
+class _Text extends StatelessWidget {
   final TileData data;
-  const _Bars({required this.data});
+
+  const _Text({required this.data});
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    final maxWert = data.points.values.fold<double>(0, (a, b) => b > a ? b : a);
-    final teiler = maxWert <= 0 ? 1.0 : maxWert;
-
-    return SizedBox(
-      height: 130,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (final eintrag in data.points.entries)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      _kurz(eintrag.value),
-                      style: text.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                    ),
-                    const SizedBox(height: 4),
-                    // Mindesthöhe, damit ein Nullwert nicht unsichtbar wird.
-                    Container(
-                      height: (eintrag.value / teiler * 78).clamp(3.0, 78.0),
-                      decoration: BoxDecoration(
-                        color: eintrag.value > 0
-                            ? colors.primary
-                            : colors.outlineVariant,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(4),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      eintrag.key,
-                      style: text.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          data.body ?? '',
+          // Groesser als Fliesstext: diese Bloecke stehen ganz oben und
+          // sollen im Vorbeigehen lesbar sein, nicht studiert werden.
+          style: text.bodyLarge?.copyWith(height: 1.45),
+        ),
+        if (data.footnote != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            data.footnote!,
+            style: text.bodySmall?.copyWith(color: colors.outline),
+          ),
         ],
-      ),
+      ],
     );
   }
-
-  static String _kurz(double v) =>
-      v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
 }

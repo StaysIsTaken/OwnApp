@@ -10,6 +10,15 @@ class CustomTile {
   final Map<String, dynamic> params;
   final List<FilterRule> filters;
 
+  /// Wo die Kachel liegt: `kopf` (volle Breite, über der Übersicht) oder
+  /// `raster`. Getrennt, weil ein Block ganz oben anders wirkt als ein
+  /// Kärtchen im dreispaltigen Raster – und weil man ihn dort auch anders
+  /// bauen will.
+  final String zone;
+
+  static const String zoneKopf = 'kopf';
+  static const String zoneRaster = 'raster';
+
   const CustomTile({
     required this.id,
     required this.source,
@@ -17,12 +26,16 @@ class CustomTile {
     this.title,
     this.params = const {},
     this.filters = const [],
+    this.zone = zoneRaster,
   });
+
+  bool get imKopf => zone == zoneKopf;
 
   CustomTile copyWith({
     String? title,
     Map<String, dynamic>? params,
     List<FilterRule>? filters,
+    String? zone,
   }) =>
       CustomTile(
         id: id,
@@ -31,6 +44,7 @@ class CustomTile {
         title: title ?? this.title,
         params: params ?? this.params,
         filters: filters ?? this.filters,
+        zone: zone ?? this.zone,
       );
 
   Map<String, dynamic> toJson() => {
@@ -40,6 +54,7 @@ class CustomTile {
         'title': title,
         'params': params,
         'filters': filters.map((f) => f.toJson()).toList(),
+        'zone': zone,
       };
 
   factory CustomTile.fromJson(Map<String, dynamic> j) {
@@ -57,25 +72,68 @@ class CustomTile {
       title: j['title']?.toString(),
       params: (j['params'] as Map?)?.cast<String, dynamic>() ?? const {},
       filters: regeln,
+      // Ohne Angabe im Raster: so bleiben Kacheln aus der Zeit vor den
+      // Kopfbloecken dort, wo sie waren.
+      zone: j['zone']?.toString() == zoneKopf ? zoneKopf : zoneRaster,
     );
   }
 }
+
+/// Was für eine Eingabe eine Einstellung braucht.
+///
+/// Bisher waren alle Einstellungen Zahlen mit Plus/Minus. Für eigene
+/// Blöcke reicht das nicht: ein Text will getippt, ein Datum gewählt
+/// werden. Die Oberfläche entscheidet daran, welches Feld sie zeigt.
+enum ParamArt { zahl, text, mehrzeilig, datum }
 
 /// Ein einstellbarer Wert einer Quelle (z.B. „letzte N Tage").
 class TileParam {
   final String key;
   final String label;
+  final ParamArt art;
+
+  /// Nur für [ParamArt.zahl].
   final int min;
   final int max;
   final int standard;
 
+  /// Nur für Text: was blass im leeren Feld steht.
+  final String? platzhalter;
+
   const TileParam({
     required this.key,
     required this.label,
-    required this.min,
-    required this.max,
-    required this.standard,
+    this.art = ParamArt.zahl,
+    this.min = 0,
+    this.max = 0,
+    this.standard = 0,
+    this.platzhalter,
   });
+
+  const TileParam.text({
+    required this.key,
+    required this.label,
+    this.platzhalter,
+    this.art = ParamArt.text,
+  })  : min = 0,
+        max = 0,
+        standard = 0;
+
+  const TileParam.mehrzeilig({
+    required this.key,
+    required this.label,
+    this.platzhalter,
+  })  : art = ParamArt.mehrzeilig,
+        min = 0,
+        max = 0,
+        standard = 0;
+
+  const TileParam.datum({required this.key, required this.label})
+      : art = ParamArt.datum,
+        min = 0,
+        max = 0,
+        standard = 0,
+        platzhalter = null;
 }
 
 /// Eine Datenquelle im Katalog.

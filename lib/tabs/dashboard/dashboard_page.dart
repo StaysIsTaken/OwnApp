@@ -4,6 +4,7 @@ import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/dataservice/rechte_zuordnung.dart';
 import 'package:productivity/provider/permission_provider.dart';
+import 'package:productivity/widgets/tablet_switch.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/pantry_extras.dart';
@@ -161,6 +162,11 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   /// Verschiebt `from` an die Stelle von `to` und speichert sofort.
   Future<void> _moveTile(String from, String to) async {
+    // Kopfkarten bleiben oben, Übersichtskacheln bleiben im Raster. Ein
+    // Zug über die Grenze wäre technisch möglich, sähe aber falsch aus:
+    // die Begrüßung ist auf volle Breite gebaut, ein Aufgabenkärtchen nicht.
+    if (DashboardPrefs.istKopf(from) != DashboardPrefs.istKopf(to)) return;
+
     final order = List<String>.from(_widgetOrder);
     final alt = order.indexOf(from);
     final neu = order.indexOf(to);
@@ -189,8 +195,8 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   /// Legt eine eigene Kachel an und stellt sie nach oben.
-  Future<void> _addCustomTile() async {
-    final neu = await showTileEditor(context);
+  Future<void> _addCustomTile({String zone = CustomTile.zoneRaster}) async {
+    final neu = await showTileEditor(context, zone: zone);
     if (neu == null || !mounted) return;
     final tiles = [..._customTiles, neu];
     final order = [neu.id, ..._widgetOrder];
@@ -423,33 +429,26 @@ class _DashboardContentState extends State<_DashboardContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 1. Greeting Header
-                  GreetingHeader(
-                    tasksDueToday: _getTasksDueToday().length,
-                    lowPantryItems: _getLowPantryItems().length,
-                    forecast: _weather,
-                    weatherLoading: _weatherLoading,
-                    onRefreshWeather: _loadWeather,
-                  ),
-                  const SizedBox(height: 20),
+                  // Der Küchenmodus-Schalter. Zeigt sich nur, wer ihn
+                  // benutzen darf – sonst gäbe es nichts einzuschalten.
+                  const TabletSwitch(),
 
-                  // 2. Quick Actions
-                  const QuickActions(),
-                  const SizedBox(height: 20),
-
-                  // 3. Today Focus Card
-                  TodayFocusCard(
-                    tasksDueToday: _getTasksDueToday().length,
-                    timeTrackedToday: _getTimeTrackedToday(),
-                    todayMealPlan: _getTodayMealPlan(),
-                    recipes: _recipes,
-                    estimatedShoppingCost: _getEstimatedShoppingCost(),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // 4. Heutige Termine (Planner)
-                  TodayAgendaWidget(entries: _getTodayPlanner()),
-                  const SizedBox(height: 24),
+                  // 1.-4. Kopfbereich – in der gespeicherten Reihenfolge
+                  // und im Bearbeitungsmodus genauso verschiebbar wie die
+                  // Kacheln darunter.
+                  ..._buildKopf(),
+                  if (_arranging) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _addCustomTile(zone: CustomTile.zoneKopf),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Block hinzufügen'),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
                   // 5. Anpassbares Widget-Raster
                   CollapsibleSection(
@@ -533,6 +532,80 @@ class _DashboardContentState extends State<_DashboardContent> {
     return null;
   }
 
+  /// Alles, was die Kacheln zum Rechnen brauchen — einmal gebaut, von
+  /// Kopfbereich und Raster gemeinsam genutzt.
+  DashboardData _dashboardDaten() => DashboardData(
+        tasks: _tasks,
+        timeEntries: _timeEntries,
+        plannerEntries: _plannerEntries,
+        shoppingItems: _shoppingItems,
+        pantryItems: _pantryItems,
+        notes: _notes,
+        journalEntries: _journalEntries,
+        sentimentStats: _sentimentStats,
+        ingredientMap: _ingredientMap,
+      );
+
+  /// Die Karten über der Übersicht, in gespeicherter Reihenfolge.
+  List<Widget> _buildKopf() {
+    final rechte = context.watch<PermissionProvider>();
+
+    final byKey = <String, Widget>{
+      'greeting': GreetingHeader(
+        tasksDueToday: _getTasksDueToday().length,
+        lowPantryItems: _getLowPantryItems().length,
+        forecast: _weather,
+        weatherLoading: _weatherLoading,
+        onRefreshWeather: _loadWeather,
+      ),
+      'quickactions': const QuickActions(),
+      'todayfocus': TodayFocusCard(
+        tasksDueToday: _getTasksDueToday().length,
+        timeTrackedToday: _getTimeTrackedToday(),
+        todayMealPlan: _getTodayMealPlan(),
+        recipes: _recipes,
+        estimatedShoppingCost: _getEstimatedShoppingCost(),
+      ),
+      'agenda': TodayAgendaWidget(entries: _getTodayPlanner()),
+    };
+
+    // Selbst zusammengestellte Bloecke gehoeren hier genauso hinein wie die
+    // eingebauten – ab hier ist kein Unterschied mehr.
+    final daten = _dashboardDaten();
+    for (final t in _customTiles.where((t) => t.imKopf)) {
+      byKey[t.id] = CustomTileCard(
+        tile: t,
+        data: daten,
+        arranging: _arranging,
+        onEdit: () => _editCustomTile(t),
+        onDelete: () => _deleteCustomTile(t),
+      );
+    }
+
+    // "Heutige Termine" ohne Planer-Recht wegzulassen ist dieselbe Regel
+    // wie im Raster darunter.
+    const rechtJeKopfkarte = {'agenda': 'planner:read'};
+
+    final sichtbar = _widgetOrder.where((k) =>
+        byKey.containsKey(k) &&
+        !_hidden.contains(k) &&
+        (rechtJeKopfkarte[k] == null || rechte.darf(rechtJeKopfkarte[k]!)));
+
+    final ergebnis = <Widget>[];
+    for (final k in sichtbar) {
+      ergebnis.add(ReorderableTile(
+        key: ValueKey('kopf_$k'),
+        tileKey: k,
+        enabled: _arranging,
+        onReorder: _moveTile,
+        child: byKey[k]!,
+      ));
+      ergebnis.add(const SizedBox(height: 16));
+    }
+    if (ergebnis.isNotEmpty) ergebnis.add(const SizedBox(height: 8));
+    return ergebnis;
+  }
+
   Widget _buildWidgetGrid(bool isDesktop, bool isTablet) {
     // Kachel je Schlüssel – Reihenfolge/Sichtbarkeit steuert der Nutzer.
     final byKey = <String, Widget>{
@@ -582,18 +655,8 @@ class _DashboardContentState extends State<_DashboardContent> {
 
     // Eigene Kacheln in dieselbe Zuordnung legen – ab hier ist kein
     // Unterschied mehr zwischen fest eingebaut und selbst gebaut.
-    final daten = DashboardData(
-      tasks: _tasks,
-      timeEntries: _timeEntries,
-      plannerEntries: _plannerEntries,
-      shoppingItems: _shoppingItems,
-      pantryItems: _pantryItems,
-      notes: _notes,
-      journalEntries: _journalEntries,
-      sentimentStats: _sentimentStats,
-      ingredientMap: _ingredientMap,
-    );
-    for (final t in _customTiles) {
+    final daten = _dashboardDaten();
+    for (final t in _customTiles.where((t) => !t.imKopf)) {
       byKey[t.id] = CustomTileCard(
         tile: t,
         data: daten,
@@ -616,7 +679,11 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
 
     final sichtbar = _widgetOrder
-        .where((k) => !_hidden.contains(k) && byKey.containsKey(k) && erlaubt(k))
+        .where((k) =>
+            !DashboardPrefs.istKopf(k) &&
+            !_hidden.contains(k) &&
+            byKey.containsKey(k) &&
+            erlaubt(k))
         .toList();
 
     final widgets = sichtbar

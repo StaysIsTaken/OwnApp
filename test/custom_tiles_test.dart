@@ -1,6 +1,7 @@
 // Der Baukasten: Quellen rechnen aus den geladenen Daten, Darstellungen
 // erklären welche Datenformen sie können. Beides ohne Widgets testbar.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/time_entry.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
@@ -26,6 +27,12 @@ TimeEntry zeit(DateTime start, Duration dauer) => TimeEntry(
     );
 
 void main() {
+  _wochenansicht();
+
+  _kopfbloecke();
+
+  _diagramme();
+
   final heute = DateTime.now();
 
   group('Katalog', () {
@@ -285,10 +292,272 @@ void main() {
       }
     });
 
-    test('jede Quelle hat eine Route zum Anklicken', () {
+    test('wer filtern kann, führt auch irgendwohin', () {
+      // Filtern heißt: die Quelle liest einen Datenbereich der App. Dann
+      // soll ein Tippen dorthin führen. Rein eigene Blöcke wie "Eigener
+      // Text" oder ein Countdown lesen nichts und führen deshalb nirgendwo
+      // hin — bei denen wäre eine Route sogar irreführend.
       for (final s in TileCatalog.sources) {
+        if (!s.filterable) continue;
         expect(s.route, isNotNull, reason: 'Keine Route für ${s.key}');
       }
+    });
+
+    test('Quellen ohne Datenbezug haben auch keine Filterfelder', () {
+      for (final s in TileCatalog.sources) {
+        if (s.route != null) continue;
+        expect(s.fields, isEmpty, reason: s.key);
+      }
+    });
+  });
+}
+
+// ── Diagramme und die neuen Quellen ────────────────────────────────────
+
+void _diagramme() {
+  group('Darstellungen passen zur Datenform', () {
+    test('Torte nimmt nur Verteilungen', () {
+      // Ein Kuchenstück je Tag wäre zeichenbar, würde aber nichts aussagen.
+      final torte = TileViews.byKey('pie')!;
+      expect(torte.accepts.contains(TileShape.distribution), isTrue);
+      expect(torte.accepts.contains(TileShape.series), isFalse);
+    });
+
+    test('Linie nimmt nur Verläufe', () {
+      // Eine Linie durch Kategorien suggeriert einen Zusammenhang, den es
+      // nicht gibt.
+      final linie = TileViews.byKey('line')!;
+      expect(linie.accepts, {TileShape.series});
+    });
+
+    test('Balken nehmen beides', () {
+      expect(TileViews.byKey('bars')!.accepts,
+          {TileShape.series, TileShape.distribution});
+    });
+
+    test('zu jeder Datenform gibt es mindestens eine Darstellung', () {
+      for (final form in TileShape.values) {
+        expect(TileViews.forShape(form), isNotEmpty, reason: form.name);
+      }
+    });
+
+    test('jede Quelle findet eine passende Darstellung', () {
+      // Sonst stünde im Editor eine Quelle, die sich nicht anzeigen lässt.
+      for (final quelle in TileCatalog.sources) {
+        expect(TileViews.forShape(quelle.shape), isNotEmpty,
+            reason: quelle.key);
+      }
+    });
+  });
+
+  group('Neue Quellen', () {
+    test('es gibt jetzt mehrere Verteilungen für Tortendiagramme', () {
+      final verteilungen = TileCatalog.sources
+          .where((q) => q.shape == TileShape.distribution)
+          .map((q) => q.key)
+          .toList();
+      expect(verteilungen.length, greaterThanOrEqualTo(4), reason: '$verteilungen');
+    });
+
+    test('Quellenschlüssel sind eindeutig', () {
+      final keys = TileCatalog.sources.map((q) => q.key).toList();
+      expect(keys.length, keys.toSet().length);
+    });
+
+    test('jede Quelle hat einen Bereich und eine Beschriftung', () {
+      for (final q in TileCatalog.sources) {
+        expect(q.label.trim(), isNotEmpty, reason: q.key);
+        expect(q.group.trim(), isNotEmpty, reason: q.key);
+      }
+    });
+  });
+}
+
+// ── Kopfblöcke ─────────────────────────────────────────────────────────
+
+void _kopfbloecke() {
+  group('Bereich einer Kachel', () {
+    test('ohne Angabe liegt sie im Raster', () {
+      // Kacheln aus der Zeit vor den Kopfblöcken sollen bleiben, wo sie waren.
+      final t = CustomTile.fromJson({
+        'id': 'x', 'source': 'tasks.open', 'view': 'stat',
+      });
+      expect(t.zone, CustomTile.zoneRaster);
+      expect(t.imKopf, isFalse);
+    });
+
+    test('der Bereich übersteht das Speichern', () {
+      const t = CustomTile(
+        id: 'x', source: 'kopf.text', view: 'text',
+        zone: CustomTile.zoneKopf,
+      );
+      expect(CustomTile.fromJson(t.toJson()).imKopf, isTrue);
+    });
+
+    test('ein unbekannter Bereich landet im Raster', () {
+      final t = CustomTile.fromJson({
+        'id': 'x', 'source': 'kopf.text', 'view': 'text', 'zone': 'irgendwas',
+      });
+      expect(t.zone, CustomTile.zoneRaster);
+    });
+
+    test('copyWith behält den Bereich', () {
+      const t = CustomTile(
+        id: 'x', source: 'kopf.text', view: 'text',
+        zone: CustomTile.zoneKopf,
+      );
+      expect(t.copyWith(title: 'Neu').imKopf, isTrue);
+    });
+  });
+
+  group('Kopfquellen', () {
+    test('es gibt Textquellen und eine Darstellung dafür', () {
+      final texte = TileCatalog.sources
+          .where((q) => q.shape == TileShape.text)
+          .toList();
+      expect(texte, isNotEmpty);
+      expect(TileViews.forShape(TileShape.text), isNotEmpty);
+    });
+
+    test('Eigener Text nimmt, was der Nutzer schreibt', () {
+      final quelle = TileCatalog.byKey('kopf.text')!;
+      final d = quelle.build(DashboardData(), {'text': 'Hallo Welt'}, const []);
+      expect(d.body, 'Hallo Welt');
+      expect(d.isEmpty, isFalse);
+    });
+
+    test('Eigener Text ohne Inhalt gilt als leer', () {
+      final quelle = TileCatalog.byKey('kopf.text')!;
+      expect(quelle.build(DashboardData(), const {}, const []).isEmpty, isTrue);
+      expect(quelle.build(DashboardData(), {'text': '   '}, const []).isEmpty,
+          isTrue);
+    });
+
+    test('Countdown zählt vorwärts und rückwärts', () {
+      final quelle = TileCatalog.byKey('kopf.countdown')!;
+      final in5 = DateTime.now().add(const Duration(days: 5));
+      final vor3 = DateTime.now().subtract(const Duration(days: 3));
+      String iso(DateTime d) =>
+          '${d.year}-${d.month.toString().padLeft(2, "0")}-'
+          '${d.day.toString().padLeft(2, "0")}';
+
+      final a = quelle.build(DashboardData(), {'datum': iso(in5)}, const []);
+      expect(a.value, 5);
+      expect(a.unit, contains('noch'));
+
+      final b = quelle.build(DashboardData(), {'datum': iso(vor3)}, const []);
+      expect(b.value, 3);
+      expect(b.unit, contains('her'));
+    });
+
+    test('Countdown ohne Datum zeigt nichts an', () {
+      final quelle = TileCatalog.byKey('kopf.countdown')!;
+      expect(quelle.build(DashboardData(), const {}, const []).isEmpty, isTrue);
+      expect(
+          quelle.build(DashboardData(), {'datum': 'kein datum'}, const []).isEmpty,
+          isTrue);
+    });
+
+    test('Spruch des Tages bleibt über den Tag derselbe', () {
+      // Sonst springt der Text bei jedem Neuzeichnen und man liest ihn nie
+      // zu Ende.
+      final quelle = TileCatalog.byKey('kopf.quote')!;
+      final a = quelle.build(DashboardData(), const {}, const []);
+      final b = quelle.build(DashboardData(), const {}, const []);
+      expect(a.body, b.body);
+      expect(a.body, isNotEmpty);
+    });
+  });
+}
+
+// ── Wochenansicht ──────────────────────────────────────────────────────
+
+void _wochenansicht() {
+  PlannerEntry termin(String titel, DateTime start, {int stunden = 1}) =>
+      PlannerEntry(
+        id: start.millisecondsSinceEpoch,
+        userId: 'u',
+        title: titel,
+        scheduledAt: start,
+        endsAt: start.add(Duration(hours: stunden)),
+        createdAt: start,
+      );
+
+  DateTime montagDieserWoche() {
+    final h = DateTime.now();
+    final m = h.subtract(Duration(days: h.weekday - 1));
+    return DateTime(m.year, m.month, m.day);
+  }
+
+  group('Wochenansicht', () {
+    test('nimmt nur die gewählte Woche', () {
+      final montag = montagDieserWoche();
+      final d = DashboardData(plannerEntries: [
+        termin('Diese Woche', montag.add(const Duration(days: 2, hours: 10))),
+        termin('Nächste Woche', montag.add(const Duration(days: 9, hours: 10))),
+        termin('Letzte Woche', montag.subtract(const Duration(days: 3))),
+      ]);
+
+      final r = TileCatalog.byKey('planner.week')!.build(d, {}, const []);
+      expect(r.shape, TileShape.schedule);
+      expect(r.schedule.map((e) => e.title), ['Diese Woche']);
+    });
+
+    test('der Versatz verschiebt die Woche', () {
+      final montag = montagDieserWoche();
+      final d = DashboardData(plannerEntries: [
+        termin('Diese', montag.add(const Duration(days: 1, hours: 9))),
+        termin('Nächste', montag.add(const Duration(days: 8, hours: 9))),
+      ]);
+      final quelle = TileCatalog.byKey('planner.week')!;
+
+      expect(quelle.build(d, {'weeks': 0}, const []).schedule.single.title,
+          'Diese');
+      expect(quelle.build(d, {'weeks': 1}, const []).schedule.single.title,
+          'Nächste');
+    });
+
+    test('rückwärts geht auch', () {
+      // Auf dem Tablet will man auch nachsehen, was letzte Woche war.
+      final montag = montagDieserWoche();
+      final d = DashboardData(plannerEntries: [
+        termin('Vergangen', montag.subtract(const Duration(days: 6))),
+      ]);
+      expect(
+        TileCatalog.byKey('planner.week')!
+            .build(d, {'weeks': -1}, const []).schedule.single.title,
+        'Vergangen',
+      );
+    });
+
+    test('Untertermine bleiben draußen', () {
+      // Sie gehören zu ihrem Haupttermin und würden das Raster verdoppeln.
+      final montag = montagDieserWoche();
+      final haupt = termin('Haupt', montag.add(const Duration(days: 1, hours: 9)));
+      final kind = PlannerEntry(
+        id: 999, userId: 'u', title: 'Unterpunkt', parentId: haupt.id,
+        scheduledAt: haupt.scheduledAt, endsAt: haupt.endsAt,
+        createdAt: haupt.scheduledAt,
+      );
+      final d = DashboardData(plannerEntries: [haupt, kind]);
+
+      expect(
+        TileCatalog.byKey('planner.week')!
+            .build(d, {}, const []).schedule.map((e) => e.title),
+        ['Haupt'],
+      );
+    });
+
+    test('leere Woche gilt als leer', () {
+      final r = TileCatalog.byKey('planner.week')!
+          .build(const DashboardData(), {}, const []);
+      expect(r.isEmpty, isTrue);
+      expect(r.emptyHint, isNotEmpty);
+    });
+
+    test('nur die Wochenansicht nimmt diese Datenform', () {
+      final passende = TileViews.forShape(TileShape.schedule);
+      expect(passende.map((v) => v.key), ['week']);
     });
   });
 }

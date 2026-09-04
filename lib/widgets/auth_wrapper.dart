@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/provider/permission_provider.dart';
+import 'package:productivity/provider/tablet_provider.dart';
 import 'package:productivity/provider/user_provider.dart';
+import 'package:productivity/tabs/tablet/tablet_dashboard.dart';
 import 'package:productivity/tabs/dashboard/dashboard_page.dart';
 import 'package:productivity/tabs/login.dart';
 import 'package:productivity/widgets/not_activated_view.dart';
@@ -50,6 +52,15 @@ class _AppAuthWrapperState extends State<AppAuthWrapper> {
         // wirken.
         if (context.watch<PermissionProvider>().istGesperrt) {
           return const NotActivatedView();
+        }
+
+        // Ein Gerät im Küchenmodus startet direkt dorthin. Sonst müsste
+        // jemand nach jedem Neustart erst durch die App navigieren – und
+        // das Tablet hängt an der Wand.
+        final tablet = context.watch<TabletProvider>();
+        final rechte = context.watch<PermissionProvider>();
+        if (tablet.geladen && tablet.an && rechte.darfTablet) {
+          return const TabletDashboard();
         }
         return const DashboardPage();
       },
