@@ -7,6 +7,7 @@ import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/tabs/dashboard/custom/filter_fields.dart';
+import 'package:productivity/tabs/dashboard/custom/kopf_quellen.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_filter.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 
@@ -25,7 +26,13 @@ class TileCatalog {
     key: 'limit', label: 'Wie viele anzeigen', min: 1, max: 20, standard: 5,
   );
 
+  /// Alle Quellen: die des Rasters und die der Kopfblöcke.
+  ///
+  /// Getrennt gepflegt, weil ein Block ganz oben andere Sachen zeigen
+  /// soll als ein Kärtchen im Raster – zusammengeführt, weil Editor,
+  /// Speicherung und Darstellung dieselben sind.
   static final List<TileSource> sources = [
+    ...KopfQuellen.sources,
     // ── Termine ──────────────────────────────────────────────────────────
     TileSource(
       key: 'planner.upcoming',

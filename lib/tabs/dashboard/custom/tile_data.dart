@@ -16,6 +16,11 @@ enum TileShape {
 
   /// Werte je Kategorie (Name → Zahl).
   distribution,
+
+  /// Freier Text – vom Nutzer geschrieben oder aus einer Sammlung geholt.
+  /// Passt in keine der übrigen Formen: es gibt nichts zu rechnen und
+  /// nichts zu zeichnen, nur etwas zu lesen.
+  text,
 }
 
 /// Ergebnis einer Quelle.
@@ -33,6 +38,12 @@ class TileData {
   /// series und distribution: Beschriftung → Wert, Reihenfolge bleibt erhalten
   final Map<String, double> points;
 
+  /// text
+  final String? body;
+
+  /// Kleine Zeile unter dem Text – Quelle, Datum, Urheber.
+  final String? footnote;
+
   /// Wird angezeigt, wenn nichts da ist — statt einer leeren Fläche.
   final String emptyHint;
 
@@ -40,10 +51,22 @@ class TileData {
       : shape = TileShape.scalar,
         items = const [],
         points = const {},
+        body = null,
+        footnote = null,
         emptyHint = '';
+
+  const TileData.text(this.body, {this.footnote, this.emptyHint = 'Noch nichts'})
+      : shape = TileShape.text,
+        value = null,
+        target = null,
+        unit = null,
+        items = const [],
+        points = const {};
 
   const TileData.list(this.items, {this.emptyHint = 'Nichts vorhanden'})
       : shape = TileShape.list,
+        body = null,
+        footnote = null,
         value = null,
         target = null,
         unit = null,
@@ -51,6 +74,8 @@ class TileData {
 
   const TileData.series(this.points, {this.unit, this.emptyHint = 'Keine Daten'})
       : shape = TileShape.series,
+        body = null,
+        footnote = null,
         value = null,
         target = null,
         items = const [];
@@ -58,6 +83,8 @@ class TileData {
   const TileData.distribution(this.points,
       {this.unit, this.emptyHint = 'Keine Daten'})
       : shape = TileShape.distribution,
+        body = null,
+        footnote = null,
         value = null,
         target = null,
         items = const [];
@@ -71,6 +98,8 @@ class TileData {
       case TileShape.series:
       case TileShape.distribution:
         return points.isEmpty || points.values.every((v) => v == 0);
+      case TileShape.text:
+        return body == null || body!.trim().isEmpty;
     }
   }
 }

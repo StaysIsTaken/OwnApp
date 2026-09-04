@@ -13,16 +13,30 @@ import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 Future<CustomTile?> showTileEditor(
   BuildContext context, {
   CustomTile? vorhanden,
+  String zone = CustomTile.zoneRaster,
 }) {
   return showDialog<CustomTile>(
     context: context,
-    builder: (ctx) => _TileEditor(vorhanden: vorhanden),
+    // Beim Bearbeiten bleibt der Bereich der Kachel, beim Anlegen zählt der
+    // übergebene – sonst wanderte eine Kopfkarte beim Ändern ins Raster.
+    builder: (ctx) => _TileEditor(
+      vorhanden: vorhanden,
+      zone: vorhanden?.zone ?? zone,
+    ),
   );
 }
 
 class _TileEditor extends StatefulWidget {
   final CustomTile? vorhanden;
-  const _TileEditor({this.vorhanden});
+
+  /// In welchen Bereich die neue Kachel gehört. Die Auswahl der Quellen ist
+  /// dieselbe – der Bereich entscheidet nur, wo sie landet und wie breit sie
+  /// gezeigt wird.
+  final String zone;
+  const _TileEditor({
+    this.vorhanden,
+    this.zone = CustomTile.zoneRaster,
+  });
 
   @override
   State<_TileEditor> createState() => _TileEditorState();
@@ -32,7 +46,9 @@ class _TileEditorState extends State<_TileEditor> {
   TileSource? _quelle;
   TileView? _darstellung;
   late final TextEditingController _titel;
-  final Map<String, int> _werte = {};
+  // Zahlen, Texte und Datumsangaben – je nach Art der Einstellung.
+  final Map<String, dynamic> _werte = {};
+  final Map<String, TextEditingController> _textfelder = {};
   List<FilterRule> _filter = [];
 
   @override
@@ -45,7 +61,11 @@ class _TileEditorState extends State<_TileEditor> {
       _darstellung = TileViews.byKey(v.view);
       for (final p in _quelle?.params ?? const <TileParam>[]) {
         final gespeichert = v.params[p.key];
-        _werte[p.key] = gespeichert is num ? gespeichert.toInt() : p.standard;
+        _werte[p.key] = switch (p.art) {
+          ParamArt.zahl =>
+            gespeichert is num ? gespeichert.toInt() : p.standard,
+          _ => gespeichert?.toString() ?? '',
+        };
       }
       _filter = List<FilterRule>.from(v.filters);
     }
@@ -54,8 +74,18 @@ class _TileEditorState extends State<_TileEditor> {
   @override
   void dispose() {
     _titel.dispose();
+    for (final c in _textfelder.values) {
+      c.dispose();
+    }
     super.dispose();
   }
+
+  /// Ein Feld je Text-Einstellung, ueber Neubauten hinweg dasselbe – sonst
+  /// springt der Cursor bei jedem Tastendruck an den Anfang.
+  TextEditingController _feld(TileParam p) => _textfelder.putIfAbsent(
+        p.key,
+        () => TextEditingController(text: _werte[p.key]?.toString() ?? ''),
+      );
 
   void _waehleQuelle(TileSource s) {
     setState(() {
@@ -67,12 +97,86 @@ class _TileEditorState extends State<_TileEditor> {
         _darstellung = passende.isNotEmpty ? passende.first : null;
       }
       _werte.clear();
+      for (final c in _textfelder.values) {
+        c.dispose();
+      }
+      _textfelder.clear();
       for (final p in s.params) {
-        _werte[p.key] = p.standard;
+        _werte[p.key] = p.art == ParamArt.zahl ? p.standard : '';
       }
       // Andere Quelle heisst andere Felder – alte Bedingungen passen nicht mehr.
       _filter = [];
     });
+  }
+
+  /// Zahl mit Plus und Minus – wie bisher.
+  Widget _zahlZeile(TileParam p, TextTheme text) {
+    final wert = (_werte[p.key] as num?)?.toInt() ?? p.standard;
+    return Row(
+      children: [
+        Expanded(child: Text(p.label, style: text.bodyMedium)),
+        IconButton(
+          icon: const Icon(Icons.remove_circle_outline),
+          onPressed:
+              wert > p.min ? () => setState(() => _werte[p.key] = wert - 1) : null,
+        ),
+        SizedBox(
+          width: 32,
+          child: Text('$wert',
+              textAlign: TextAlign.center, style: text.titleMedium),
+        ),
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline),
+          onPressed:
+              wert < p.max ? () => setState(() => _werte[p.key] = wert + 1) : null,
+        ),
+      ],
+    );
+  }
+
+  /// Text, mehrzeiliger Text oder ein Datum.
+  Widget _eingabeZeile(TileParam p) {
+    if (p.art == ParamArt.datum) {
+      final roh = _werte[p.key]?.toString();
+      final gewaehlt = roh == null || roh.isEmpty ? null : DateTime.tryParse(roh);
+      return ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.event_outlined),
+        title: Text(p.label),
+        subtitle: Text(gewaehlt == null
+            ? 'Noch kein Datum'
+            : '${gewaehlt.day}.${gewaehlt.month}.${gewaehlt.year}'),
+        trailing: const Icon(Icons.edit_calendar_outlined),
+        onTap: () async {
+          final heute = DateTime.now();
+          final d = await showDatePicker(
+            context: context,
+            initialDate: gewaehlt ?? heute,
+            // Auch rueckwaerts: ein Countdown taugt genauso zum Zaehlen,
+            // wie lange etwas her ist.
+            firstDate: DateTime(heute.year - 10),
+            lastDate: DateTime(heute.year + 20),
+          );
+          if (d != null) {
+            setState(() => _werte[p.key] =
+                '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+                '${d.day.toString().padLeft(2, '0')}');
+          }
+        },
+      );
+    }
+
+    return TextField(
+      controller: _feld(p),
+      maxLines: p.art == ParamArt.mehrzeilig ? 6 : 1,
+      minLines: p.art == ParamArt.mehrzeilig ? 3 : 1,
+      decoration: InputDecoration(
+        labelText: p.label,
+        hintText: p.platzhalter,
+        alignLabelWithHint: true,
+      ),
+      onChanged: (v) => _werte[p.key] = v,
+    );
   }
 
   @override
@@ -149,31 +253,9 @@ class _TileEditorState extends State<_TileEditor> {
               for (final p in _quelle!.params)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(p.label, style: text.bodyMedium)),
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline),
-                        onPressed: (_werte[p.key] ?? p.standard) > p.min
-                            ? () => setState(() => _werte[p.key] =
-                                (_werte[p.key] ?? p.standard) - 1)
-                            : null,
-                      ),
-                      SizedBox(
-                        width: 32,
-                        child: Text('${_werte[p.key] ?? p.standard}',
-                            textAlign: TextAlign.center,
-                            style: text.titleMedium),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline),
-                        onPressed: (_werte[p.key] ?? p.standard) < p.max
-                            ? () => setState(() => _werte[p.key] =
-                                (_werte[p.key] ?? p.standard) + 1)
-                            : null,
-                      ),
-                    ],
-                  ),
+                  child: p.art == ParamArt.zahl
+                      ? _zahlZeile(p, text)
+                      : _eingabeZeile(p),
                 ),
             ],
 
@@ -214,6 +296,7 @@ class _TileEditorState extends State<_TileEditor> {
                   Navigator.pop(
                     context,
                     CustomTile(
+                      zone: widget.zone,
                       id: widget.vorhanden?.id ??
                           'ct_${DateTime.now().microsecondsSinceEpoch}',
                       source: _quelle!.key,

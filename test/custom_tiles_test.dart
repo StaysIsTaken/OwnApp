@@ -26,6 +26,8 @@ TimeEntry zeit(DateTime start, Duration dauer) => TimeEntry(
     );
 
 void main() {
+  _kopfbloecke();
+
   _diagramme();
 
   final heute = DateTime.now();
@@ -287,9 +289,21 @@ void main() {
       }
     });
 
-    test('jede Quelle hat eine Route zum Anklicken', () {
+    test('wer filtern kann, führt auch irgendwohin', () {
+      // Filtern heißt: die Quelle liest einen Datenbereich der App. Dann
+      // soll ein Tippen dorthin führen. Rein eigene Blöcke wie "Eigener
+      // Text" oder ein Countdown lesen nichts und führen deshalb nirgendwo
+      // hin — bei denen wäre eine Route sogar irreführend.
       for (final s in TileCatalog.sources) {
+        if (!s.filterable) continue;
         expect(s.route, isNotNull, reason: 'Keine Route für ${s.key}');
+      }
+    });
+
+    test('Quellen ohne Datenbezug haben auch keine Filterfelder', () {
+      for (final s in TileCatalog.sources) {
+        if (s.route != null) continue;
+        expect(s.fields, isEmpty, reason: s.key);
       }
     });
   });
@@ -352,6 +366,103 @@ void _diagramme() {
         expect(q.label.trim(), isNotEmpty, reason: q.key);
         expect(q.group.trim(), isNotEmpty, reason: q.key);
       }
+    });
+  });
+}
+
+// ── Kopfblöcke ─────────────────────────────────────────────────────────
+
+void _kopfbloecke() {
+  group('Bereich einer Kachel', () {
+    test('ohne Angabe liegt sie im Raster', () {
+      // Kacheln aus der Zeit vor den Kopfblöcken sollen bleiben, wo sie waren.
+      final t = CustomTile.fromJson({
+        'id': 'x', 'source': 'tasks.open', 'view': 'stat',
+      });
+      expect(t.zone, CustomTile.zoneRaster);
+      expect(t.imKopf, isFalse);
+    });
+
+    test('der Bereich übersteht das Speichern', () {
+      const t = CustomTile(
+        id: 'x', source: 'kopf.text', view: 'text',
+        zone: CustomTile.zoneKopf,
+      );
+      expect(CustomTile.fromJson(t.toJson()).imKopf, isTrue);
+    });
+
+    test('ein unbekannter Bereich landet im Raster', () {
+      final t = CustomTile.fromJson({
+        'id': 'x', 'source': 'kopf.text', 'view': 'text', 'zone': 'irgendwas',
+      });
+      expect(t.zone, CustomTile.zoneRaster);
+    });
+
+    test('copyWith behält den Bereich', () {
+      const t = CustomTile(
+        id: 'x', source: 'kopf.text', view: 'text',
+        zone: CustomTile.zoneKopf,
+      );
+      expect(t.copyWith(title: 'Neu').imKopf, isTrue);
+    });
+  });
+
+  group('Kopfquellen', () {
+    test('es gibt Textquellen und eine Darstellung dafür', () {
+      final texte = TileCatalog.sources
+          .where((q) => q.shape == TileShape.text)
+          .toList();
+      expect(texte, isNotEmpty);
+      expect(TileViews.forShape(TileShape.text), isNotEmpty);
+    });
+
+    test('Eigener Text nimmt, was der Nutzer schreibt', () {
+      final quelle = TileCatalog.byKey('kopf.text')!;
+      final d = quelle.build(DashboardData(), {'text': 'Hallo Welt'}, const []);
+      expect(d.body, 'Hallo Welt');
+      expect(d.isEmpty, isFalse);
+    });
+
+    test('Eigener Text ohne Inhalt gilt als leer', () {
+      final quelle = TileCatalog.byKey('kopf.text')!;
+      expect(quelle.build(DashboardData(), const {}, const []).isEmpty, isTrue);
+      expect(quelle.build(DashboardData(), {'text': '   '}, const []).isEmpty,
+          isTrue);
+    });
+
+    test('Countdown zählt vorwärts und rückwärts', () {
+      final quelle = TileCatalog.byKey('kopf.countdown')!;
+      final in5 = DateTime.now().add(const Duration(days: 5));
+      final vor3 = DateTime.now().subtract(const Duration(days: 3));
+      String iso(DateTime d) =>
+          '${d.year}-${d.month.toString().padLeft(2, "0")}-'
+          '${d.day.toString().padLeft(2, "0")}';
+
+      final a = quelle.build(DashboardData(), {'datum': iso(in5)}, const []);
+      expect(a.value, 5);
+      expect(a.unit, contains('noch'));
+
+      final b = quelle.build(DashboardData(), {'datum': iso(vor3)}, const []);
+      expect(b.value, 3);
+      expect(b.unit, contains('her'));
+    });
+
+    test('Countdown ohne Datum zeigt nichts an', () {
+      final quelle = TileCatalog.byKey('kopf.countdown')!;
+      expect(quelle.build(DashboardData(), const {}, const []).isEmpty, isTrue);
+      expect(
+          quelle.build(DashboardData(), {'datum': 'kein datum'}, const []).isEmpty,
+          isTrue);
+    });
+
+    test('Spruch des Tages bleibt über den Tag derselbe', () {
+      // Sonst springt der Text bei jedem Neuzeichnen und man liest ihn nie
+      // zu Ende.
+      final quelle = TileCatalog.byKey('kopf.quote')!;
+      final a = quelle.build(DashboardData(), const {}, const []);
+      final b = quelle.build(DashboardData(), const {}, const []);
+      expect(a.body, b.body);
+      expect(a.body, isNotEmpty);
     });
   });
 }

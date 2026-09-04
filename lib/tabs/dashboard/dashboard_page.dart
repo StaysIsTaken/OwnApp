@@ -194,8 +194,8 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   /// Legt eine eigene Kachel an und stellt sie nach oben.
-  Future<void> _addCustomTile() async {
-    final neu = await showTileEditor(context);
+  Future<void> _addCustomTile({String zone = CustomTile.zoneRaster}) async {
+    final neu = await showTileEditor(context, zone: zone);
     if (neu == null || !mounted) return;
     final tiles = [..._customTiles, neu];
     final order = [neu.id, ..._widgetOrder];
@@ -432,6 +432,18 @@ class _DashboardContentState extends State<_DashboardContent> {
                   // und im Bearbeitungsmodus genauso verschiebbar wie die
                   // Kacheln darunter.
                   ..._buildKopf(),
+                  if (_arranging) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _addCustomTile(zone: CustomTile.zoneKopf),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Block hinzufügen'),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
                   // 5. Anpassbares Widget-Raster
                   CollapsibleSection(
@@ -515,6 +527,20 @@ class _DashboardContentState extends State<_DashboardContent> {
     return null;
   }
 
+  /// Alles, was die Kacheln zum Rechnen brauchen — einmal gebaut, von
+  /// Kopfbereich und Raster gemeinsam genutzt.
+  DashboardData _dashboardDaten() => DashboardData(
+        tasks: _tasks,
+        timeEntries: _timeEntries,
+        plannerEntries: _plannerEntries,
+        shoppingItems: _shoppingItems,
+        pantryItems: _pantryItems,
+        notes: _notes,
+        journalEntries: _journalEntries,
+        sentimentStats: _sentimentStats,
+        ingredientMap: _ingredientMap,
+      );
+
   /// Die Karten über der Übersicht, in gespeicherter Reihenfolge.
   List<Widget> _buildKopf() {
     final rechte = context.watch<PermissionProvider>();
@@ -537,6 +563,19 @@ class _DashboardContentState extends State<_DashboardContent> {
       ),
       'agenda': TodayAgendaWidget(entries: _getTodayPlanner()),
     };
+
+    // Selbst zusammengestellte Bloecke gehoeren hier genauso hinein wie die
+    // eingebauten – ab hier ist kein Unterschied mehr.
+    final daten = _dashboardDaten();
+    for (final t in _customTiles.where((t) => t.imKopf)) {
+      byKey[t.id] = CustomTileCard(
+        tile: t,
+        data: daten,
+        arranging: _arranging,
+        onEdit: () => _editCustomTile(t),
+        onDelete: () => _deleteCustomTile(t),
+      );
+    }
 
     // "Heutige Termine" ohne Planer-Recht wegzulassen ist dieselbe Regel
     // wie im Raster darunter.
@@ -611,18 +650,8 @@ class _DashboardContentState extends State<_DashboardContent> {
 
     // Eigene Kacheln in dieselbe Zuordnung legen – ab hier ist kein
     // Unterschied mehr zwischen fest eingebaut und selbst gebaut.
-    final daten = DashboardData(
-      tasks: _tasks,
-      timeEntries: _timeEntries,
-      plannerEntries: _plannerEntries,
-      shoppingItems: _shoppingItems,
-      pantryItems: _pantryItems,
-      notes: _notes,
-      journalEntries: _journalEntries,
-      sentimentStats: _sentimentStats,
-      ingredientMap: _ingredientMap,
-    );
-    for (final t in _customTiles) {
+    final daten = _dashboardDaten();
+    for (final t in _customTiles.where((t) => !t.imKopf)) {
       byKey[t.id] = CustomTileCard(
         tile: t,
         data: daten,

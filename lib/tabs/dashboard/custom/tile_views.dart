@@ -42,6 +42,13 @@ class TileViews {
       build: (ctx, d) => _List(data: d),
     ),
     TileView(
+      key: 'text',
+      label: 'Text',
+      icon: Icons.notes_rounded,
+      accepts: const {TileShape.text},
+      build: (ctx, d) => _Text(data: d),
+    ),
+    TileView(
       key: 'bars',
       label: 'Balkendiagramm',
       icon: Icons.bar_chart_rounded,
@@ -167,3 +174,36 @@ class _List extends StatelessWidget {
 // ── Balken ──────────────────────────────────────────────────────────────────
 /// Von Hand gezeichnet statt mit einem Diagramm-Paket: die App hat keines,
 /// und für Balken lohnt eine weitere Abhängigkeit über sechs Plattformen nicht.
+
+/// Freier Text – vom Nutzer geschrieben oder aus den eigenen Daten geholt.
+class _Text extends StatelessWidget {
+  final TileData data;
+
+  const _Text({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          data.body ?? '',
+          // Groesser als Fliesstext: diese Bloecke stehen ganz oben und
+          // sollen im Vorbeigehen lesbar sein, nicht studiert werden.
+          style: text.bodyLarge?.copyWith(height: 1.45),
+        ),
+        if (data.footnote != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            data.footnote!,
+            style: text.bodySmall?.copyWith(color: colors.outline),
+          ),
+        ],
+      ],
+    );
+  }
+}
