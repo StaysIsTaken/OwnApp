@@ -3,7 +3,6 @@ import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/dataclasses/note_folder.dart';
 import 'package:productivity/dataservice/note_service.dart';
 import 'package:productivity/dataservice/note_folder_service.dart';
-import 'package:productivity/dataservice/login_service.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/widgets/notes/folder_tree.dart';
 import 'note_editor_page.dart';
@@ -121,6 +120,7 @@ class _NotesPageContentState extends State<_NotesPageContent> {
     try {
       final notes = await NoteService.loadAll();
       final folders = await NoteFolderService.loadAll();
+      if (!mounted) return;
       setState(() {
         _notes = notes;
         _folders = folders;

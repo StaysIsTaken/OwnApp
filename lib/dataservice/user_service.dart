@@ -1,4 +1,4 @@
-import 'package:productivity/dataclasses/User.dart';
+import 'package:productivity/dataclasses/user.dart';
 import 'package:productivity/dataservice/api_client.dart';
 
 class UserService {

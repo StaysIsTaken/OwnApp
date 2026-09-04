@@ -20,7 +20,7 @@ class DrawerNavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeColor = scheme.primary;
-    final activeBg = scheme.primary.withOpacity(0.12);
+    final activeBg = scheme.primary.withValues(alpha: 0.12);
     final inactiveBg = Colors.transparent;
     final textColor = isActive
         ? activeColor

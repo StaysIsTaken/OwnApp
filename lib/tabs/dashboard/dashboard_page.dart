@@ -1,5 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:productivity/dataservice/api_error.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
+import 'package:productivity/dataservice/rechte_zuordnung.dart';
+import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/pantry_extras.dart';
@@ -31,6 +35,13 @@ import 'package:productivity/tabs/dashboard/widgets/journal_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/notes_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/today_agenda_widget.dart';
 import 'package:productivity/tabs/dashboard/dashboard_prefs.dart';
+import 'package:productivity/widgets/dashboard/collapsible_section.dart';
+import 'package:productivity/widgets/dashboard/reorderable_tile.dart';
+import 'package:productivity/widgets/platform_draggable.dart';
+import 'package:productivity/tabs/dashboard/custom/custom_tile_card.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_editor.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
+import 'package:productivity/utils/snack.dart';
 import 'package:productivity/dataservice/weather_service.dart';
 import 'package:productivity/provider/settings_provider.dart';
 import 'package:provider/provider.dart';
@@ -81,8 +92,20 @@ class _DashboardContentState extends State<_DashboardContent> {
   Map<String, dynamic> _sentimentStats = {};
 
   // Dashboard-Anpassung (Reihenfolge + ausgeblendete Kacheln)
-  List<String> _widgetOrder = DashboardPrefs.allKeys;
+  List<String> _widgetOrder =
+      DashboardPrefs.defaultOrder(DashboardPrefs.keyDashboard);
+
+  /// Solange an, lassen sich die Kacheln ziehen und bearbeiten.
+  bool _arranging = false;
+
+  /// Selbst zusammengestellte Kacheln.
+  List<CustomTile> _customTiles = [];
   Set<String> _hidden = {};
+
+  /// Bereiche, die dieser Nutzer nicht sehen darf. Ihre Kacheln werden
+  /// ausgeblendet statt mit einer Fehlermeldung angezeigt – wer kein Recht
+  /// auf den Vorrat hat, will nicht dauernd daran erinnert werden.
+  Set<String> _gesperrteQuellen = {};
 
   // Wetter
   WeatherForecast? _weather;
@@ -127,13 +150,74 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   Future<void> _loadLayout() async {
-    final order = await DashboardPrefs.loadOrder();
-    final hidden = await DashboardPrefs.loadHidden();
+    final layout = await DashboardPrefs.load(DashboardPrefs.keyDashboard);
     if (!mounted) return;
     setState(() {
-      _widgetOrder = order;
-      _hidden = hidden;
+      _widgetOrder = layout.order;
+      _hidden = layout.hidden;
+      _customTiles = layout.tiles;
     });
+  }
+
+  /// Verschiebt `from` an die Stelle von `to` und speichert sofort.
+  Future<void> _moveTile(String from, String to) async {
+    final order = List<String>.from(_widgetOrder);
+    final alt = order.indexOf(from);
+    final neu = order.indexOf(to);
+    if (alt < 0 || neu < 0 || alt == neu) return;
+
+    order.removeAt(alt);
+    order.insert(neu, from);
+    setState(() => _widgetOrder = order);
+
+    await _persist(order, _hidden, _customTiles);
+  }
+
+  /// Speichert den ganzen Stand und meldet, wenn nur lokal gesichert wurde.
+  Future<void> _persist(
+    List<String> order,
+    Set<String> hidden,
+    List<CustomTile> tiles,
+  ) async {
+    final gespeichert = await DashboardPrefs.save(
+      DashboardPrefs.keyDashboard, order, hidden, tiles: tiles);
+    if (!mounted) return;
+    if (!gespeichert) {
+      // Lokal ist es gesichert, nur der Abgleich fehlt.
+      showErrorSnack('Nur auf diesem Gerät gespeichert — Server nicht erreichbar');
+    }
+  }
+
+  /// Legt eine eigene Kachel an und stellt sie nach oben.
+  Future<void> _addCustomTile() async {
+    final neu = await showTileEditor(context);
+    if (neu == null || !mounted) return;
+    final tiles = [..._customTiles, neu];
+    final order = [neu.id, ..._widgetOrder];
+    setState(() {
+      _customTiles = tiles;
+      _widgetOrder = order;
+    });
+    await _persist(order, _hidden, tiles);
+  }
+
+  Future<void> _editCustomTile(CustomTile tile) async {
+    final geaendert = await showTileEditor(context, vorhanden: tile);
+    if (geaendert == null || !mounted) return;
+    final tiles =
+        _customTiles.map((t) => t.id == tile.id ? geaendert : t).toList();
+    setState(() => _customTiles = tiles);
+    await _persist(_widgetOrder, _hidden, tiles);
+  }
+
+  Future<void> _deleteCustomTile(CustomTile tile) async {
+    final tiles = _customTiles.where((t) => t.id != tile.id).toList();
+    final order = _widgetOrder.where((k) => k != tile.id).toList();
+    setState(() {
+      _customTiles = tiles;
+      _widgetOrder = order;
+    });
+    await _persist(order, _hidden, tiles);
   }
 
   Future<void> _openCustomize() async {
@@ -148,8 +232,9 @@ class _DashboardContentState extends State<_DashboardContent> {
             width: double.maxFinite,
             height: 360,
             child: ReorderableListView(
-              onReorder: (oldI, newI) => setLocal(() {
-                if (newI > oldI) newI--;
+              // onReorderItem korrigiert newI bereits um das entnommene Element,
+              // der manuelle `newI--`-Ausgleich von onReorder entfaellt daher.
+              onReorderItem: (oldI, newI) => setLocal(() {
                 final k = order.removeAt(oldI);
                 order.insert(newI, k);
               }),
@@ -185,13 +270,11 @@ class _DashboardContentState extends State<_DashboardContent> {
       ),
     );
     if (saved == true) {
-      await DashboardPrefs.save(order, hidden);
-      if (mounted) {
-        setState(() {
-          _widgetOrder = order;
-          _hidden = hidden;
-        });
-      }
+      setState(() {
+        _widgetOrder = order;
+        _hidden = hidden;
+      });
+      await _persist(order, hidden, _customTiles);
     }
   }
 
@@ -202,19 +285,52 @@ class _DashboardContentState extends State<_DashboardContent> {
         _error = null;
       });
     }
+    // Die Rechte des Nutzers, soweit die App sie kennt. Ein gesperrter
+    // Bereich wird gar nicht erst abgefragt – das spart eine Anfrage, die
+    // ohnehin nur 403 zurueckgaebe.
+    final rechte = context.read<PermissionProvider>();
+    final gesperrt = <String>{};
+    var versucht = 0;
+    var gescheitert = 0;
+
+    /// Laedt eine Quelle fuer sich. Faellt sie aus, bleibt sie leer und die
+    /// uebrigen Kacheln stehen trotzdem.
+    ///
+    /// Vorher hing alles in einem einzigen `Future.wait` mit einem `catch`
+    /// aussen herum: ein 403 in einem Bereich hat die komplette Uebersicht
+    /// abgerissen und durch eine Fehlermeldung ersetzt.
+    Future<List<T>> hole<T>(String quelle, Future<List<T>> Function() laden) async {
+      final noetig = rechtJeQuelle[quelle];
+      if (noetig != null && !rechte.darf(noetig)) {
+        gesperrt.add(quelle);
+        return <T>[];
+      }
+      versucht++;
+      try {
+        return await laden();
+      } catch (e) {
+        if (ApiFehler.istVerboten(e)) {
+          gesperrt.add(quelle);
+        } else {
+          gescheitert++;
+        }
+        return <T>[];
+      }
+    }
+
     try {
       final results = await Future.wait([
-        TaskService.loadAll(), // 0
-        ShoppingListService.loadAll(), // 1
-        PantryService.loadAll(), // 2
-        IngredientService.loadAll(), // 3
-        TimeEntryService.loadAll(), // 4
-        MealPlanService.loadAll(), // 5
-        RecipeService.loadAll(), // 6
-        ShopService.loadAll(), // 7
-        NoteService.loadAll(), // 8
-        JournalService.loadAll(), // 9
-        PlannerService.loadAll(), // 10
+        hole('tasks', TaskService.loadAll), // 0
+        hole('shopping', ShoppingListService.loadAll), // 1
+        hole('pantry', PantryService.loadAll), // 2
+        hole('ingredients', IngredientService.loadAll), // 3
+        hole('time', TimeEntryService.loadAll), // 4
+        hole('mealplan', MealPlanService.loadAll), // 5
+        hole('recipes', RecipeService.loadAll), // 6
+        hole('shops', ShopService.loadAll), // 7
+        hole('notes', NoteService.loadAll), // 8
+        hole('journal', JournalService.loadAll), // 9
+        hole('planner', PlannerService.loadAll), // 10
       ]);
 
       Map<String, dynamic> sentimentStats = {};
@@ -237,7 +353,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               item.id,
             );
             priceMap[item.id] = prices;
-          } catch (e) {
+          } catch (_) {
             priceMap[item.id] = [];
           }
         }),
@@ -259,6 +375,14 @@ class _DashboardContentState extends State<_DashboardContent> {
         _plannerEntries = results[10] as List<PlannerEntry>;
         _pricesByItemId = priceMap;
         _sentimentStats = sentimentStats;
+        _gesperrteQuellen = gesperrt;
+        // Einzelne Ausfaelle lassen die uebrigen Kacheln stehen. Faellt aber
+        // ALLES aus, was ueberhaupt versucht wurde, ist das kein leeres
+        // Dashboard, sondern ein Server, der nicht antwortet – und das soll
+        // dastehen statt einer stillen leeren Seite.
+        _error = (versucht > 0 && gescheitert == versucht)
+            ? 'Der Server ist gerade nicht erreichbar.'
+            : null;
         _loading = false;
       });
     } catch (e) {
@@ -328,23 +452,54 @@ class _DashboardContentState extends State<_DashboardContent> {
                   const SizedBox(height: 24),
 
                   // 5. Anpassbares Widget-Raster
-                  Row(
-                    children: [
-                      Text('Übersicht',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold)),
-                      const Spacer(),
+                  CollapsibleSection(
+                    sectionKey: 'dashboard.uebersicht',
+                    title: 'Übersicht',
+                    actions: [
+                      if (_arranging)
+                        IconButton(
+                          icon: const Icon(Icons.add_rounded),
+                          tooltip: 'Kachel hinzufügen',
+                          onPressed: _addCustomTile,
+                        ),
+                      IconButton(
+                        icon: Icon(_arranging
+                            ? Icons.check_rounded
+                            : Icons.edit_outlined),
+                        tooltip: _arranging
+                            ? 'Bearbeiten beenden'
+                            : 'Dashboard bearbeiten',
+                        isSelected: _arranging,
+                        onPressed: () =>
+                            setState(() => _arranging = !_arranging),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.tune),
-                        tooltip: 'Dashboard anpassen',
+                        tooltip: 'Kacheln ein- und ausblenden',
                         onPressed: _openCustomize,
                       ),
                     ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_arranging) ...[
+                          Text(
+                            usesDirectDrag
+                                ? 'Kachel auf eine andere ziehen · + fügt eine neue hinzu.'
+                                : 'Kachel gedrückt halten und ziehen · + fügt eine neue hinzu.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        _buildWidgetGrid(isDesktop, isTablet),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  _buildWidgetGrid(isDesktop, isTablet),
                 ],
               ),
             ),
@@ -352,6 +507,30 @@ class _DashboardContentState extends State<_DashboardContent> {
         },
       ),
     );
+  }
+
+  /// Zu welcher Datenquelle eine Kachel gehoert. Fuer eingebaute Kacheln
+  /// ist der Schluessel schon der Bereich; eigene Kacheln verraten es ueber
+  /// die Seite, auf die sie zeigen.
+  String? _quelleDerKachel(String key, Map<String, Widget> byKey) {
+    final eingebaut = quelleJeKachel[key];
+    if (eingebaut != null) return eingebaut;
+    final tile = _customTiles.where((t) => t.id == key).firstOrNull;
+    if (tile == null) return null;
+    final quelle = TileCatalog.byKey(tile.source);
+    return quelle?.route == null ? null : _quelleZurRoute(quelle!.route!);
+  }
+
+  /// Route einer eigenen Kachel → Bereich. Beide Zuordnungen stehen in
+  /// `rechte_zuordnung.dart`; hier wird nur der Umweg ueber das Recht
+  /// gegangen, damit es nur eine Wahrheit gibt.
+  String? _quelleZurRoute(String route) {
+    final recht = rechtJeRoute[route];
+    if (recht == null) return null;
+    for (final eintrag in rechtJeQuelle.entries) {
+      if (eintrag.value == recht) return eintrag.key;
+    }
+    return null;
   }
 
   Widget _buildWidgetGrid(bool isDesktop, bool isTablet) {
@@ -401,9 +580,53 @@ class _DashboardContentState extends State<_DashboardContent> {
           NotesWidget(notes: _notes, onRefresh: () => _loadData(silent: true)),
     };
 
-    final widgets = _widgetOrder
-        .where((k) => !_hidden.contains(k) && byKey.containsKey(k))
-        .map((k) => byKey[k]!)
+    // Eigene Kacheln in dieselbe Zuordnung legen – ab hier ist kein
+    // Unterschied mehr zwischen fest eingebaut und selbst gebaut.
+    final daten = DashboardData(
+      tasks: _tasks,
+      timeEntries: _timeEntries,
+      plannerEntries: _plannerEntries,
+      shoppingItems: _shoppingItems,
+      pantryItems: _pantryItems,
+      notes: _notes,
+      journalEntries: _journalEntries,
+      sentimentStats: _sentimentStats,
+      ingredientMap: _ingredientMap,
+    );
+    for (final t in _customTiles) {
+      byKey[t.id] = CustomTileCard(
+        tile: t,
+        data: daten,
+        arranging: _arranging,
+        onEdit: () => _editCustomTile(t),
+        onDelete: () => _deleteCustomTile(t),
+      );
+    }
+
+    final rechte = context.watch<PermissionProvider>();
+
+    /// Eine Kachel faellt weg, wenn ihr Bereich gesperrt ist – egal ob das
+    /// aus den Rechten hervorging oder erst die Antwort des Servers es
+    /// gezeigt hat.
+    bool erlaubt(String key) {
+      final noetig = rechtJeKachel[key];
+      if (noetig != null && !rechte.darf(noetig)) return false;
+      final quelle = _quelleDerKachel(key, byKey);
+      return quelle == null || !_gesperrteQuellen.contains(quelle);
+    }
+
+    final sichtbar = _widgetOrder
+        .where((k) => !_hidden.contains(k) && byKey.containsKey(k) && erlaubt(k))
+        .toList();
+
+    final widgets = sichtbar
+        .map((k) => ReorderableTile(
+              key: ValueKey(k),
+              tileKey: k,
+              enabled: _arranging,
+              onReorder: _moveTile,
+              child: byKey[k]!,
+            ) as Widget)
         .toList();
 
     if (widgets.isEmpty) {

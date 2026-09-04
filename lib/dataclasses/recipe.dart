@@ -12,12 +12,17 @@ class Recipe {
   final String? description;
   final List<RecipeIngredient> ingredients;
 
+  /// Auf wie viele Portionen sich die Zutatenmengen beziehen. Der
+  /// Essensplan skaliert darüber, ebenso das Verbuchen als gekocht.
+  final int servings;
+
   const Recipe({
     required this.id,
     required this.name,
     this.categoryIds = const [],
     this.description,
     this.ingredients = const [],
+    this.servings = 2,
   });
 
   Recipe copyWith({
@@ -26,6 +31,7 @@ class Recipe {
     List<String>? categoryIds,
     String? description,
     List<RecipeIngredient>? ingredients,
+    int? servings,
   }) =>
       Recipe(
         id: id ?? this.id,
@@ -33,6 +39,7 @@ class Recipe {
         categoryIds: categoryIds ?? this.categoryIds,
         description: description ?? this.description,
         ingredients: ingredients ?? this.ingredients,
+        servings: servings ?? this.servings,
       );
 
   Map<String, dynamic> toJson() => {
@@ -40,6 +47,7 @@ class Recipe {
         'name': name,
         'category_ids': categoryIds, // Changed key name for backend consistency
         'description': description,
+        'servings': servings,
       };
 
   factory Recipe.fromJson(Map<String, dynamic> j) {
@@ -57,6 +65,7 @@ class Recipe {
       name: j['name']?.toString() ?? '',
       categoryIds: cats,
       description: j['description']?.toString(),
+      servings: (j['servings'] as num?)?.toInt() ?? 2,
       ingredients: j.containsKey('ingredients')
           ? (j['ingredients'] as List<dynamic>)
               .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))

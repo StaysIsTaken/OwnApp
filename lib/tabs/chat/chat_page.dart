@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/chat.dart';
-import 'package:productivity/dataclasses/User.dart';
+import 'package:productivity/dataclasses/user.dart';
 import 'package:productivity/dataservice/chat_service.dart';
 import 'package:productivity/dataservice/user_service.dart';
 import 'package:productivity/dataservice/login_service.dart';
@@ -52,7 +52,7 @@ class _DesktopChatLayoutState extends State<_DesktopChatLayout> {
             decoration: BoxDecoration(
               border: Border(
                 right: BorderSide(
-                  color: colors.outlineVariant.withOpacity(0.5),
+                  color: colors.outlineVariant.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -72,7 +72,7 @@ class _DesktopChatLayoutState extends State<_DesktopChatLayout> {
                       Icon(
                         Icons.chat_bubble_outline,
                         size: 64,
-                        color: colors.outline.withOpacity(0.3),
+                        color: colors.outline.withValues(alpha: 0.3),
                       ),
                       const SizedBox(height: 16),
                       const Text('Wähle einen Chat aus, um zu schreiben'),
@@ -356,13 +356,13 @@ class _CreateChatFormState extends State<_CreateChatForm> {
                 onPressed: _selectedUserIds.isEmpty
                     ? null
                     : () async {
+                        final nav = Navigator.of(context);
                         final room = await ChatService.createRoom(
                           _nameCtrl.text.isEmpty ? 'Gruppe' : _nameCtrl.text,
                           _isGroup,
                           _selectedUserIds.toList(),
                         );
-                        if (!mounted) return;
-                        Navigator.pop(context);
+                        nav.pop();
                         widget.onCreated(room);
                       },
                 child: const Text('Erstellen'),
@@ -432,7 +432,9 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           }
         });
       }
-    } catch (e) {}
+    } catch (_) {
+      // Nachricht konnte nicht verarbeitet werden: UI nicht abreissen lassen.
+    }
   }
 
   @override
@@ -479,7 +481,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           decoration: BoxDecoration(
             color: colors.surface,
             border: Border(
-              bottom: BorderSide(color: colors.outlineVariant.withOpacity(0.3)),
+              bottom: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.3)),
             ),
           ),
           child: Row(
@@ -523,7 +525,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
           decoration: BoxDecoration(
             color: colors.surface,
             border: Border(
-              top: BorderSide(color: colors.outlineVariant.withOpacity(0.3)),
+              top: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.3)),
             ),
           ),
           child: Row(
@@ -534,7 +536,7 @@ class _ChatRoomViewState extends State<_ChatRoomView> {
                   decoration: InputDecoration(
                     hintText: 'Nachricht schreiben...',
                     filled: true,
-                    fillColor: colors.surfaceContainerHighest.withOpacity(0.3),
+                    fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.3),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
@@ -672,10 +674,10 @@ class _ChatSettingsViewState extends State<_ChatSettingsView> {
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: () async {
+              final nav = Navigator.of(context);
               await ChatService.deleteRoom(widget.room.id);
-              if (!mounted) return;
-              Navigator.pop(context);
-              if (widget.onDeleted != null) widget.onDeleted!();
+              nav.pop();
+              widget.onDeleted?.call();
             },
             icon: const Icon(Icons.exit_to_app),
             label: Text(
@@ -770,7 +772,7 @@ class _ChatBubble extends StatelessWidget {
                     fontSize: 10,
                     color:
                         (isMe ? colors.onPrimary : colors.onSecondaryContainer)
-                            .withOpacity(0.7),
+                            .withValues(alpha: 0.7),
                   ),
                 ),
               ],

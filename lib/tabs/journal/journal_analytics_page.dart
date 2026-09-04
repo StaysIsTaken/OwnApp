@@ -37,6 +37,7 @@ class _JournalAnalyticsPageState extends State<JournalAnalyticsPage> {
         dateFrom: _selectedRange?.start,
         dateTo: _selectedRange?.end,
       );
+      if (!mounted) return;
       setState(() {
         _stats = stats;
         _isLoading = false;

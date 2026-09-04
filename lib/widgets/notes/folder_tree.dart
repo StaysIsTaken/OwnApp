@@ -120,7 +120,6 @@ class _FolderTreeState extends State<FolderTree> {
 
   List<Widget> _buildFolderTree(String? parentId, ColorScheme colors, TextTheme text) {
     final subfolders = _getSubfolders(parentId);
-    final folderNotes = parentId == null ? [] : _getFolderNotes(parentId);
 
     return [
       // Ordner

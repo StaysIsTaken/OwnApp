@@ -52,9 +52,9 @@ class AiSettingsService {
     final r = await ApiClient.dio.post(_base, data: {
       'name': name,
       'provider': provider,
-      if (baseUrl != null) 'base_url': baseUrl,
-      if (apiKey != null) 'api_key': apiKey,
-      if (model != null) 'model': model,
+      'base_url': ?baseUrl,
+      'api_key': ?apiKey,
+      'model': ?model,
     });
     return AiProvider.fromJson(Map<String, dynamic>.from(r.data as Map));
   }

@@ -6,14 +6,14 @@ import 'package:productivity/dataservice/login_service.dart';
 import 'package:productivity/dataservice/task_service.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/ingredient_service.dart';
-import 'package:productivity/dataservice/task_notification_scheduler.dart';
+import 'package:productivity/dataservice/notification_scheduler.dart';
+import 'package:productivity/dataservice/planner_service.dart';
 import 'package:workmanager/workmanager.dart';
 
 // ─────────────────────────────────────────────
 //  Background Task Names (used by Workmanager)
 // ─────────────────────────────────────────────
 const String taskPeriodicSync = 'periodicSync';
-const String taskSyncTaskNotifications = 'syncTaskNotifications';
 
 // ─────────────────────────────────────────────
 //  Top-level callback dispatcher for Workmanager
@@ -31,13 +31,10 @@ void backgroundCallbackDispatcher() {
       final loggedIn = await LoginService.isLoggedIn();
       if (!loggedIn) return true;
 
-      switch (task) {
-        case taskPeriodicSync:
-          await BackgroundTaskManager._runPeriodicSync();
-          break;
-        case taskSyncTaskNotifications:
-          await BackgroundTaskManager._syncTaskNotifications();
-          break;
+      // Nur `taskPeriodicSync` wird registriert; der Sync der Task-
+      // Benachrichtigungen laeuft als Teil davon.
+      if (task == taskPeriodicSync) {
+        await BackgroundTaskManager._runPeriodicSync();
       }
       return true;
     } catch (e) {
@@ -101,12 +98,20 @@ class BackgroundTaskManager {
     await _checkPantryStatus();
   }
 
-  /// Pulls fresh tasks from the server and (re)schedules local notifications
-  /// for tasks that the user might have created on another device.
+  /// Holt Aufgaben UND Termine vom Server und plant die Erinnerungen neu ein.
+  ///
+  /// Beides zusammen, weil iOS nur 64 vorgemerkte Mitteilungen pro App
+  /// zulässt – der `NotificationScheduler` sortiert nach Zeitpunkt und
+  /// behält die nächstliegenden. Was hinten abfällt, trägt der nächste Lauf
+  /// nach; deshalb ist dieser Job auch die Stelle, die den Vorrat auffüllt.
   static Future<void> _syncTaskNotifications() async {
     try {
       final tasks = await TaskService.loadAll(limit: 200);
-      await TaskNotificationScheduler.rescheduleAll(tasks);
+      final entries = await PlannerService.loadAll();
+      await NotificationScheduler.rescheduleAll(
+        tasks: tasks,
+        plannerEntries: entries,
+      );
     } catch (_) {
       // ignore – will retry on next run
     }

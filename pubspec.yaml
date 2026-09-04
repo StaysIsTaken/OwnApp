@@ -29,6 +29,11 @@ dependencies:
   mobile_scanner: ^5.2.3
   image_picker: ^1.1.2
   geolocator: ^13.0.1
+  # Anmeldung per Face ID / Fingerabdruck: local_auth macht die Pruefung auf
+  # dem Geraet, flutter_secure_storage legt die Zugangsdaten in die Keychain
+  # (iOS) bzw. den Keystore (Android) statt in SharedPreferences.
+  local_auth: ^2.3.0
+  flutter_secure_storage: ^9.2.2
 
 dev_dependencies:
   flutter_test:

@@ -103,7 +103,7 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
                   Icon(
                     Icons.category_outlined,
                     size: 64,
-                    color: colors.outline.withOpacity(0.5),
+                    color: colors.outline.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -124,7 +124,7 @@ class _ManageCategoriesContentState extends State<_ManageCategoriesContent> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: BorderSide(
-                      color: colors.outlineVariant.withOpacity(0.5),
+                      color: colors.outlineVariant.withValues(alpha: 0.5),
                     ),
                   ),
                   child: ListTile(
@@ -244,7 +244,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                 labelText: 'Name',
                 hintText: 'z.B. Frühstück',
                 filled: true,
-                fillColor: colors.surfaceContainerHighest.withOpacity(0.3),
+                fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,

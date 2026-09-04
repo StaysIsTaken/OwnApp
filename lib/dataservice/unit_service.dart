@@ -39,11 +39,13 @@ class UnitService {
   }
 
   /// Inserts or replaces – convenience wrapper kept for API compatibility.
-  static Future<void> upsert(Unit unit) async {
-    try {
-      await update(unit);
-    } catch (_) {
-      await create(unit);
-    }
+  /// Legt neu an oder aktualisiert – entschieden an der id, nicht am Fehlerfall.
+  ///
+  /// Vorher lief hier immer erst ein `update`, und JEDER Fehler führte zum
+  /// `create`. Beim Anlegen kostete das einen überflüssigen Request, und beim
+  /// Bearbeiten legte ein Netzwerkaussetzer oder ein 500 still ein Duplikat an,
+  /// statt den Fehler zu melden.
+  static Future<Unit> upsert(Unit unit) async {
+    return unit.id.isEmpty ? create(unit) : update(unit);
   }
 }

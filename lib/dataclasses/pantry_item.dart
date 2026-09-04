@@ -2,6 +2,8 @@
 //  PantryItem (Vorratsartikel)
 //  API uses `quantity` / `minQuantity`; Dart keeps
 //  `amount` / `minAmount` for shorter call sites.
+//  Kein updatedAt: das Backend fuehrt dafuer keine Spalte, das Feld wurde
+//  nur beim Anlegen mit DateTime.now() gefuellt und nirgends angezeigt.
 // ─────────────────────────────────────────────
 class PantryItem {
   final String id;
@@ -11,7 +13,6 @@ class PantryItem {
   final double amount;
   final double minAmount;
   final DateTime? expiryDate;
-  final DateTime updatedAt;
 
   const PantryItem({
     required this.id,
@@ -21,7 +22,6 @@ class PantryItem {
     required this.amount,
     required this.minAmount,
     this.expiryDate,
-    required this.updatedAt,
   });
 
   PantryItem copyWith({
@@ -32,7 +32,6 @@ class PantryItem {
     double? amount,
     double? minAmount,
     DateTime? expiryDate,
-    DateTime? updatedAt,
   }) =>
       PantryItem(
         id: id ?? this.id,
@@ -42,7 +41,6 @@ class PantryItem {
         amount: amount ?? this.amount,
         minAmount: minAmount ?? this.minAmount,
         expiryDate: expiryDate ?? this.expiryDate,
-        updatedAt: updatedAt ?? this.updatedAt,
       );
 
   Map<String, dynamic> toJson() => {
@@ -64,9 +62,6 @@ class PantryItem {
       amount: (j['quantity'] as num?)?.toDouble() ?? 0.0,
       minAmount: (j['minQuantity'] as num?)?.toDouble() ?? 0.0,
       expiryDate: j['expiryDate'] != null ? DateTime.tryParse(j['expiryDate'].toString()) : null,
-      updatedAt: j['updatedAt'] != null
-          ? DateTime.tryParse(j['updatedAt'].toString()) ?? DateTime.now()
-          : DateTime.now(),
     );
   }
 }

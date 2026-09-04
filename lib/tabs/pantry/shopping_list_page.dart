@@ -10,6 +10,7 @@ import 'package:productivity/dataservice/ingredient_service.dart';
 import 'package:productivity/dataservice/unit_service.dart';
 import 'package:productivity/dataservice/shop_service.dart';
 import 'package:productivity/dataservice/shopping_list_item_price_service.dart';
+import 'package:productivity/utils/snack.dart';
 
 class ShoppingListPage extends BasePage {
   const ShoppingListPage({super.key}) : super(title: 'Einkaufsliste');
@@ -98,9 +99,49 @@ class _ShoppingListState extends State<_ShoppingList> {
       await ShoppingListService.upsert(updated);
       _load();
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      showErrorSnack('Fehler: $e');
+    }
+  }
+
+  /// Bucht alle abgehakten Posten in den Vorrat und räumt sie von der Liste.
+  Future<void> _transferToPantry() async {
+    final anzahl = _items.where((i) => i.isBought).length;
+    if (anzahl == 0) {
+      showSnack('Nichts abgehakt');
+      return;
+    }
+    final bestaetigt = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('In den Vorrat übernehmen'),
+        content: Text(
+          '$anzahl abgehakte ${anzahl == 1 ? 'Position wird' : 'Positionen werden'} '
+          'dem Vorrat gutgeschrieben und von der Liste entfernt.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Übernehmen'),
+          ),
+        ],
+      ),
+    );
+    if (bestaetigt != true) return;
+
+    try {
+      final uebernommen = await ShoppingListService.transferToPantry();
+      await _load();
+      showSnack(
+        uebernommen == 1
+            ? '1 Position in den Vorrat gebucht'
+            : '$uebernommen Positionen in den Vorrat gebucht',
+      );
+    } catch (e) {
+      showErrorSnack('Fehler beim Übernehmen: $e');
     }
   }
 
@@ -108,34 +149,28 @@ class _ShoppingListState extends State<_ShoppingList> {
     try {
       final newShop = Shop(id: '', name: name, createdAt: DateTime.now());
       final result = await ShopService.create(newShop);
+      if (!mounted) return;
       setState(() {
         _shops.add(result);
         _shopMap[result.id] = result;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Shop erstellt')));
+      showSnack('Shop erstellt');
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      showErrorSnack('Fehler: $e');
     }
   }
 
   Future<void> _deleteShop(String shopId) async {
     try {
       await ShopService.delete(shopId);
+      if (!mounted) return;
       setState(() {
         _shops.removeWhere((s) => s.id == shopId);
         _shopMap.remove(shopId);
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Shop gelöscht')));
+      showSnack('Shop gelöscht');
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      showErrorSnack('Fehler: $e');
     }
   }
 
@@ -149,37 +184,31 @@ class _ShoppingListState extends State<_ShoppingList> {
         date: DateTime.now(),
       );
       final result = await ShoppingListItemPriceService.create(newPrice);
+      if (!mounted) return;
       setState(() {
         if (_pricesByItemId[itemId] == null) {
           _pricesByItemId[itemId] = [];
         }
         _pricesByItemId[itemId]!.add(result);
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Preis hinzugefügt')));
+      showSnack('Preis hinzugefügt');
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      showErrorSnack('Fehler: $e');
     }
   }
 
   Future<void> _deletePrice(String itemId, String priceId) async {
     try {
       await ShoppingListItemPriceService.delete(priceId);
+      if (!mounted) return;
       setState(() {
         if (_pricesByItemId[itemId] != null) {
           _pricesByItemId[itemId]!.removeWhere((p) => p.id == priceId);
         }
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Preis gelöscht')));
+      showSnack('Preis gelöscht');
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      showErrorSnack('Fehler: $e');
     }
   }
 
@@ -542,9 +571,9 @@ class _ShoppingListState extends State<_ShoppingList> {
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () async {
+                            final nav = Navigator.of(context);
                             await ShoppingListService.delete(item.id);
-                            if (!mounted) return;
-                            Navigator.pop(context);
+                            nav.pop();
                             _load();
                           },
                         ),
@@ -556,6 +585,7 @@ class _ShoppingListState extends State<_ShoppingList> {
                       ElevatedButton(
                         onPressed: () async {
                           if (selIngId == null || selUnitId == null) return;
+                          final nav = Navigator.of(context);
                           final newItem = ShoppingListItem(
                             id: item?.id ?? '',
                             ingredientId: selIngId!,
@@ -565,8 +595,7 @@ class _ShoppingListState extends State<_ShoppingList> {
                             note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
                           );
                           await ShoppingListService.upsert(newItem);
-                          if (!mounted) return;
-                          Navigator.pop(context);
+                          nav.pop();
                           _load();
                         },
                         child: const Text('Speichern'),
@@ -600,6 +629,15 @@ class _ShoppingListState extends State<_ShoppingList> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          if (_items.any((i) => i.isBought)) ...[
+            FloatingActionButton.small(
+              onPressed: _transferToPantry,
+              tooltip: 'Abgehaktes in den Vorrat übernehmen',
+              heroTag: 'to-pantry',
+              child: const Icon(Icons.move_to_inbox),
+            ),
+            const SizedBox(height: 16),
+          ],
           FloatingActionButton.small(
             onPressed: _showShopManagementDialog,
             tooltip: 'Shops verwalten',
@@ -647,23 +685,10 @@ class _ShoppingListState extends State<_ShoppingList> {
                     try {
                       await ShoppingListService.delete(item.id);
                       _load();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text(
-                              'Einkaufslisteneintrag gelöscht',
-                            ),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
+                      showSnack('Einkaufslisteneintrag gelöscht');
                     } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Fehler beim Löschen: $e')),
-                        );
-                        _load();
-                      }
+                      showErrorSnack('Fehler beim Löschen: $e');
+                      _load();
                     }
                   },
                   child: ListTile(

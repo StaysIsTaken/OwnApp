@@ -17,8 +17,7 @@ class SubtaskDialog extends StatefulWidget {
   final PlannerEntry parent;
   final PlannerEntry? child; // gesetzt = Bearbeiten
 
-  const SubtaskDialog({Key? key, required this.parent, this.child})
-      : super(key: key);
+  const SubtaskDialog({super.key, required this.parent, this.child});
 
   static Future<SubtaskResult?> show(
     BuildContext context, {

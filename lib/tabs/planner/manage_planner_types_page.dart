@@ -65,7 +65,7 @@ class _ManageTypesContentState extends State<_ManageTypesContent> {
         return ListView.separated(
           padding: const EdgeInsets.all(12),
           itemCount: types.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 4),
+          separatorBuilder: (_, _) => const SizedBox(height: 4),
           itemBuilder: (context, index) {
             final t = types[index];
             return Card(

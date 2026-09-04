@@ -26,4 +26,11 @@ class ShoppingListService {
   static Future<void> delete(String id) async {
     await ApiClient.dio.delete('$_path/$id');
   }
+
+  /// Bucht alle abgehakten Posten in den Vorrat und räumt sie von der Liste.
+  /// Gibt die Anzahl der übernommenen Posten zurück.
+  static Future<int> transferToPantry() async {
+    final response = await ApiClient.dio.post('$_path/transfer-to-pantry');
+    return (response.data['count'] as num?)?.toInt() ?? 0;
+  }
 }

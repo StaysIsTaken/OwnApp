@@ -39,6 +39,7 @@ class _JournalPageContentState extends State<_JournalPageContent> {
 
     try {
       final entries = await JournalService.loadAll();
+      if (!mounted) return;
       setState(() {
         _entries = entries;
         _isLoading = false;

@@ -1,5 +1,7 @@
 package com.example.productivity
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// FlutterFragmentActivity statt FlutterActivity: local_auth zeigt seinen
+// Dialog als Fragment an und wirft sonst zur Laufzeit.
+class MainActivity : FlutterFragmentActivity()

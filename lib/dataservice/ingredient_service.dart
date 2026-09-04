@@ -42,11 +42,13 @@ class IngredientService {
   }
 
   /// Inserts or replaces – convenience wrapper kept for API compatibility.
-  static Future<void> upsert(Ingredient ingredient) async {
-    try {
-      await update(ingredient);
-    } catch (_) {
-      await create(ingredient);
-    }
+  /// Legt neu an oder aktualisiert – entschieden an der id, nicht am Fehlerfall.
+  ///
+  /// Vorher lief hier immer erst ein `update`, und JEDER Fehler führte zum
+  /// `create`. Beim Anlegen kostete das einen überflüssigen Request, und beim
+  /// Bearbeiten legte ein Netzwerkaussetzer oder ein 500 still ein Duplikat an,
+  /// statt den Fehler zu melden.
+  static Future<Ingredient> upsert(Ingredient ingredient) async {
+    return ingredient.id.isEmpty ? create(ingredient) : update(ingredient);
   }
 }

@@ -1,5 +1,12 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:productivity/dataservice/api_client.dart';
+import 'package:productivity/utils/snack.dart';
+import 'package:productivity/dataservice/login_service.dart';
+import 'package:productivity/dataservice/biometric_service.dart';
+import 'package:productivity/provider/user_provider.dart';
+import 'package:productivity/widgets/server_dialog.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/ai_model.dart';
 import 'package:productivity/dataservice/ai_service.dart';
@@ -25,10 +32,78 @@ class _SettingsBody extends StatefulWidget {
 }
 
 class _SettingsBodyState extends State<_SettingsBody> {
+  bool _biometrieVerfuegbar = false;
+  bool _biometrieAn = false;
+  String _biometrieName = 'Face ID';
+
+  Future<void> _biometrieStandLaden() async {
+    final verfuegbar = await BiometricService.verfuegbar();
+    if (!verfuegbar || !mounted) return;
+    final name = await BiometricService.bezeichnung();
+    final gemerkt = await BiometricService.gemerkt();
+    if (!mounted) return;
+    setState(() {
+      _biometrieVerfuegbar = true;
+      _biometrieName = name;
+      _biometrieAn = gemerkt != null;
+    });
+  }
+
+  /// Einschalten heisst: Passwort abfragen und hinterlegen. Es steht nirgends
+  /// im Klartext herum, wo man es sonst herbekommen koennte – deshalb muss
+  /// der Nutzer es hier noch einmal eingeben.
+  Future<void> _biometrieUmschalten(bool an) async {
+    if (!an) {
+      await BiometricService.vergessen();
+      if (mounted) setState(() => _biometrieAn = false);
+      return;
+    }
+
+    final nutzer = context.read<UserProvider>().user;
+    if (nutzer == null) return;
+
+    final passwort = await showDialog<String>(
+      context: context,
+      builder: (_) => _PasswortAbfrage(name: _biometrieName),
+    );
+    if (passwort == null || passwort.isEmpty) return;
+
+    // Erst pruefen, ob das Passwort ueberhaupt stimmt – sonst laege ein
+    // falsches in der Keychain und die Anmeldung schluege jedes Mal fehl,
+    // ohne dass jemand den Grund saehe.
+    try {
+      await LoginService.login(username: nutzer.username, password: passwort);
+    } on DioException {
+      if (mounted) showErrorSnack('Das Passwort stimmt nicht.');
+      return;
+    }
+
+    await BiometricService.merken(
+        benutzername: nutzer.username, passwort: passwort);
+    if (mounted) {
+      setState(() => _biometrieAn = true);
+      showSnack('$_biometrieName eingerichtet');
+    }
+  }
+
+  /// Serveradresse aendern. Die Anmeldung gilt beim alten Server, deshalb
+  /// meldet der Dialog ab – die App landet danach beim Login.
+  Future<void> _serverAendern() async {
+    final geaendert = await showDialog<bool>(
+      context: context,
+      builder: (_) => const ServerDialog(),
+    );
+    if (geaendert == true && mounted) {
+      setState(() {});
+      context.read<UserProvider>().logout();
+    }
+  }
+
   bool _notifEnabled = true;
   bool _notifChat = true;
   bool _notifTasks = true;
   bool _notifPantry = true;
+  bool _notifPlanner = true;
   bool _notifPermitted = true;
   bool _loaded = false;
   List<AIModel> _aiModels = [];
@@ -61,6 +136,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
     _loadNotifSettings();
     _loadAIModels();
     _loadProviders();
+    _biometrieStandLaden();
   }
 
   String _providerLabel(String p) {
@@ -298,6 +374,8 @@ class _SettingsBodyState extends State<_SettingsBody> {
         await mgr.isCategoryEnabled(LocalNotificationManager.prefTasks);
     final pantry =
         await mgr.isCategoryEnabled(LocalNotificationManager.prefPantry);
+    final planner =
+        await mgr.isCategoryEnabled(LocalNotificationManager.prefPlanner);
     final permitted = await mgr.areNotificationsEnabled();
 
     if (!mounted) return;
@@ -306,6 +384,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
       _notifChat = chat;
       _notifTasks = tasks;
       _notifPantry = pantry;
+      _notifPlanner = planner;
       _notifPermitted = permitted;
       _loaded = true;
     });
@@ -321,6 +400,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
       if (key == LocalNotificationManager.prefChat) _notifChat = value;
       if (key == LocalNotificationManager.prefTasks) _notifTasks = value;
       if (key == LocalNotificationManager.prefPantry) _notifPantry = value;
+      if (key == LocalNotificationManager.prefPlanner) _notifPlanner = value;
     });
     await LocalNotificationManager().setCategoryEnabled(key, value);
   }
@@ -351,6 +431,43 @@ class _SettingsBodyState extends State<_SettingsBody> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // ── Server ──
+        // Ganz oben, weil fast alles davon abhaengt: laeuft die App gegen
+        // den falschen Server, ist jede andere Einstellung nebensaechlich.
+        _SectionTitle('Server'),
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.dns_outlined, color: colors.primary),
+            title: const Text('API-Adresse'),
+            subtitle: Text(ApiClient.baseUrl),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _serverAendern,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Anmeldung ──
+        if (_biometrieVerfuegbar) ...[
+          _SectionTitle('Anmeldung'),
+          Card(
+            child: SwitchListTile(
+              secondary: Icon(Icons.fingerprint, color: colors.primary),
+              title: Text('Mit $_biometrieName anmelden'),
+              subtitle: Text(
+                _biometrieAn
+                    ? 'Dein Passwort liegt verschlüsselt auf diesem Gerät und '
+                      'wird nur nach erfolgreicher Prüfung verwendet.'
+                    : 'Passwort einmal verschlüsselt hinterlegen, danach '
+                      'genügt $_biometrieName.',
+                style: const TextStyle(fontSize: 12),
+              ),
+              value: _biometrieAn,
+              onChanged: _biometrieUmschalten,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
         // ── Allgemein ──
         _SectionTitle('Allgemein'),
         Card(
@@ -461,6 +578,21 @@ class _SettingsBodyState extends State<_SettingsBody> {
                     onChanged: _notifEnabled
                         ? (v) =>
                             _setCategory(LocalNotificationManager.prefPantry, v)
+                        : null,
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: Icon(Icons.event_outlined,
+                        color: _notifEnabled
+                            ? colors.primary
+                            : colors.outlineVariant),
+                    title: const Text('Termine'),
+                    subtitle: const Text(
+                        'Erinnerung vor Terminbeginn, auch bei geschlossener App'),
+                    value: _notifPlanner,
+                    onChanged: _notifEnabled
+                        ? (v) => _setCategory(
+                            LocalNotificationManager.prefPlanner, v)
                         : null,
                   ),
                 ],
@@ -767,6 +899,73 @@ class _SectionTitle extends StatelessWidget {
               letterSpacing: 0.8,
             ),
       ),
+    );
+  }
+}
+
+/// Passwort abfragen, um es fuer die biometrische Anmeldung zu hinterlegen.
+///
+/// Es steht nirgends im Klartext herum, wo die App es sonst herbekommen
+/// koennte – deshalb muss es hier einmal eingegeben werden.
+class _PasswortAbfrage extends StatefulWidget {
+  final String name;
+
+  const _PasswortAbfrage({required this.name});
+
+  @override
+  State<_PasswortAbfrage> createState() => _PasswortAbfrageState();
+}
+
+class _PasswortAbfrageState extends State<_PasswortAbfrage> {
+  final _feld = TextEditingController();
+  bool _sichtbar = false;
+
+  @override
+  void dispose() {
+    _feld.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('${widget.name} einrichten'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Gib dein Passwort noch einmal ein. Es wird verschlüsselt auf '
+            'diesem Gerät hinterlegt und nur nach erfolgreicher '
+            '${widget.name}-Prüfung verwendet.',
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _feld,
+            autofocus: true,
+            obscureText: !_sichtbar,
+            decoration: InputDecoration(
+              labelText: 'Passwort',
+              suffixIcon: IconButton(
+                icon: Icon(_sichtbar ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _sichtbar = !_sichtbar),
+              ),
+            ),
+            onSubmitted: (wert) => Navigator.pop(context, wert),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _feld.text),
+          child: const Text('Einrichten'),
+        ),
+      ],
     );
   }
 }

@@ -67,6 +67,7 @@ class _CalendarPageContentState extends State<_CalendarPageContent> {
         nameMap[i.id] = i.name;
       }
 
+      if (!mounted) return;
       setState(() {
         _tasks = results[0] as List<Task>;
         _timeEntries = results[1] as List<TimeEntry>;
