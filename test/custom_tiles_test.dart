@@ -1,6 +1,7 @@
 // Der Baukasten: Quellen rechnen aus den geladenen Daten, Darstellungen
 // erklären welche Datenformen sie können. Beides ohne Widgets testbar.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/time_entry.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
@@ -26,6 +27,8 @@ TimeEntry zeit(DateTime start, Duration dauer) => TimeEntry(
     );
 
 void main() {
+  _wochenansicht();
+
   _kopfbloecke();
 
   _diagramme();
@@ -463,6 +466,98 @@ void _kopfbloecke() {
       final b = quelle.build(DashboardData(), const {}, const []);
       expect(a.body, b.body);
       expect(a.body, isNotEmpty);
+    });
+  });
+}
+
+// ── Wochenansicht ──────────────────────────────────────────────────────
+
+void _wochenansicht() {
+  PlannerEntry termin(String titel, DateTime start, {int stunden = 1}) =>
+      PlannerEntry(
+        id: start.millisecondsSinceEpoch,
+        userId: 'u',
+        title: titel,
+        scheduledAt: start,
+        endsAt: start.add(Duration(hours: stunden)),
+        createdAt: start,
+      );
+
+  DateTime montagDieserWoche() {
+    final h = DateTime.now();
+    final m = h.subtract(Duration(days: h.weekday - 1));
+    return DateTime(m.year, m.month, m.day);
+  }
+
+  group('Wochenansicht', () {
+    test('nimmt nur die gewählte Woche', () {
+      final montag = montagDieserWoche();
+      final d = DashboardData(plannerEntries: [
+        termin('Diese Woche', montag.add(const Duration(days: 2, hours: 10))),
+        termin('Nächste Woche', montag.add(const Duration(days: 9, hours: 10))),
+        termin('Letzte Woche', montag.subtract(const Duration(days: 3))),
+      ]);
+
+      final r = TileCatalog.byKey('planner.week')!.build(d, {}, const []);
+      expect(r.shape, TileShape.schedule);
+      expect(r.schedule.map((e) => e.title), ['Diese Woche']);
+    });
+
+    test('der Versatz verschiebt die Woche', () {
+      final montag = montagDieserWoche();
+      final d = DashboardData(plannerEntries: [
+        termin('Diese', montag.add(const Duration(days: 1, hours: 9))),
+        termin('Nächste', montag.add(const Duration(days: 8, hours: 9))),
+      ]);
+      final quelle = TileCatalog.byKey('planner.week')!;
+
+      expect(quelle.build(d, {'weeks': 0}, const []).schedule.single.title,
+          'Diese');
+      expect(quelle.build(d, {'weeks': 1}, const []).schedule.single.title,
+          'Nächste');
+    });
+
+    test('rückwärts geht auch', () {
+      // Auf dem Tablet will man auch nachsehen, was letzte Woche war.
+      final montag = montagDieserWoche();
+      final d = DashboardData(plannerEntries: [
+        termin('Vergangen', montag.subtract(const Duration(days: 6))),
+      ]);
+      expect(
+        TileCatalog.byKey('planner.week')!
+            .build(d, {'weeks': -1}, const []).schedule.single.title,
+        'Vergangen',
+      );
+    });
+
+    test('Untertermine bleiben draußen', () {
+      // Sie gehören zu ihrem Haupttermin und würden das Raster verdoppeln.
+      final montag = montagDieserWoche();
+      final haupt = termin('Haupt', montag.add(const Duration(days: 1, hours: 9)));
+      final kind = PlannerEntry(
+        id: 999, userId: 'u', title: 'Unterpunkt', parentId: haupt.id,
+        scheduledAt: haupt.scheduledAt, endsAt: haupt.endsAt,
+        createdAt: haupt.scheduledAt,
+      );
+      final d = DashboardData(plannerEntries: [haupt, kind]);
+
+      expect(
+        TileCatalog.byKey('planner.week')!
+            .build(d, {}, const []).schedule.map((e) => e.title),
+        ['Haupt'],
+      );
+    });
+
+    test('leere Woche gilt als leer', () {
+      final r = TileCatalog.byKey('planner.week')!
+          .build(const DashboardData(), {}, const []);
+      expect(r.isEmpty, isTrue);
+      expect(r.emptyHint, isNotEmpty);
+    });
+
+    test('nur die Wochenansicht nimmt diese Datenform', () {
+      final passende = TileViews.forShape(TileShape.schedule);
+      expect(passende.map((v) => v.key), ['week']);
     });
   });
 }

@@ -22,6 +22,16 @@ class TileCatalog {
   static const _tage = TileParam(
     key: 'days', label: 'Zeitraum in Tagen', min: 1, max: 90, standard: 7,
   );
+  /// Welche Woche: 0 = diese, 1 = nächste. Auch rückwärts, damit man
+  /// auf dem Tablet nachsehen kann, was letzte Woche war.
+  static const _wochenversatz = TileParam(
+    key: 'weeks',
+    label: 'Woche (0 = diese)',
+    min: -4,
+    max: 8,
+    standard: 0,
+  );
+
   static const _anzahl = TileParam(
     key: 'limit', label: 'Wie viele anzeigen', min: 1, max: 20, standard: 5,
   );
@@ -80,6 +90,40 @@ class TileCatalog {
             e.scheduledAt.isAfter(jetzt) &&
             e.scheduledAt.isBefore(bis)).length;
         return TileData.scalar(n.toDouble(), unit: 'Termine');
+      },
+    ),
+
+    TileSource(
+      key: 'planner.week',
+      route: AppRoutes.planner,
+      fields: FilterFields.termine,
+      label: 'Wochenansicht',
+      group: 'Planer',
+      shape: TileShape.schedule,
+      params: const [_wochenversatz],
+      build: (d, p, f) {
+        final versatz = _int(p, 'weeks', 0);
+        final heute = DateTime.now().add(Duration(days: versatz * 7));
+        final montag = _tagesbeginn(
+            heute.subtract(Duration(days: heute.weekday - 1)));
+        final sonntagEnde = montag.add(const Duration(days: 7));
+
+        final termine = <TileScheduleItem>[];
+        for (final e in applyFilters(
+            d.plannerEntries.cast<PlannerEntry>(), f, FilterFields.termine)) {
+          if (e.parentId != null) continue;
+          if (e.scheduledAt.isBefore(montag)) continue;
+          if (!e.scheduledAt.isBefore(sonntagEnde)) continue;
+          termine.add(TileScheduleItem(
+            title: e.title,
+            start: e.scheduledAt,
+            end: e.endsAt,
+            color: e.color,
+            source: e.type,
+          ));
+        }
+        return TileData.schedule(termine,
+            emptyHint: 'Diese Woche ist nichts geplant');
       },
     ),
 

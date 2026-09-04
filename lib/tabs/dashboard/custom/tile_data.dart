@@ -21,6 +21,10 @@ enum TileShape {
   /// Passt in keine der übrigen Formen: es gibt nichts zu rechnen und
   /// nichts zu zeichnen, nur etwas zu lesen.
   text,
+
+  /// Termine mit Anfang und Ende. Anders als `list` behalten sie ihre
+  /// Lage in der Zeit — nur damit lässt sich ein Wochenraster zeichnen.
+  schedule,
 }
 
 /// Ergebnis einer Quelle.
@@ -44,6 +48,9 @@ class TileData {
   /// Kleine Zeile unter dem Text – Quelle, Datum, Urheber.
   final String? footnote;
 
+  /// schedule
+  final List<TileScheduleItem> schedule;
+
   /// Wird angezeigt, wenn nichts da ist — statt einer leeren Fläche.
   final String emptyHint;
 
@@ -53,10 +60,23 @@ class TileData {
         points = const {},
         body = null,
         footnote = null,
+        schedule = const [],
         emptyHint = '';
+
+  const TileData.schedule(this.schedule,
+      {this.emptyHint = 'Nichts geplant'})
+      : shape = TileShape.schedule,
+        value = null,
+        target = null,
+        unit = null,
+        items = const [],
+        points = const {},
+        body = null,
+        footnote = null;
 
   const TileData.text(this.body, {this.footnote, this.emptyHint = 'Noch nichts'})
       : shape = TileShape.text,
+        schedule = const [],
         value = null,
         target = null,
         unit = null,
@@ -67,6 +87,7 @@ class TileData {
       : shape = TileShape.list,
         body = null,
         footnote = null,
+        schedule = const [],
         value = null,
         target = null,
         unit = null,
@@ -76,6 +97,7 @@ class TileData {
       : shape = TileShape.series,
         body = null,
         footnote = null,
+        schedule = const [],
         value = null,
         target = null,
         items = const [];
@@ -85,6 +107,7 @@ class TileData {
       : shape = TileShape.distribution,
         body = null,
         footnote = null,
+        schedule = const [],
         value = null,
         target = null,
         items = const [];
@@ -100,6 +123,8 @@ class TileData {
         return points.isEmpty || points.values.every((v) => v == 0);
       case TileShape.text:
         return body == null || body!.trim().isEmpty;
+      case TileShape.schedule:
+        return schedule.isEmpty;
     }
   }
 }
@@ -110,4 +135,32 @@ class TileListItem {
   final String? trailing;
 
   const TileListItem(this.title, {this.subtitle, this.trailing});
+}
+
+/// Ein Termin mit seiner Lage in der Zeit.
+///
+/// Eigene Klasse statt [TileListItem]: für ein Wochenraster braucht es
+/// Anfang und Ende als echte Zeitpunkte, nicht als Text.
+class TileScheduleItem {
+  final String title;
+  final DateTime start;
+  final DateTime end;
+
+  /// Farbe des Kalenders, aus dem der Termin stammt (#RRGGBB).
+  final String? color;
+
+  /// Woher er kommt – für die Legende, wenn mehrere Kalender laufen.
+  final String? source;
+
+  /// Ganztägig: wird über dem Raster gezeigt statt darin.
+  final bool allDay;
+
+  const TileScheduleItem({
+    required this.title,
+    required this.start,
+    required this.end,
+    this.color,
+    this.source,
+    this.allDay = false,
+  });
 }

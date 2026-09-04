@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_charts.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_week_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 
 /// Eine Darstellungsart im Katalog.
@@ -47,6 +48,13 @@ class TileViews {
       icon: Icons.notes_rounded,
       accepts: const {TileShape.text},
       build: (ctx, d) => _Text(data: d),
+    ),
+    TileView(
+      key: 'week',
+      label: 'Wochenansicht',
+      icon: Icons.calendar_view_week_rounded,
+      accepts: const {TileShape.schedule},
+      build: (ctx, d) => TileWeekView(data: d),
     ),
     TileView(
       key: 'bars',
