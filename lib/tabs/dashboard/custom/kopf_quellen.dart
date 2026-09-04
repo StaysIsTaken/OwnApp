@@ -1,4 +1,5 @@
 import 'package:productivity/dataclasses/journal_entry.dart';
+import 'package:productivity/dataservice/feed_service.dart';
 import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/main.dart';
@@ -9,13 +10,13 @@ import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 
 /// Quellen für die Blöcke über der Übersicht.
 ///
-/// Bewusst **ohne fremde Dienste**: Nachrichten und Witze bräuchten einen
-/// Aufruf ins Internet, und der gehört über die eigene API statt aus jedem
-/// Browser heraus — sonst sieht der Anbieter jede Adresse mit, und im Web
-/// scheitert es ohnehin oft an CORS. Das ist ein eigener Schritt.
-///
-/// Was hier steht, kommt entweder vom Nutzer selbst oder aus Daten, die die
-/// App schon geladen hat.
+/// Das meiste kommt vom Nutzer selbst oder aus Daten, die die App ohnehin
+/// geladen hat. Zwei Quellen fallen heraus — Nachrichten und Witze: sie
+/// kommen von draußen, aber **über die eigene API** und nicht aus dem
+/// Browser heraus. Sonst sähe der Anbieter jede Adresse im Haushalt
+/// einzeln, und im Web scheiterte der Aufruf an CORS. Sie tragen deshalb
+/// ein [TileSource.extra] und werden nur geholt, wenn eine Kachel sie
+/// wirklich braucht.
 class KopfQuellen {
   KopfQuellen._();
 
@@ -26,6 +27,14 @@ class KopfQuellen {
   );
 
   static const _datum = TileParam.datum(key: 'datum', label: 'Zieldatum');
+
+  static const _meldungen = TileParam(
+    key: 'anzahl',
+    label: 'Wie viele Meldungen',
+    min: 1,
+    max: 10,
+    standard: 3,
+  );
 
   static const _jahre = TileParam(
     key: 'jahre',
@@ -174,6 +183,59 @@ class KopfQuellen {
         ];
         return TileData.text('Heute: ${teile.join(", ")}.');
       },
+    ),
+
+    // ── Von draußen, über die eigene API ─────────────────────────────────
+    TileSource(
+      key: 'kopf.nachrichten',
+      label: 'Nachrichten',
+      group: 'Von draußen',
+      shape: TileShape.list,
+      extra: TileExtras.nachrichten,
+      params: const [_meldungen],
+      build: (d, p, f) {
+        final wieViele = (p['anzahl'] as num?)?.toInt() ?? 3;
+        final meldungen = d.nachrichten.cast<Meldung>();
+        return TileData.list(
+          meldungen.take(wieViele).map((m) => TileListItem(
+                m.titel,
+                subtitle: m.text.isEmpty ? m.quelle : _kuerzen(m.text, 140),
+              )).toList(),
+          emptyHint: 'Gerade keine Meldungen zu bekommen',
+        );
+      },
+    ),
+
+    TileSource(
+      key: 'kopf.schlagzeile',
+      label: 'Eine Schlagzeile, groß',
+      group: 'Von draußen',
+      shape: TileShape.text,
+      extra: TileExtras.nachrichten,
+      build: (d, p, f) {
+        final meldungen = d.nachrichten.cast<Meldung>();
+        if (meldungen.isEmpty) {
+          return const TileData.text(null,
+              emptyHint: 'Gerade keine Meldungen zu bekommen');
+        }
+        final m = meldungen.first;
+        return TileData.text(m.titel,
+            footnote: [m.ressort, m.quelle]
+                .where((t) => t.isNotEmpty)
+                .join(' · '));
+      },
+    ),
+
+    TileSource(
+      key: 'kopf.witz',
+      label: 'Witz',
+      group: 'Von draußen',
+      shape: TileShape.text,
+      extra: TileExtras.witz,
+      build: (d, p, f) => TileData.text(
+        d.witz,
+        emptyHint: 'Der Witzanbieter schweigt gerade',
+      ),
     ),
 
     // ── Sammlung im Programm ─────────────────────────────────────────────

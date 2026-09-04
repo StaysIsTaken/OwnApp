@@ -1,19 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/tabs/dashboard/custom/custom_tile_card.dart';
 import 'package:productivity/tabs/dashboard/custom/filter_editor.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_filter.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
-/// Dialog zum Anlegen und Bearbeiten einer eigenen Kachel.
+/// Anlegen und Bearbeiten einer eigenen Kachel.
 ///
-/// Ablauf: Quelle wählen → Darstellung wählen (nur passende zur Datenform der
-/// Quelle) → Feineinstellungen. Dadurch kann keine unmögliche Kombination
-/// entstehen, ohne dass irgendwo eine Liste erlaubter Paarungen gepflegt wird.
+/// Ablauf wie bisher: Quelle wählen → Darstellung wählen (nur passende zur
+/// Datenform der Quelle) → Feineinstellungen → Filter. Dadurch kann keine
+/// unmögliche Kombination entstehen, ohne dass irgendwo eine Liste
+/// erlaubter Paarungen gepflegt wird.
+///
+/// Was sich geändert hat, ist die Form. Vorher standen vier Abschnitte in
+/// einem engen Dialog übereinander, jeder mit einer knappen Überschrift und
+/// sonst nichts — man musste raten, was eine Einstellung bewirkt, und
+/// sah es erst nach dem Speichern. Jetzt:
+///
+/// * **Voller Bildschirm** statt Dialogkasten. Platz ist keine Kostbarkeit.
+/// * **Nummerierte Schritte** mit je einem Satz, was der Schritt tut.
+/// * **Vorschau**, die mitläuft. Auf breiten Geräten daneben, auf schmalen
+///   darunter — die Frage „was macht dieses Feld" beantwortet sich damit
+///   von selbst, statt erklärt werden zu müssen.
 Future<CustomTile?> showTileEditor(
   BuildContext context, {
   CustomTile? vorhanden,
   String zone = CustomTile.zoneRaster,
+  DashboardData? daten,
 }) {
   return showDialog<CustomTile>(
     context: context,
@@ -22,6 +36,7 @@ Future<CustomTile?> showTileEditor(
     builder: (ctx) => _TileEditor(
       vorhanden: vorhanden,
       zone: vorhanden?.zone ?? zone,
+      daten: daten ?? const DashboardData(),
     ),
   );
 }
@@ -33,9 +48,15 @@ class _TileEditor extends StatefulWidget {
   /// dieselbe – der Bereich entscheidet nur, wo sie landet und wie breit sie
   /// gezeigt wird.
   final String zone;
+
+  /// Echte Daten für die Vorschau. Ohne sie zeigt die Vorschau den
+  /// Leer-Hinweis der Quelle — immer noch nützlich, aber weniger.
+  final DashboardData daten;
+
   const _TileEditor({
     this.vorhanden,
     this.zone = CustomTile.zoneRaster,
+    this.daten = const DashboardData(),
   });
 
   @override
@@ -109,28 +130,306 @@ class _TileEditorState extends State<_TileEditor> {
     });
   }
 
-  /// Zahl mit Plus und Minus – wie bisher.
-  Widget _zahlZeile(TileParam p, TextTheme text) {
-    final wert = (_werte[p.key] as num?)?.toInt() ?? p.standard;
-    return Row(
+  /// Die Kachel, wie sie gerade zusammengestellt ist — für die Vorschau und
+  /// zum Speichern. Eine Stelle, damit die Vorschau nicht etwas anderes
+  /// zeigt, als am Ende herauskommt.
+  CustomTile? get _entwurf {
+    if (_quelle == null || _darstellung == null) return null;
+    final titel = _titel.text.trim();
+    return CustomTile(
+      zone: widget.zone,
+      id: widget.vorhanden?.id ?? 'ct_${DateTime.now().microsecondsSinceEpoch}',
+      source: _quelle!.key,
+      view: _darstellung!.key,
+      title: titel.isEmpty ? null : titel,
+      params: Map<String, dynamic>.from(_werte),
+      filters: _filter,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bearbeiten = widget.vorhanden != null;
+
+    return Dialog.fullscreen(
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(bearbeiten ? 'Kachel bearbeiten' : 'Neue Kachel'),
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            tooltip: 'Abbrechen',
+            onPressed: () => Navigator.pop(context),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: FilledButton(
+                onPressed: _entwurf == null
+                    ? null
+                    : () => Navigator.pop(context, _entwurf),
+                child: Text(bearbeiten ? 'Speichern' : 'Hinzufügen'),
+              ),
+            ),
+          ],
+        ),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            // Ab dieser Breite passt die Vorschau daneben. Darunter kommt
+            // sie oben ans Formular – gequetscht nebeneinander wäre beides
+            // unlesbar.
+            final breit = constraints.maxWidth >= 900;
+            final formular = _formular();
+            final vorschau = _vorschau();
+
+            if (!breit) {
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 60),
+                children: [vorschau, const SizedBox(height: 32), ...formular],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(40, 32, 32, 60),
+                    children: formular,
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  flex: 2,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(32, 32, 40, 60),
+                    child: vorschau,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ── Die Vorschau ───────────────────────────────────────────────────────
+
+  Widget _vorschau() {
+    final text = Theme.of(context).textTheme;
+    final colors = Theme.of(context).colorScheme;
+    final entwurf = _entwurf;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: Text(p.label, style: text.bodyMedium)),
-        IconButton(
-          icon: const Icon(Icons.remove_circle_outline),
-          onPressed:
-              wert > p.min ? () => setState(() => _werte[p.key] = wert - 1) : null,
+        Text('Vorschau', style: text.titleSmall),
+        const SizedBox(height: 4),
+        Text(
+          'So sieht die Kachel gleich aus – mit deinen echten Daten.',
+          style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
         ),
-        SizedBox(
-          width: 32,
-          child: Text('$wert',
-              textAlign: TextAlign.center, style: text.titleMedium),
-        ),
-        IconButton(
-          icon: const Icon(Icons.add_circle_outline),
-          onPressed:
-              wert < p.max ? () => setState(() => _werte[p.key] = wert + 1) : null,
-        ),
+        const SizedBox(height: 16),
+        if (entwurf == null)
+          Container(
+            height: 160,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: colors.outlineVariant),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Wähle links, was angezeigt werden soll.',
+              style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          )
+        else
+          // Ohne Aktionsknopf und ohne Ziehgriff: hier wird gezeigt, wie sie
+          // aussieht, nicht was sie kann.
+          AbsorbPointer(
+            child: CustomTileCard(tile: entwurf, data: widget.daten),
+          ),
       ],
+    );
+  }
+
+  // ── Das Formular ───────────────────────────────────────────────────────
+
+  List<Widget> _formular() {
+    final passende =
+        _quelle == null ? <TileView>[] : TileViews.forShape(_quelle!.shape);
+
+    return [
+      _Schritt(
+        nummer: 1,
+        titel: 'Was soll angezeigt werden?',
+        erklaerung: 'Die Datenquelle. Sie bestimmt, was in der Kachel steht '
+            'und welche Darstellungen im nächsten Schritt zur Wahl stehen.',
+        child: _quellenwahl(),
+      ),
+      if (_quelle != null)
+        _Schritt(
+          nummer: 2,
+          titel: 'Wie soll es aussehen?',
+          erklaerung: passende.length == 1
+              ? 'Für diese Art von Daten gibt es genau eine sinnvolle '
+                  'Darstellung – deshalb steht hier nur eine zur Wahl.'
+              : 'Nur passende Darstellungen: eine Torte braucht Anteile, '
+                  'eine Linie einen Verlauf. Was nicht passt, steht gar '
+                  'nicht erst hier.',
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final v in passende)
+                ChoiceChip(
+                  avatar: Icon(v.icon, size: 20),
+                  label: Text(v.label),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 8),
+                  selected: _darstellung?.key == v.key,
+                  onSelected: (_) => setState(() => _darstellung = v),
+                ),
+            ],
+          ),
+        ),
+      if (_quelle != null && _quelle!.params.isNotEmpty)
+        _Schritt(
+          nummer: 3,
+          titel: 'Feineinstellung',
+          erklaerung: 'Wie viel und wie weit zurück. Die Vorschau ändert '
+              'sich sofort mit.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final p in _quelle!.params)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: p.art == ParamArt.zahl
+                      ? _zahlZeile(p)
+                      : _eingabeZeile(p),
+                ),
+            ],
+          ),
+        ),
+      if (_quelle != null && _quelle!.filterable)
+        _Schritt(
+          nummer: _quelle!.params.isNotEmpty ? 4 : 3,
+          titel: 'Nur bestimmte Einträge',
+          erklaerung: 'Bedingungen wie „Priorität ist hoch". Ohne Bedingung '
+              'zählt alles. Was du auswählen kannst, richtet sich nach dem '
+              'Datentyp der Spalte.',
+          child: FilterEditor(
+            fields: _quelle!.fields,
+            rules: _filter,
+            onChanged: (r) => setState(() => _filter = r),
+          ),
+        ),
+      if (_quelle != null)
+        _Schritt(
+          nummer: _naechsteNummer,
+          titel: 'Überschrift',
+          erklaerung: 'Freilassen genügt – dann steht der Name der '
+              'Datenquelle darüber.',
+          letzter: true,
+          child: TextField(
+            controller: _titel,
+            decoration: InputDecoration(
+              labelText: 'Eigene Überschrift',
+              hintText: _quelle!.label,
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+    ];
+  }
+
+  /// Die Nummer des letzten Schritts – hängt davon ab, welche davor
+  /// überhaupt vorkommen.
+  int get _naechsteNummer {
+    var n = 2;
+    if (_quelle!.params.isNotEmpty) n++;
+    if (_quelle!.filterable) n++;
+    return n + 1;
+  }
+
+  Widget _quellenwahl() {
+    final text = Theme.of(context).textTheme;
+    final colors = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final eintrag in TileCatalog.grouped.entries) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            child: Text(
+              eintrag.key,
+              style: text.labelMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final s in eintrag.value)
+                ChoiceChip(
+                  label: Text(s.label),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  selected: _quelle?.key == s.key,
+                  onSelected: (_) => _waehleQuelle(s),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Zahl mit Plus und Minus – jetzt mit Luft und mit dem Wert groß in der
+  /// Mitte, damit man ihn aus dem Augenwinkel liest.
+  Widget _zahlZeile(TileParam p) {
+    final text = Theme.of(context).textTheme;
+    final colors = Theme.of(context).colorScheme;
+    final wert = (_werte[p.key] as num?)?.toInt() ?? p.standard;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text(p.label, style: text.bodyLarge)),
+          IconButton(
+            icon: const Icon(Icons.remove_circle_outline),
+            tooltip: 'Weniger',
+            onPressed: wert > p.min
+                ? () => setState(() => _werte[p.key] = wert - 1)
+                : null,
+          ),
+          SizedBox(
+            width: 44,
+            child: Text('$wert',
+                textAlign: TextAlign.center,
+                style: text.titleLarge?.copyWith(color: colors.primary)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Mehr',
+            onPressed: wert < p.max
+                ? () => setState(() => _werte[p.key] = wert + 1)
+                : null,
+          ),
+        ],
+      ),
     );
   }
 
@@ -139,15 +438,16 @@ class _TileEditorState extends State<_TileEditor> {
     if (p.art == ParamArt.datum) {
       final roh = _werte[p.key]?.toString();
       final gewaehlt = roh == null || roh.isEmpty ? null : DateTime.tryParse(roh);
-      return ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.event_outlined),
-        title: Text(p.label),
-        subtitle: Text(gewaehlt == null
-            ? 'Noch kein Datum'
-            : '${gewaehlt.day}.${gewaehlt.month}.${gewaehlt.year}'),
-        trailing: const Icon(Icons.edit_calendar_outlined),
-        onTap: () async {
+      return OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          alignment: Alignment.centerLeft,
+        ),
+        icon: const Icon(Icons.event_outlined),
+        label: Text(gewaehlt == null
+            ? '${p.label}: noch keins gewählt'
+            : '${p.label}: ${gewaehlt.day}.${gewaehlt.month}.${gewaehlt.year}'),
+        onPressed: () async {
           final heute = DateTime.now();
           final d = await showDatePicker(
             context: context,
@@ -168,146 +468,90 @@ class _TileEditorState extends State<_TileEditor> {
 
     return TextField(
       controller: _feld(p),
-      maxLines: p.art == ParamArt.mehrzeilig ? 6 : 1,
-      minLines: p.art == ParamArt.mehrzeilig ? 3 : 1,
+      maxLines: p.art == ParamArt.mehrzeilig ? 8 : 1,
+      minLines: p.art == ParamArt.mehrzeilig ? 4 : 1,
       decoration: InputDecoration(
         labelText: p.label,
         hintText: p.platzhalter,
         alignLabelWithHint: true,
+        border: const OutlineInputBorder(),
       ),
-      onChanged: (v) => _werte[p.key] = v,
+      // Mitschreiben statt nur merken: sonst zeigt die Vorschau den Text
+      // erst nach dem Speichern.
+      onChanged: (v) => setState(() => _werte[p.key] = v),
     );
   }
+}
+
+/// Ein nummerierter Schritt mit Überschrift, Erklärung und Inhalt.
+///
+/// Die Erklärung ist der eigentliche Punkt: vorher stand über jedem
+/// Abschnitt eine Zeile wie „Feineinstellung" und sonst nichts.
+class _Schritt extends StatelessWidget {
+  final int nummer;
+  final String titel;
+  final String erklaerung;
+  final Widget child;
+  final bool letzter;
+
+  const _Schritt({
+    required this.nummer,
+    required this.titel,
+    required this.erklaerung,
+    required this.child,
+    this.letzter = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
-    final bearbeiten = widget.vorhanden != null;
-    final passende =
-        _quelle == null ? <TileView>[] : TileViews.forShape(_quelle!.shape);
 
-    return AlertDialog(
-      title: Text(bearbeiten ? 'Kachel bearbeiten' : 'Kachel hinzufügen'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: ListView(
-          shrinkWrap: true,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Quelle ──────────────────────────────────
-            Text('Was soll angezeigt werden?', style: text.labelLarge),
-            const SizedBox(height: 8),
-            for (final eintrag in TileCatalog.grouped.entries) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
-                child: Text(eintrag.key,
-                    style: text.labelSmall
-                        ?.copyWith(color: colors.onSurfaceVariant)),
+            Container(
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                shape: BoxShape.circle,
               ),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
+              child: Text('$nummer',
+                  style: text.labelLarge
+                      ?.copyWith(color: colors.onPrimaryContainer)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final s in eintrag.value)
-                    ChoiceChip(
-                      label: Text(s.label),
-                      selected: _quelle?.key == s.key,
-                      onSelected: (_) => _waehleQuelle(s),
-                    ),
-                ],
-              ),
-            ],
-
-            // ── Darstellung ─────────────────────────────
-            if (_quelle != null) ...[
-              const SizedBox(height: 20),
-              Text('Wie soll es aussehen?', style: text.labelLarge),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                children: [
-                  for (final v in passende)
-                    ChoiceChip(
-                      avatar: Icon(v.icon, size: 18),
-                      label: Text(v.label),
-                      selected: _darstellung?.key == v.key,
-                      onSelected: (_) => setState(() => _darstellung = v),
-                    ),
-                ],
-              ),
-              if (passende.length == 1)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Für diese Daten gibt es nur diese Darstellung.',
+                  Text(titel,
+                      style:
+                          text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(
+                    erklaerung,
                     style: text.bodySmall
-                        ?.copyWith(color: colors.onSurfaceVariant),
+                        ?.copyWith(color: colors.onSurfaceVariant, height: 1.4),
                   ),
-                ),
-            ],
-
-            // ── Feineinstellungen ───────────────────────
-            if (_quelle != null && _quelle!.params.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              Text('Feineinstellung', style: text.labelLarge),
-              for (final p in _quelle!.params)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: p.art == ParamArt.zahl
-                      ? _zahlZeile(p, text)
-                      : _eingabeZeile(p),
-                ),
-            ],
-
-            // ── Filter ──────────────────────────────────
-            if (_quelle != null && _quelle!.filterable) ...[
-              const SizedBox(height: 20),
-              FilterEditor(
-                fields: _quelle!.fields,
-                rules: _filter,
-                onChanged: (r) => setState(() => _filter = r),
+                ],
               ),
-            ],
-
-            // ── Titel ───────────────────────────────────
-            if (_quelle != null) ...[
-              const SizedBox(height: 20),
-              TextField(
-                controller: _titel,
-                decoration: InputDecoration(
-                  labelText: 'Eigene Überschrift (optional)',
-                  hintText: _quelle!.label,
-                ),
-              ),
-            ],
+            ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Abbrechen'),
+        // Eingerückt auf Höhe des Textes, damit die Nummer die Spalte führt.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(42, 16, 0, 0),
+          child: child,
         ),
-        FilledButton(
-          onPressed: (_quelle == null || _darstellung == null)
-              ? null
-              : () {
-                  final titel = _titel.text.trim();
-                  Navigator.pop(
-                    context,
-                    CustomTile(
-                      zone: widget.zone,
-                      id: widget.vorhanden?.id ??
-                          'ct_${DateTime.now().microsecondsSinceEpoch}',
-                      source: _quelle!.key,
-                      view: _darstellung!.key,
-                      title: titel.isEmpty ? null : titel,
-                      params: Map<String, dynamic>.from(_werte),
-                      filters: _filter,
-                    ),
-                  );
-                },
-          child: Text(bearbeiten ? 'Speichern' : 'Hinzufügen'),
+        if (!letzter) const Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: Divider(height: 1),
         ),
       ],
     );

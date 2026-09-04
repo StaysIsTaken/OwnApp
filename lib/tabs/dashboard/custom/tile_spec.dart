@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_filter.dart';
 
@@ -79,6 +80,45 @@ class CustomTile {
   }
 }
 
+/// Die Schlüssel für [TileSource.extra] — Daten, die einen eigenen Aufruf
+/// brauchen.
+///
+/// Als Konstanten, damit ein Tippfehler beim Laden auffällt statt still
+/// eine Kachel leer zu lassen.
+class TileExtras {
+  TileExtras._();
+
+  static const String nachrichten = 'feed.nachrichten';
+  static const String witz = 'feed.witz';
+}
+
+/// Eine kleine Handlung, die eine Kachel an Ort und Stelle anbietet.
+///
+/// Bis hierher waren Kacheln reine Anzeige: sehen, tippen, auf der großen
+/// Seite landen. Auf einem Gerät in der Küche ist das ein Umweg — wer
+/// gerade sieht, dass Mittwoch frei ist, will den Termin dort eintragen
+/// und nicht erst durch die App wandern.
+///
+/// `ausfuehren` gibt zurück, ob wirklich etwas angelegt wurde; nur dann
+/// lädt die Seite neu. Ein abgebrochener Dialog soll nicht alles neu holen.
+class TileAktion {
+  final String label;
+  final IconData icon;
+
+  /// Ohne dieses Recht wird der Knopf nicht gezeigt. Ausblenden ist auch
+  /// hier Höflichkeit — abgesichert wird im Backend.
+  final String? recht;
+
+  final Future<bool> Function(BuildContext context) ausfuehren;
+
+  const TileAktion({
+    required this.label,
+    required this.icon,
+    required this.ausfuehren,
+    this.recht,
+  });
+}
+
 /// Was für eine Eingabe eine Einstellung braucht.
 ///
 /// Bisher waren alle Einstellungen Zahlen mit Plus/Minus. Für eigene
@@ -155,6 +195,21 @@ class TileSource {
   /// Felder, nach denen gefiltert werden kann – Schlüssel → Feld.
   final Map<String, FilterField> fields;
 
+  /// Was die Kachel direkt an Ort und Stelle anlegen kann – „+ Termin" auf
+  /// der Wochenansicht, „+ Aufgabe" auf der Aufgabenkachel.
+  ///
+  /// Null heißt: die Kachel zeigt nur an. Das ist der Normalfall; eine
+  /// Verteilung anzulegen ergibt keinen Sinn.
+  final TileAktion? aktion;
+
+  /// Eine Quelle, die **nicht** aus den ohnehin geladenen Daten rechnet,
+  /// sondern einen eigenen Aufruf braucht (Schlüssel aus [TileExtras]).
+  ///
+  /// Damit weiß die Seite vorher, was sie holen muss — und holt Nachrichten
+  /// eben nur, wenn auch eine Nachrichtenkachel da ist. Ohne das fragte
+  /// jede Übersicht den Feed ab, auch die ohne eine einzige solche Kachel.
+  final String? extra;
+
   final TileData Function(
     DashboardData data,
     Map<String, dynamic> params,
@@ -170,6 +225,8 @@ class TileSource {
     this.params = const [],
     this.route,
     this.fields = const {},
+    this.aktion,
+    this.extra,
   });
 
   bool get filterable => fields.isNotEmpty;
@@ -190,6 +247,11 @@ class DashboardData {
   final Map<String, dynamic> sentimentStats;
   final Map<String, dynamic> ingredientMap;
 
+  /// Von draußen geholt, über die eigene API. Leer, solange keine Kachel
+  /// danach fragt — siehe [TileSource.extra].
+  final List<dynamic> nachrichten;
+  final String? witz;
+
   const DashboardData({
     this.tasks = const [],
     this.timeEntries = const [],
@@ -200,5 +262,7 @@ class DashboardData {
     this.journalEntries = const [],
     this.sentimentStats = const {},
     this.ingredientMap = const {},
+    this.nachrichten = const [],
+    this.witz,
   });
 }

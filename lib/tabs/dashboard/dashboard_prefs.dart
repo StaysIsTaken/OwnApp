@@ -3,6 +3,20 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:productivity/dataservice/dashboard_layout_service.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
+import 'package:productivity/tabs/dashboard/seiten_einstellungen.dart';
+
+/// Der komplette Stand einer Seite: Reihenfolge, Ausgeblendetes, eigene
+/// Kacheln und was für die ganze Seite gilt.
+///
+/// Als benannter Typ statt eines anonymen Datensatzes, weil er inzwischen
+/// an vier Stellen auftaucht — und weil ein fünftes Feld sonst jede davon
+/// anfasst.
+typedef Seitenstand = ({
+  List<String> order,
+  Set<String> hidden,
+  List<CustomTile> tiles,
+  SeitenEinstellungen einstellungen,
+});
 
 /// Anordnung der Kacheln einer Übersichtsseite.
 ///
@@ -70,32 +84,31 @@ class DashboardPrefs {
   static String _orderKey(String d) => 'dash_order_v2_$d';
   static String _hiddenKey(String d) => 'dash_hidden_v2_$d';
   static String _tilesKey(String d) => 'dash_tiles_v2_$d';
+  static String _settingsKey(String d) => 'dash_settings_v2_$d';
 
   // ── Laden ────────────────────────────────────────────────────────────────
 
   /// Holt die Anordnung. Fällt bei jedem Problem lautlos auf die nächste
   /// Stufe zurück — die Übersichtsseite soll immer erscheinen.
-  static Future<
-      ({
-        List<String> order,
-        Set<String> hidden,
-        List<CustomTile> tiles
-      })> load(String dashboardKey) async {
+  static Future<Seitenstand> load(String dashboardKey) async {
     try {
       final remote = await DashboardLayoutService.load(dashboardKey);
       if (remote.configured) {
-        await _cache(dashboardKey, remote.order, remote.hidden, remote.tiles);
+        await _cache(dashboardKey, remote.order, remote.hidden, remote.tiles,
+            remote.einstellungen);
         return (
           order: _normalize(dashboardKey, remote.order, remote.tiles),
           hidden: remote.hidden,
           tiles: remote.tiles,
+          einstellungen: remote.einstellungen,
         );
       }
       // Noch nie eingerichtet: Standard, aber kein Fehler.
       return (
         order: defaultOrder(dashboardKey),
         hidden: <String>{},
-        tiles: <CustomTile>[]
+        tiles: <CustomTile>[],
+        einstellungen: SeitenEinstellungen.leer,
       );
     } catch (_) {
       // Netz weg, zu langsam, Server kaputt — der lokale Stand tut es auch.
@@ -103,16 +116,12 @@ class DashboardPrefs {
     }
   }
 
-  static Future<
-      ({
-        List<String> order,
-        Set<String> hidden,
-        List<CustomTile> tiles
-      })> _loadCached(String dashboardKey) async {
+  static Future<Seitenstand> _loadCached(String dashboardKey) async {
     final leer = (
       order: defaultOrder(dashboardKey),
       hidden: <String>{},
-      tiles: <CustomTile>[]
+      tiles: <CustomTile>[],
+      einstellungen: SeitenEinstellungen.leer,
     );
     try {
       final p = await SharedPreferences.getInstance();
@@ -126,10 +135,15 @@ class DashboardPrefs {
           tiles.add(CustomTile.fromJson(e as Map<String, dynamic>));
         }
       }
+      final rohEinst = p.getString(_settingsKey(dashboardKey));
       return (
         order: _normalize(dashboardKey, order, tiles),
         hidden: (p.getStringList(_hiddenKey(dashboardKey)) ?? const []).toSet(),
         tiles: tiles,
+        einstellungen: rohEinst == null || rohEinst.isEmpty
+            ? SeitenEinstellungen.leer
+            : SeitenEinstellungen.fromJson(
+                (jsonDecode(rohEinst) as Map).cast<String, dynamic>()),
       );
     } catch (_) {
       return leer;
@@ -148,14 +162,16 @@ class DashboardPrefs {
     List<String> order,
     Set<String> hidden, {
     List<CustomTile> tiles = const [],
+    SeitenEinstellungen einstellungen = SeitenEinstellungen.leer,
   }) async {
-    await _cache(dashboardKey, order, hidden, tiles);
+    await _cache(dashboardKey, order, hidden, tiles, einstellungen);
     try {
       await DashboardLayoutService.save(
         dashboardKey,
         order: order,
         hidden: hidden,
         tiles: tiles,
+        einstellungen: einstellungen,
       );
       return true;
     } catch (_) {
@@ -168,6 +184,7 @@ class DashboardPrefs {
     List<String> order,
     Set<String> hidden,
     List<CustomTile> tiles,
+    SeitenEinstellungen einstellungen,
   ) async {
     try {
       final p = await SharedPreferences.getInstance();
@@ -175,6 +192,8 @@ class DashboardPrefs {
       await p.setStringList(_hiddenKey(dashboardKey), hidden.toList());
       await p.setString(_tilesKey(dashboardKey),
           jsonEncode(tiles.map((t) => t.toJson()).toList()));
+      await p.setString(
+          _settingsKey(dashboardKey), jsonEncode(einstellungen.toJson()));
     } catch (_) {
       // Kein lokaler Speicher (z.B. eingeschränkter Browser) — nicht schlimm.
     }
@@ -187,7 +206,8 @@ class DashboardPrefs {
     } catch (_) {
       // Auch ohne Backend lokal zurücksetzen.
     }
-    await _cache(dashboardKey, defaultOrder(dashboardKey), <String>{}, const []);
+    await _cache(dashboardKey, defaultOrder(dashboardKey), <String>{}, const [],
+        SeitenEinstellungen.leer);
   }
 
   // ── Hilfen ───────────────────────────────────────────────────────────────
