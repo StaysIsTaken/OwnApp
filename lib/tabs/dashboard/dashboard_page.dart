@@ -4,6 +4,7 @@ import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/dataservice/rechte_zuordnung.dart';
 import 'package:productivity/provider/permission_provider.dart';
+import 'package:productivity/widgets/tablet_switch.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/pantry_extras.dart';
@@ -428,6 +429,10 @@ class _DashboardContentState extends State<_DashboardContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Der Küchenmodus-Schalter. Zeigt sich nur, wer ihn
+                  // benutzen darf – sonst gäbe es nichts einzuschalten.
+                  const TabletSwitch(),
+
                   // 1.-4. Kopfbereich – in der gespeicherten Reihenfolge
                   // und im Bearbeitungsmodus genauso verschiebbar wie die
                   // Kacheln darunter.

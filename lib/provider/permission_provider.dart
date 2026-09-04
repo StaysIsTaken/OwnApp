@@ -46,6 +46,10 @@ class PermissionProvider extends ChangeNotifier {
 
   bool get darfVerwalten => darf('admin:roles') || darf('admin:users');
 
+  /// Darf die Tablet-Ansicht benutzen. Nur dann erscheint der Schalter auf
+  /// der Startseite — ohne das Recht gäbe es dort nichts einzuschalten.
+  bool get darfTablet => darf('tablet:use');
+
   Future<void> laden() async {
     try {
       final r = await ApiClient.dio.get('/users/me/permissions');
