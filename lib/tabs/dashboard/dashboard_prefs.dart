@@ -24,9 +24,20 @@ class DashboardPrefs {
   static const String keyDashboard = 'dashboard';
   static const String keyHome = 'home';
 
+  /// Die Karten über der Übersicht. Sie liegen in derselben gespeicherten
+  /// Reihenfolge wie die übrigen, werden aber in voller Breite gezeigt und
+  /// bleiben unter sich: eine Begrüßung im dreispaltigen Raster sähe
+  /// merkwürdig aus, und ein Aufgaben-Kärtchen über der Begrüßung ebenso.
+  static const List<String> kopfSchluessel = [
+    'greeting', 'quickactions', 'todayfocus', 'agenda',
+  ];
+
+  static bool istKopf(String schluessel) => kopfSchluessel.contains(schluessel);
+
   /// Kacheln je Seite, in Standardreihenfolge.
   static const Map<String, List<String>> _defaults = {
     keyDashboard: [
+      'greeting', 'quickactions', 'todayfocus', 'agenda',
       'tasks', 'time', 'shopping', 'pantry', 'mealplan', 'journal', 'notes',
     ],
     keyHome: [
@@ -35,6 +46,11 @@ class DashboardPrefs {
   };
 
   static const Map<String, String> labels = {
+    // Kopfbereich
+    'greeting': 'Begrüßung',
+    'quickactions': 'Schnellzugriff',
+    'todayfocus': 'Heute im Blick',
+    'agenda': 'Heutige Termine',
     // Dashboard
     'tasks': 'Aufgaben',
     'time': 'Zeit',

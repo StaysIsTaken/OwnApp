@@ -26,6 +26,8 @@ TimeEntry zeit(DateTime start, Duration dauer) => TimeEntry(
     );
 
 void main() {
+  _diagramme();
+
   final heute = DateTime.now();
 
   group('Katalog', () {
@@ -288,6 +290,67 @@ void main() {
     test('jede Quelle hat eine Route zum Anklicken', () {
       for (final s in TileCatalog.sources) {
         expect(s.route, isNotNull, reason: 'Keine Route für ${s.key}');
+      }
+    });
+  });
+}
+
+// ── Diagramme und die neuen Quellen ────────────────────────────────────
+
+void _diagramme() {
+  group('Darstellungen passen zur Datenform', () {
+    test('Torte nimmt nur Verteilungen', () {
+      // Ein Kuchenstück je Tag wäre zeichenbar, würde aber nichts aussagen.
+      final torte = TileViews.byKey('pie')!;
+      expect(torte.accepts.contains(TileShape.distribution), isTrue);
+      expect(torte.accepts.contains(TileShape.series), isFalse);
+    });
+
+    test('Linie nimmt nur Verläufe', () {
+      // Eine Linie durch Kategorien suggeriert einen Zusammenhang, den es
+      // nicht gibt.
+      final linie = TileViews.byKey('line')!;
+      expect(linie.accepts, {TileShape.series});
+    });
+
+    test('Balken nehmen beides', () {
+      expect(TileViews.byKey('bars')!.accepts,
+          {TileShape.series, TileShape.distribution});
+    });
+
+    test('zu jeder Datenform gibt es mindestens eine Darstellung', () {
+      for (final form in TileShape.values) {
+        expect(TileViews.forShape(form), isNotEmpty, reason: form.name);
+      }
+    });
+
+    test('jede Quelle findet eine passende Darstellung', () {
+      // Sonst stünde im Editor eine Quelle, die sich nicht anzeigen lässt.
+      for (final quelle in TileCatalog.sources) {
+        expect(TileViews.forShape(quelle.shape), isNotEmpty,
+            reason: quelle.key);
+      }
+    });
+  });
+
+  group('Neue Quellen', () {
+    test('es gibt jetzt mehrere Verteilungen für Tortendiagramme', () {
+      final verteilungen = TileCatalog.sources
+          .where((q) => q.shape == TileShape.distribution)
+          .map((q) => q.key)
+          .toList();
+      expect(verteilungen.length, greaterThanOrEqualTo(4), reason: '$verteilungen');
+    });
+
+    test('Quellenschlüssel sind eindeutig', () {
+      final keys = TileCatalog.sources.map((q) => q.key).toList();
+      expect(keys.length, keys.toSet().length);
+    });
+
+    test('jede Quelle hat einen Bereich und eine Beschriftung', () {
+      for (final q in TileCatalog.sources) {
+        expect(q.label.trim(), isNotEmpty, reason: q.key);
+        expect(q.group.trim(), isNotEmpty, reason: q.key);
       }
     });
   });

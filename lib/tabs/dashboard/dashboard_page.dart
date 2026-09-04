@@ -161,6 +161,11 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   /// Verschiebt `from` an die Stelle von `to` und speichert sofort.
   Future<void> _moveTile(String from, String to) async {
+    // Kopfkarten bleiben oben, Übersichtskacheln bleiben im Raster. Ein
+    // Zug über die Grenze wäre technisch möglich, sähe aber falsch aus:
+    // die Begrüßung ist auf volle Breite gebaut, ein Aufgabenkärtchen nicht.
+    if (DashboardPrefs.istKopf(from) != DashboardPrefs.istKopf(to)) return;
+
     final order = List<String>.from(_widgetOrder);
     final alt = order.indexOf(from);
     final neu = order.indexOf(to);
@@ -423,33 +428,10 @@ class _DashboardContentState extends State<_DashboardContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 1. Greeting Header
-                  GreetingHeader(
-                    tasksDueToday: _getTasksDueToday().length,
-                    lowPantryItems: _getLowPantryItems().length,
-                    forecast: _weather,
-                    weatherLoading: _weatherLoading,
-                    onRefreshWeather: _loadWeather,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 2. Quick Actions
-                  const QuickActions(),
-                  const SizedBox(height: 20),
-
-                  // 3. Today Focus Card
-                  TodayFocusCard(
-                    tasksDueToday: _getTasksDueToday().length,
-                    timeTrackedToday: _getTimeTrackedToday(),
-                    todayMealPlan: _getTodayMealPlan(),
-                    recipes: _recipes,
-                    estimatedShoppingCost: _getEstimatedShoppingCost(),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // 4. Heutige Termine (Planner)
-                  TodayAgendaWidget(entries: _getTodayPlanner()),
-                  const SizedBox(height: 24),
+                  // 1.-4. Kopfbereich – in der gespeicherten Reihenfolge
+                  // und im Bearbeitungsmodus genauso verschiebbar wie die
+                  // Kacheln darunter.
+                  ..._buildKopf(),
 
                   // 5. Anpassbares Widget-Raster
                   CollapsibleSection(
@@ -531,6 +513,53 @@ class _DashboardContentState extends State<_DashboardContent> {
       if (eintrag.value == recht) return eintrag.key;
     }
     return null;
+  }
+
+  /// Die Karten über der Übersicht, in gespeicherter Reihenfolge.
+  List<Widget> _buildKopf() {
+    final rechte = context.watch<PermissionProvider>();
+
+    final byKey = <String, Widget>{
+      'greeting': GreetingHeader(
+        tasksDueToday: _getTasksDueToday().length,
+        lowPantryItems: _getLowPantryItems().length,
+        forecast: _weather,
+        weatherLoading: _weatherLoading,
+        onRefreshWeather: _loadWeather,
+      ),
+      'quickactions': const QuickActions(),
+      'todayfocus': TodayFocusCard(
+        tasksDueToday: _getTasksDueToday().length,
+        timeTrackedToday: _getTimeTrackedToday(),
+        todayMealPlan: _getTodayMealPlan(),
+        recipes: _recipes,
+        estimatedShoppingCost: _getEstimatedShoppingCost(),
+      ),
+      'agenda': TodayAgendaWidget(entries: _getTodayPlanner()),
+    };
+
+    // "Heutige Termine" ohne Planer-Recht wegzulassen ist dieselbe Regel
+    // wie im Raster darunter.
+    const rechtJeKopfkarte = {'agenda': 'planner:read'};
+
+    final sichtbar = _widgetOrder.where((k) =>
+        byKey.containsKey(k) &&
+        !_hidden.contains(k) &&
+        (rechtJeKopfkarte[k] == null || rechte.darf(rechtJeKopfkarte[k]!)));
+
+    final ergebnis = <Widget>[];
+    for (final k in sichtbar) {
+      ergebnis.add(ReorderableTile(
+        key: ValueKey('kopf_$k'),
+        tileKey: k,
+        enabled: _arranging,
+        onReorder: _moveTile,
+        child: byKey[k]!,
+      ));
+      ergebnis.add(const SizedBox(height: 16));
+    }
+    if (ergebnis.isNotEmpty) ergebnis.add(const SizedBox(height: 8));
+    return ergebnis;
   }
 
   Widget _buildWidgetGrid(bool isDesktop, bool isTablet) {
@@ -616,7 +645,11 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
 
     final sichtbar = _widgetOrder
-        .where((k) => !_hidden.contains(k) && byKey.containsKey(k) && erlaubt(k))
+        .where((k) =>
+            !DashboardPrefs.istKopf(k) &&
+            !_hidden.contains(k) &&
+            byKey.containsKey(k) &&
+            erlaubt(k))
         .toList();
 
     final widgets = sichtbar

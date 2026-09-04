@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/widgets/platform_draggable.dart';
 
-/// Umhüllt eine Dashboard-Kachel, damit sie per Drag & Drop umsortiert
-/// werden kann.
+/// Umhüllt eine Dashboard-Karte, damit sie umsortiert werden kann.
 ///
-/// Nutzt `platformDraggable`: auf Desktop und Web zieht man direkt, auf
-/// Touch-Geräten erst nach langem Drücken. Sonst würde jeder Wischversuch
-/// zum Scrollen stattdessen eine Kachel aufnehmen.
+/// **Gezogen wird am Griff**, nicht an der Karte. Die drei Striche oben
+/// rechts erscheinen nur im Bearbeitungsmodus. Vorher war die ganze Karte
+/// ziehbar — dabei verrutscht beim Antippen leicht etwas, und man sieht der
+/// Karte nicht an, dass sie sich bewegen lässt.
+///
+/// Fallen lassen kann man dagegen überall auf der Zielkarte: das Ziel muss
+/// leicht zu treffen sein, die Quelle bewusst gegriffen.
 class ReorderableTile extends StatefulWidget {
-  /// Schlüssel dieser Kachel (z.B. 'tasks').
+  /// Schlüssel dieser Karte (z.B. 'tasks').
   final String tileKey;
   final Widget child;
 
-  /// Wird gerufen, wenn `from` auf diese Kachel fallen gelassen wurde.
+  /// Wird gerufen, wenn `from` auf diese Karte fallen gelassen wurde.
   final void Function(String from, String to) onReorder;
 
-  /// Solange false, verhält sich die Kachel wie vorher — kein Ziehen.
+  /// Solange false, verhält sich die Karte wie vorher — kein Griff, kein Ziehen.
   final bool enabled;
 
   const ReorderableTile({
@@ -40,7 +43,6 @@ class _ReorderableTileState extends State<ReorderableTile> {
     final colors = Theme.of(context).colorScheme;
 
     return DragTarget<String>(
-      // Auf sich selbst fallen lassen ergibt keine Änderung.
       onWillAcceptWithDetails: (d) {
         final ok = d.data != widget.tileKey;
         if (ok && !_hovering) setState(() => _hovering = true);
@@ -63,25 +65,53 @@ class _ReorderableTileState extends State<ReorderableTile> {
               width: 2,
             ),
           ),
-          child: platformDraggable<String>(
-            data: widget.tileKey,
-            // Beim Ziehen eine verkleinerte, angehobene Kopie zeigen.
-            feedback: Material(
-              color: Colors.transparent,
-              child: Opacity(
-                opacity: 0.9,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 340),
-                  child: Transform.scale(scale: 0.95, child: widget.child),
-                ),
-              ),
-            ),
-            // Der Platz bleibt sichtbar, damit das Raster nicht springt.
-            childWhenDragging: Opacity(opacity: 0.25, child: widget.child),
-            child: widget.child,
+          child: Stack(
+            children: [
+              widget.child,
+              Positioned(top: 6, right: 6, child: _griff(colors)),
+            ],
           ),
         );
       },
+    );
+  }
+
+  /// Die drei Striche. Nur sie nehmen die Karte auf.
+  Widget _griff(ColorScheme colors) {
+    final knopf = Material(
+      color: colors.primary,
+      shape: const CircleBorder(),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Icon(Icons.drag_indicator, size: 20, color: colors.onPrimary),
+      ),
+    );
+
+    return Tooltip(
+      message: usesDirectDrag
+          ? 'Zum Verschieben hier ziehen'
+          : 'Gedrückt halten und ziehen',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: platformDraggable<String>(
+          data: widget.tileKey,
+          // Beim Ziehen die ganze Karte als verkleinerte Kopie zeigen –
+          // nicht nur den Griff, sonst weiss man nicht, was man bewegt.
+          feedback: Material(
+            color: Colors.transparent,
+            child: Opacity(
+              opacity: 0.9,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 340),
+                child: Transform.scale(scale: 0.95, child: widget.child),
+              ),
+            ),
+          ),
+          childWhenDragging: Opacity(opacity: 0.4, child: knopf),
+          child: knopf,
+        ),
+      ),
     );
   }
 }

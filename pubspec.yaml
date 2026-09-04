@@ -33,6 +33,9 @@ dependencies:
   # dem Geraet, flutter_secure_storage legt die Zugangsdaten in die Keychain
   # (iOS) bzw. den Keystore (Android) statt in SharedPreferences.
   local_auth: ^2.3.0
+  # Diagramme fuer die selbst zusammengestellten Kacheln. Reines Dart,
+  # laeuft auf allen Plattformen einschliesslich Web.
+  fl_chart: ^0.69.0
   flutter_secure_storage: ^9.2.2
 
 dev_dependencies:
