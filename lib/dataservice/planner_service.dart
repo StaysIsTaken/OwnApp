@@ -7,9 +7,25 @@ class PlannerService {
   PlannerService._();
   static const String _path = '/planner';
 
-  static Future<List<PlannerEntry>> loadAll() async {
+  /// Termine laden.
+  ///
+  /// [kalender] schränkt auf bestimmte Kalender ein — `null` heißt alle
+  /// sichtbaren, eine leere Liste heißt keiner. Der Unterschied ist
+  /// gewollt: eine Seite muss sich auch ganz leer schalten lassen.
+  ///
+  /// [alle] holt zusätzlich die Termine der übrigen Personen (private
+  /// ausgenommen, das entscheidet das Backend). Verlangt `planner:read_all`.
+  static Future<List<PlannerEntry>> loadAll({
+    List<int>? kalender,
+    bool alle = false,
+  }) async {
     try {
-      final response = await ApiClient.dio.get(_path);
+      final response = await ApiClient.dio.get(_path, queryParameters: {
+        if (alle) 'alle': true,
+        // Absichtlich auch bei leerer Liste mitschicken: der Server
+        // unterscheidet "kein Parameter" (alle) von "leer" (keiner).
+        if (kalender != null) 'kalender': kalender.join(','),
+      });
       if (response.statusCode == 200) {
         final List<dynamic> items = response.data is List ? response.data : [];
         final topLevel = items

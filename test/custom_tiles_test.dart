@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/time_entry.dart';
+import 'package:productivity/dataservice/feed_service.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_filter.dart';
@@ -30,6 +31,10 @@ void main() {
   _wochenansicht();
 
   _kopfbloecke();
+
+  _aktionen();
+
+  _vonDraussen();
 
   _diagramme();
 
@@ -558,6 +563,152 @@ void _wochenansicht() {
     test('nur die Wochenansicht nimmt diese Datenform', () {
       final passende = TileViews.forShape(TileShape.schedule);
       expect(passende.map((v) => v.key), ['week']);
+    });
+  });
+}
+
+
+// ── Kleine Aktionen je Kachel ──────────────────────────────────────────
+
+void _aktionen() {
+  group('Aktionen', () {
+    test('die Wochenansicht kann einen Termin anlegen', () {
+      // Der eigentliche Punkt: wer sieht, dass Mittwoch frei ist, soll ihn
+      // dort eintragen können statt erst durch die App zu wandern.
+      final aktion = TileCatalog.byKey('planner.week')!.aktion;
+      expect(aktion, isNotNull);
+      expect(aktion!.recht, 'planner:write');
+    });
+
+    test('die Aufgabenkacheln können eine Aufgabe anlegen', () {
+      for (final key in ['tasks.open', 'tasks.due']) {
+        final aktion = TileCatalog.byKey(key)!.aktion;
+        expect(aktion, isNotNull, reason: '\$key hat keine Aktion');
+        expect(aktion!.recht, 'tasks:write');
+      }
+    });
+
+    test('reine Auswertungen haben keine Aktion', () {
+      // Eine Verteilung "anzulegen" ergibt keinen Sinn – der Knopf wäre nur
+      // im Weg.
+      for (final key in ['tasks.by_state', 'time.per_day', 'planner.by_type']) {
+        expect(TileCatalog.byKey(key)!.aktion, isNull, reason: key);
+      }
+    });
+
+    test('jede Aktion nennt ein Recht aus dem Katalog', () {
+      // Ein Tippfehler im Recht hieße: der Knopf erscheint nie, ohne dass es
+      // jemandem auffällt.
+      const bekannt = {'planner:write', 'tasks:write'};
+      for (final s in TileCatalog.sources) {
+        final r = s.aktion?.recht;
+        if (r != null) expect(bekannt, contains(r), reason: s.key);
+      }
+    });
+
+    test('jede Aktion hat eine Beschriftung', () {
+      for (final s in TileCatalog.sources) {
+        if (s.aktion != null) expect(s.aktion!.label, isNotEmpty, reason: s.key);
+      }
+    });
+  });
+}
+
+// ── Nachrichten und Witze ──────────────────────────────────────────────
+
+void _vonDraussen() {
+  Meldung meldung(String titel, {String text = '', String ressort = ''}) =>
+      Meldung(titel: titel, text: text, ressort: ressort, quelle: 'tagesschau.de');
+
+  group('Von draußen', () {
+    test('Nachrichten werden zur Liste', () {
+      final quelle = TileCatalog.byKey('kopf.nachrichten')!;
+      final d = quelle.build(
+        DashboardData(nachrichten: [meldung('Erstes', text: 'Dazu ein Satz.')]),
+        const {'anzahl': 3},
+        const [],
+      );
+      expect(d.items.first.title, 'Erstes');
+      expect(d.items.first.subtitle, 'Dazu ein Satz.');
+    });
+
+    test('die eingestellte Anzahl schneidet zu', () {
+      final quelle = TileCatalog.byKey('kopf.nachrichten')!;
+      final d = quelle.build(
+        DashboardData(nachrichten: [
+          for (var i = 0; i < 8; i++) meldung('M\$i'),
+        ]),
+        const {'anzahl': 2},
+        const [],
+      );
+      expect(d.items.length, 2);
+    });
+
+    test('ohne Meldungen steht ein Hinweis statt einer leeren Fläche', () {
+      final d = TileCatalog.byKey('kopf.nachrichten')!
+          .build(const DashboardData(), const {}, const []);
+      expect(d.isEmpty, isTrue);
+      expect(d.emptyHint, isNotEmpty);
+    });
+
+    test('die Schlagzeile nimmt die erste Meldung', () {
+      final d = TileCatalog.byKey('kopf.schlagzeile')!.build(
+        DashboardData(nachrichten: [
+          meldung('Ganz oben', ressort: 'inland'),
+          meldung('Darunter'),
+        ]),
+        const {},
+        const [],
+      );
+      expect(d.body, 'Ganz oben');
+      expect(d.footnote, contains('inland'));
+    });
+
+    test('der Witz kommt als Text an', () {
+      final d = TileCatalog.byKey('kopf.witz')!
+          .build(const DashboardData(witz: 'Haha'), const {}, const []);
+      expect(d.body, 'Haha');
+    });
+
+    test('ohne Witz steht ein Hinweis', () {
+      final d = TileCatalog.byKey('kopf.witz')!
+          .build(const DashboardData(), const {}, const []);
+      expect(d.isEmpty, isTrue);
+    });
+  });
+
+  group('Was zusätzlich geholt werden muss', () {
+    // Der Grund für das Ganze: ohne diese Auskunft fragte jede Übersicht den
+    // Feed ab – auch die, auf der keine einzige solche Kachel liegt.
+    CustomTile kachel(String quelle) =>
+        CustomTile(id: quelle, source: quelle, view: 'text');
+
+    test('ohne solche Kacheln wird nichts geholt', () {
+      expect(TileCatalog.extras([kachel('tasks.open'), kachel('kopf.quote')]),
+          isEmpty);
+    });
+
+    test('eine Nachrichtenkachel meldet ihren Bedarf an', () {
+      expect(TileCatalog.extras([kachel('kopf.nachrichten')]),
+          {TileExtras.nachrichten});
+    });
+
+    test('zwei Kacheln derselben Quelle ergeben einen Bedarf', () {
+      // Sonst würde zweimal geholt, was einmal reicht.
+      expect(
+        TileCatalog.extras([kachel('kopf.nachrichten'), kachel('kopf.schlagzeile')]),
+        {TileExtras.nachrichten},
+      );
+    });
+
+    test('Nachrichten und Witz sind zwei getrennte Bedarfe', () {
+      expect(TileCatalog.extras([kachel('kopf.nachrichten'), kachel('kopf.witz')]),
+          {TileExtras.nachrichten, TileExtras.witz});
+    });
+
+    test('eine unbekannte Quelle stört nicht', () {
+      // Eine Kachel aus einer neueren Version darf das Laden nicht abreißen.
+      expect(TileCatalog.extras([kachel('gibtsnicht')]), isEmpty);
     });
   });
 }

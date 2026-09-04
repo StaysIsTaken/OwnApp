@@ -53,6 +53,9 @@ import 'package:productivity/dataservice/note_service.dart';
 import 'package:productivity/dataservice/journal_service.dart';
 import 'package:productivity/dataservice/journal_analysis_service.dart';
 import 'package:productivity/dataservice/planner_service.dart';
+import 'package:productivity/dataservice/feed_service.dart';
+import 'package:productivity/tabs/dashboard/kalender_auswahl.dart';
+import 'package:productivity/tabs/dashboard/seiten_einstellungen.dart';
 
 class DashboardPage extends BasePage {
   const DashboardPage({super.key}) : super(title: 'Dashboard');
@@ -91,6 +94,13 @@ class _DashboardContentState extends State<_DashboardContent> {
   List<JournalEntry> _journalEntries = [];
   List<PlannerEntry> _plannerEntries = [];
   Map<String, dynamic> _sentimentStats = {};
+
+  /// Von draußen geholt — nur, wenn eine Kachel danach fragt.
+  List<Meldung> _nachrichten = [];
+  String? _witz;
+
+  /// Was für die ganze Seite gilt: welche Kalender sie zeigt.
+  SeitenEinstellungen _einstellungen = SeitenEinstellungen.leer;
 
   // Dashboard-Anpassung (Reihenfolge + ausgeblendete Kacheln)
   List<String> _widgetOrder =
@@ -157,7 +167,11 @@ class _DashboardContentState extends State<_DashboardContent> {
       _widgetOrder = layout.order;
       _hidden = layout.hidden;
       _customTiles = layout.tiles;
+      _einstellungen = layout.einstellungen;
     });
+    // Erst jetzt steht fest, welche Kalender gelten und welche Kacheln
+    // Nachrichten brauchen — deshalb hier noch einmal laden.
+    await _loadData(silent: true);
   }
 
   /// Verschiebt `from` an die Stelle von `to` und speichert sofort.
@@ -186,7 +200,8 @@ class _DashboardContentState extends State<_DashboardContent> {
     List<CustomTile> tiles,
   ) async {
     final gespeichert = await DashboardPrefs.save(
-      DashboardPrefs.keyDashboard, order, hidden, tiles: tiles);
+      DashboardPrefs.keyDashboard, order, hidden,
+      tiles: tiles, einstellungen: _einstellungen);
     if (!mounted) return;
     if (!gespeichert) {
       // Lokal ist es gesichert, nur der Abgleich fehlt.
@@ -196,7 +211,7 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   /// Legt eine eigene Kachel an und stellt sie nach oben.
   Future<void> _addCustomTile({String zone = CustomTile.zoneRaster}) async {
-    final neu = await showTileEditor(context, zone: zone);
+    final neu = await showTileEditor(context, zone: zone, daten: _dashboardDaten());
     if (neu == null || !mounted) return;
     final tiles = [..._customTiles, neu];
     final order = [neu.id, ..._widgetOrder];
@@ -207,13 +222,24 @@ class _DashboardContentState extends State<_DashboardContent> {
     await _persist(order, _hidden, tiles);
   }
 
+  /// Welche Kalender diese Seite zeigt.
+  Future<void> _kalenderWaehlen() async {
+    final neu = await zeigeKalenderAuswahl(context, aktuell: _einstellungen);
+    if (neu == null || !mounted) return;
+    setState(() => _einstellungen = neu);
+    await _persist(_widgetOrder, _hidden, _customTiles);
+    await _loadData(silent: true);
+  }
+
   Future<void> _editCustomTile(CustomTile tile) async {
-    final geaendert = await showTileEditor(context, vorhanden: tile);
+    final geaendert = await showTileEditor(context,
+        vorhanden: tile, daten: _dashboardDaten());
     if (geaendert == null || !mounted) return;
     final tiles =
         _customTiles.map((t) => t.id == tile.id ? geaendert : t).toList();
     setState(() => _customTiles = tiles);
     await _persist(_widgetOrder, _hidden, tiles);
+    await _loadData(silent: true);
   }
 
   Future<void> _deleteCustomTile(CustomTile tile) async {
@@ -336,7 +362,13 @@ class _DashboardContentState extends State<_DashboardContent> {
         hole('shops', ShopService.loadAll), // 7
         hole('notes', NoteService.loadAll), // 8
         hole('journal', JournalService.loadAll), // 9
-        hole('planner', PlannerService.loadAll), // 10
+        // Nur die Kalender, die diese Seite zeigen soll.
+        hole(
+            'planner',
+            () => PlannerService.loadAll(
+                  kalender: _einstellungen.kalender,
+                  alle: _einstellungen.alleKalender,
+                )), // 10
       ]);
 
       Map<String, dynamic> sentimentStats = {};
@@ -347,6 +379,17 @@ class _DashboardContentState extends State<_DashboardContent> {
           dateTo: now,
         );
       } catch (_) {}
+
+      // Nachrichten und Witz gehen ins Netz und werden nur geholt, wenn
+      // eine Kachel danach fragt. Ohne das fragte jede Übersicht den Feed
+      // ab, auch die ohne eine einzige solche Kachel.
+      final gebraucht = TileCatalog.extras(_customTiles);
+      final nachrichten = gebraucht.contains(TileExtras.nachrichten)
+          ? await _stillHolen(() => FeedService.nachrichten(anzahl: 10))
+          : const <Meldung>[];
+      final witz = gebraucht.contains(TileExtras.witz)
+          ? await _stillHolen(() => FeedService.witz())
+          : null;
 
       final shoppingItems = results[1] as List<ShoppingListItem>;
 
@@ -379,6 +422,8 @@ class _DashboardContentState extends State<_DashboardContent> {
         _notes = results[8] as List<Note>;
         _journalEntries = results[9] as List<JournalEntry>;
         _plannerEntries = results[10] as List<PlannerEntry>;
+        _nachrichten = nachrichten ?? const [];
+        _witz = witz;
         _pricesByItemId = priceMap;
         _sentimentStats = sentimentStats;
         _gesperrteQuellen = gesperrt;
@@ -455,12 +500,20 @@ class _DashboardContentState extends State<_DashboardContent> {
                     sectionKey: 'dashboard.uebersicht',
                     title: 'Übersicht',
                     actions: [
-                      if (_arranging)
+                      if (_arranging) ...[
                         IconButton(
                           icon: const Icon(Icons.add_rounded),
                           tooltip: 'Kachel hinzufügen',
                           onPressed: _addCustomTile,
                         ),
+                        // Gilt fuer die ganze Seite, nicht fuer eine Kachel
+                        // – deshalb hier oben und nicht im Kacheleditor.
+                        IconButton(
+                          icon: const Icon(Icons.calendar_month_outlined),
+                          tooltip: 'Welche Kalender diese Seite zeigt',
+                          onPressed: _kalenderWaehlen,
+                        ),
+                      ],
                       IconButton(
                         icon: Icon(_arranging
                             ? Icons.check_rounded
@@ -544,7 +597,19 @@ class _DashboardContentState extends State<_DashboardContent> {
         journalEntries: _journalEntries,
         sentimentStats: _sentimentStats,
         ingredientMap: _ingredientMap,
+        nachrichten: _nachrichten,
+        witz: _witz,
       );
+
+  /// Holt etwas, das ausfallen darf. Ein Feed, der nicht antwortet, lässt
+  /// eine Kachel leer — er reißt die Übersicht nicht ab.
+  Future<T?> _stillHolen<T>(Future<T> Function() laden) async {
+    try {
+      return await laden();
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Die Karten über der Übersicht, in gespeicherter Reihenfolge.
   List<Widget> _buildKopf() {
@@ -579,6 +644,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         arranging: _arranging,
         onEdit: () => _editCustomTile(t),
         onDelete: () => _deleteCustomTile(t),
+        onGeaendert: () => _loadData(silent: true),
       );
     }
 
@@ -663,6 +729,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         arranging: _arranging,
         onEdit: () => _editCustomTile(t),
         onDelete: () => _deleteCustomTile(t),
+        onGeaendert: () => _loadData(silent: true),
       );
     }
 

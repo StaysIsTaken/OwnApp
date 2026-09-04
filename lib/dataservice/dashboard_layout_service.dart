@@ -1,11 +1,15 @@
 import 'package:productivity/dataservice/api_client.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
+import 'package:productivity/tabs/dashboard/seiten_einstellungen.dart';
 
 /// Anordnung einer Übersichtsseite, wie sie vom Backend kommt.
 class DashboardLayout {
   final List<String> order;
   final Set<String> hidden;
   final List<CustomTile> tiles;
+
+  /// Was für die ganze Seite gilt – etwa welche Kalender sie zeigt.
+  final SeitenEinstellungen einstellungen;
 
   /// False = für diesen Nutzer wurde noch nie etwas gespeichert.
   /// Dann gilt die Standardanordnung, nicht "alles ausgeblendet".
@@ -16,6 +20,7 @@ class DashboardLayout {
     required this.hidden,
     required this.configured,
     this.tiles = const [],
+    this.einstellungen = SeitenEinstellungen.leer,
   });
 
   static const empty =
@@ -44,6 +49,8 @@ class DashboardLayoutService {
       tiles: (d['tiles'] as List<dynamic>? ?? [])
           .map((e) => CustomTile.fromJson(e as Map<String, dynamic>))
           .toList(),
+      einstellungen: SeitenEinstellungen.fromJson(
+          (d['settings'] as Map?)?.cast<String, dynamic>()),
     );
   }
 
@@ -52,6 +59,7 @@ class DashboardLayoutService {
     required List<String> order,
     required Set<String> hidden,
     List<CustomTile> tiles = const [],
+    SeitenEinstellungen einstellungen = SeitenEinstellungen.leer,
   }) async {
     await ApiClient.dio.put(
       '$_path/$dashboardKey',
@@ -59,6 +67,7 @@ class DashboardLayoutService {
         'order': order,
         'hidden': hidden.toList(),
         'tiles': tiles.map((t) => t.toJson()).toList(),
+        'settings': einstellungen.toJson(),
       },
     );
   }

@@ -8,6 +8,7 @@ import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/tabs/dashboard/custom/filter_fields.dart';
 import 'package:productivity/tabs/dashboard/custom/kopf_quellen.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_actions.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_filter.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 
@@ -47,6 +48,7 @@ class TileCatalog {
     TileSource(
       key: 'planner.upcoming',
       route: AppRoutes.planner,
+      aktion: TileAktionen.termin(),
       fields: FilterFields.termine,
       label: 'Nächste Termine',
       group: 'Planer',
@@ -96,6 +98,7 @@ class TileCatalog {
     TileSource(
       key: 'planner.week',
       route: AppRoutes.planner,
+      aktion: TileAktionen.termin(),
       fields: FilterFields.termine,
       label: 'Wochenansicht',
       group: 'Planer',
@@ -183,6 +186,7 @@ class TileCatalog {
     TileSource(
       key: 'tasks.open',
       route: AppRoutes.tasks,
+      aktion: TileAktionen.aufgabe,
       fields: FilterFields.aufgaben,
       label: 'Offene Aufgaben',
       group: 'Aufgaben',
@@ -198,6 +202,7 @@ class TileCatalog {
     TileSource(
       key: 'tasks.due',
       route: AppRoutes.tasks,
+      aktion: TileAktionen.aufgabe,
       fields: FilterFields.aufgaben,
       label: 'Bald fällige Aufgaben',
       group: 'Aufgaben',
@@ -423,6 +428,15 @@ class TileCatalog {
       },
     ),
   ];
+
+  /// Welche zusätzlichen Daten diese Kacheln brauchen.
+  ///
+  /// Damit holt eine Seite Nachrichten nur, wenn auch eine
+  /// Nachrichtenkachel darauf liegt. Ohne das fragte jede Übersicht den
+  /// Feed ab — auch die, auf der nichts davon steht.
+  static Set<String> extras(Iterable<CustomTile> kacheln) => {
+        for (final k in kacheln) ?byKey(k.source)?.extra,
+      };
 
   static TileSource? byKey(String key) {
     for (final s in sources) {

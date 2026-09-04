@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
+import 'package:provider/provider.dart';
 
 /// Stellt eine selbst zusammengestellte Kachel dar.
 ///
@@ -15,6 +17,11 @@ class CustomTileCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
+  /// Wird gerufen, nachdem eine Kachelaktion wirklich etwas angelegt hat —
+  /// die Seite lädt dann neu, damit der neue Termin sofort im Raster steht.
+  /// Ein abgebrochener Dialog löst nichts aus.
+  final VoidCallback? onGeaendert;
+
   const CustomTileCard({
     super.key,
     required this.tile,
@@ -22,6 +29,7 @@ class CustomTileCard extends StatelessWidget {
     this.arranging = false,
     this.onEdit,
     this.onDelete,
+    this.onGeaendert,
   });
 
   @override
@@ -48,11 +56,27 @@ class CustomTileCard extends StatelessWidget {
 
     final ergebnis = source.build(data, tile.params, tile.filters);
 
+    // Im Bearbeitungsmodus keine Aktion: dort wird gezogen und geändert,
+    // nicht eingetragen. Und ohne das Recht bleibt sie weg — Ausblenden
+    // ist Höflichkeit, geprüft wird im Backend.
+    final aktion = source.aktion;
+    final zeigeAktion = aktion != null &&
+        !arranging &&
+        (aktion.recht == null ||
+            context.watch<PermissionProvider>().darf(aktion.recht!));
+
     return _Rahmen(
       titel: tile.title?.isNotEmpty == true ? tile.title! : source.label,
       arranging: arranging,
       onEdit: onEdit,
       onDelete: onDelete,
+      aktion: zeigeAktion ? aktion : null,
+      onAktion: zeigeAktion
+          ? () async {
+              final angelegt = await aktion.ausfuehren(context);
+              if (angelegt) onGeaendert?.call();
+            }
+          : null,
       // Im Bearbeitungsmodus nicht navigieren – dort wird gezogen.
       onTap: (!arranging && source.route != null)
           ? () => Navigator.pushNamed(context, source.route!)
@@ -76,6 +100,8 @@ class _Rahmen extends StatelessWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onTap;
   final int filterCount;
+  final TileAktion? aktion;
+  final VoidCallback? onAktion;
 
   const _Rahmen({
     required this.titel,
@@ -85,6 +111,8 @@ class _Rahmen extends StatelessWidget {
     this.onDelete,
     this.onTap,
     this.filterCount = 0,
+    this.aktion,
+    this.onAktion,
   });
 
   @override
@@ -124,6 +152,16 @@ class _Rahmen extends StatelessWidget {
                       child: Icon(Icons.filter_alt_outlined,
                           size: 16, color: colors.onSurfaceVariant),
                     ),
+                  ),
+                // Vor dem Pfeil: die Aktion ist das, was man hier tun kann,
+                // der Pfeil führt nur woandershin.
+                if (aktion != null && onAktion != null)
+                  IconButton(
+                    icon: Icon(aktion!.icon, size: 20),
+                    tooltip: '${aktion!.label} anlegen',
+                    visualDensity: VisualDensity.compact,
+                    color: colors.primary,
+                    onPressed: onAktion,
                   ),
                 if (onTap != null && !arranging)
                   Icon(Icons.chevron_right_rounded,

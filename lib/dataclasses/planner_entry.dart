@@ -34,6 +34,15 @@ class PlannerEntry {
   final int? parentId;
   final List<PlannerEntry> children;
 
+  /// In welchem Kalender der Termin liegt. Null heißt: noch keinem
+  /// zugeordnet — das gibt es bei Terminen aus der Zeit vor den Kalendern.
+  final int? calendarId;
+
+  /// Privat: taucht auch bei „alle Kalender" nicht bei anderen auf.
+  /// Steht hier, damit die Oberfläche es kennzeichnen kann; verborgen wird
+  /// im Backend, nicht hier.
+  final bool istPrivat;
+
   PlannerEntry({
     required this.id,
     required this.userId,
@@ -55,6 +64,8 @@ class PlannerEntry {
     required this.createdAt,
     this.parentId,
     this.children = const [],
+    this.calendarId,
+    this.istPrivat = false,
   });
 
   factory PlannerEntry.fromJson(Map<String, dynamic> json) {
@@ -91,6 +102,8 @@ class PlannerEntry {
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
       parentId: json['parent_id'],
+      calendarId: (json['calendar_id'] as num?)?.toInt(),
+      istPrivat: json['is_private'] == true,
       children: json['children'] != null
           ? (json['children'] as List)
               .map((c) => PlannerEntry.fromJson(c as Map<String, dynamic>))
@@ -116,6 +129,8 @@ class PlannerEntry {
       'color': color,
       'created_at': createdAt.toIso8601String(),
       'parent_id': parentId,
+      'calendar_id': calendarId,
+      'is_private': istPrivat,
       'children': children.map((c) => c.toJson()).toList(),
     };
   }
@@ -141,6 +156,8 @@ class PlannerEntry {
     DateTime? createdAt,
     int? parentId,
     List<PlannerEntry>? children,
+    int? calendarId,
+    bool? istPrivat,
   }) {
     return PlannerEntry(
       id: id ?? this.id,
@@ -163,6 +180,8 @@ class PlannerEntry {
       createdAt: createdAt ?? this.createdAt,
       parentId: parentId ?? this.parentId,
       children: children ?? this.children,
+      calendarId: calendarId ?? this.calendarId,
+      istPrivat: istPrivat ?? this.istPrivat,
     );
   }
 
