@@ -42,6 +42,12 @@ class TileWeekView extends StatelessWidget {
 
     // Zeitbereich aus den Terminen statt 0–24 Uhr: in einer Kachel ist
     // Platz knapp, und ein leerer Vormittag verschenkt die halbe Fläche.
+    //
+    // Auf einer Küchenseite, wo die Wochenansicht allein die ganze Seite
+    // füllt, gilt das nicht mehr: dort soll sie aussehen wie im Planner,
+    // mit dem ganzen Tag und scrollbar. Entschieden wird das an der Höhe,
+    // die tatsächlich zur Verfügung steht — nicht an einer Einstellung,
+    // die noch jemand pflegen müsste.
     var vonStunde = 8;
     var bisStunde = 20;
     if (imRaster.isNotEmpty) {
@@ -52,22 +58,34 @@ class TileWeekView extends StatelessWidget {
       vonStunde = (vonStunde - 1).clamp(0, 23);
       bisStunde = (bisStunde + 1).clamp(vonStunde + 3, 24);
     }
-    final stunden = bisStunde - vonStunde;
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        final zeitBreite = 34.0;
+        // Ab dieser Höhe ist Platz für den ganzen Tag – das ist der Fall,
+        // wenn die Kachel eine Seite für sich hat.
+        final grossflaechig = constraints.maxHeight >= _grosseAnsichtAb;
+        final von = grossflaechig ? 0 : vonStunde;
+        final bis = grossflaechig ? 24 : bisStunde;
+        final anzahlStunden = bis - von;
+
+        final zeitBreite = grossflaechig ? 52.0 : 34.0;
         final tagBreite = (constraints.maxWidth - zeitBreite) / 7;
-        final rasterHoehe = (constraints.maxHeight -
-                _kopfHoehe -
+
+        final kopfHoehe = grossflaechig ? _kopfHoeheGross : _kopfHoehe;
+        final sichtbareHoehe = (constraints.maxHeight -
+                kopfHoehe -
                 (ganztags.isEmpty ? 0 : _ganztagsHoehe))
             .clamp(80.0, double.infinity);
-        final stundenHoehe = rasterHoehe / stunden;
+        // Große Ansicht: feste Stundenhöhe wie im Planner und scrollbar.
+        // Kleine: alles muss auf einmal hineinpassen.
+        final stundenHoehe =
+            grossflaechig ? _stundenHoeheGross : sichtbareHoehe / anzahlStunden;
+        final rasterHoehe =
+            grossflaechig ? stundenHoehe * anzahlStunden : sichtbareHoehe;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _kopf(context, start, zeitBreite, tagBreite),
+            _kopf(context, start, zeitBreite, tagBreite, grossflaechig),
             if (ganztags.isNotEmpty)
               _ganztagsStreifen(context, start, ganztags, zeitBreite, tagBreite),
             Expanded(
@@ -76,12 +94,12 @@ class TileWeekView extends StatelessWidget {
                   height: rasterHoehe,
                   child: Stack(
                     children: [
-                      _raster(colors, vonStunde, stunden, stundenHoehe,
-                          zeitBreite, tagBreite),
+                      _raster(colors, von, anzahlStunden, stundenHoehe,
+                          zeitBreite, tagBreite, grossflaechig),
                       for (final e in imRaster)
-                        ..._termin(context, e, start, vonStunde, stundenHoehe,
+                        ..._termin(context, e, start, von, stundenHoehe,
                             zeitBreite, tagBreite),
-                      ..._jetztLinie(colors, start, vonStunde, stundenHoehe,
+                      ..._jetztLinie(colors, start, von, stundenHoehe,
                           zeitBreite, tagBreite),
                     ],
                   ),
@@ -94,16 +112,29 @@ class TileWeekView extends StatelessWidget {
     );
   }
 
-  static const double _kopfHoehe = 30;
+  /// Die Kopfzeile mit Wochentag und Datum.
+  ///
+  /// 34 statt 30: bei 30 lief die Spalte aus Wochentag und Tageszahl um
+  /// genau einen Pixel ueber. In Release faellt das nicht auf, weil dort
+  /// still abgeschnitten wird — im Debug sind es die Streifen. Gefunden
+  /// hat es der erste Widget-Test dieses Projekts.
+  static const double _kopfHoehe = 34;
+  static const double _kopfHoeheGross = 52;
   static const double _ganztagsHoehe = 26;
 
+  /// Ab dieser Höhe zeigt die Kachel den ganzen Tag statt eines Ausschnitts.
+  static const double _grosseAnsichtAb = 420;
+
+  /// Wie im Planner – dort sind es 64 Pixel je Stunde.
+  static const double _stundenHoeheGross = 56;
+
   Widget _kopf(BuildContext context, DateTime start, double zeitBreite,
-      double tagBreite) {
+      double tagBreite, bool gross) {
     final colors = Theme.of(context).colorScheme;
     final heute = DateTime.now();
 
     return SizedBox(
-      height: _kopfHoehe,
+      height: gross ? _kopfHoeheGross : _kopfHoehe,
       child: Row(
         children: [
           SizedBox(width: zeitBreite),
@@ -120,13 +151,18 @@ class TileWeekView extends StatelessWidget {
                   children: [
                     Text(_tage[i],
                         style: TextStyle(
-                            fontSize: 10,
+                            fontSize: gross ? 13 : 10,
+                            // Zeilenhoehe festgenagelt: mit der Vorgabe der
+                            // Schrift passt die Spalte je nach Plattform
+                            // gerade so nicht mehr.
+                            height: 1.1,
                             color: istHeute ? colors.primary : colors.outline,
                             fontWeight:
                                 istHeute ? FontWeight.bold : FontWeight.normal)),
                     Text('${tag.day}',
                         style: TextStyle(
-                            fontSize: 12,
+                            fontSize: gross ? 18 : 12,
+                            height: 1.15,
                             color: istHeute ? colors.primary : colors.onSurface,
                             fontWeight:
                                 istHeute ? FontWeight.bold : FontWeight.w500)),
@@ -182,7 +218,7 @@ class TileWeekView extends StatelessWidget {
   }
 
   Widget _raster(ColorScheme colors, int vonStunde, int stunden,
-      double stundenHoehe, double zeitBreite, double tagBreite) {
+      double stundenHoehe, double zeitBreite, double tagBreite, bool gross) {
     // Bei engem Raster nicht jede Stunde beschriften – sonst klebt die
     // Zeitspalte zu.
     final schritt = stundenHoehe < 22 ? 3 : (stundenHoehe < 34 ? 2 : 1);
@@ -200,9 +236,15 @@ class TileWeekView extends StatelessWidget {
                 SizedBox(
                   width: zeitBreite,
                   child: (i % schritt == 0)
-                      ? Text('${vonStunde + i}',
+                      ? Text(
+                          // In der großen Ansicht wie im Planner: 07:00
+                          // statt einer nackten 7.
+                          gross
+                              ? '${(vonStunde + i).toString().padLeft(2, '0')}:00'
+                              : '${vonStunde + i}',
                           textAlign: TextAlign.right,
-                          style: TextStyle(fontSize: 9, color: colors.outline))
+                          style: TextStyle(
+                              fontSize: gross ? 11 : 9, color: colors.outline))
                       : const SizedBox(),
                 ),
                 Expanded(
