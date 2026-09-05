@@ -27,6 +27,7 @@ import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/tabs/dashboard/dashboard_prefs.dart';
 import 'package:productivity/tabs/dashboard/kalender_auswahl.dart';
 import 'package:productivity/tabs/dashboard/seiten_einstellungen.dart';
+import 'package:productivity/tabs/tablet/kalender_leiste.dart';
 import 'package:productivity/widgets/dashboard/reorderable_tile.dart';
 import 'package:provider/provider.dart';
 
@@ -164,10 +165,20 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
   }
 
   Future<void> _kalenderWaehlen() async {
-    final neu = await zeigeKalenderAuswahl(context, aktuell: _einstellungen);
-    if (neu == null || !mounted) return;
-    setState(() => _einstellungen = neu);
+    final wunsch = await zeigeKalenderAuswahl(
+      context,
+      aktuell: _einstellungen,
+      hatTerminkachel: TileCatalog.zeigtTermine(_kacheln),
+    );
+    if (wunsch == null || !mounted) return;
+    setState(() => _einstellungen = wunsch.einstellungen);
     await _speichern();
+    if (wunsch.kachelAnlegen && mounted) {
+      // Der Filter allein zeigt nichts – wer ihn auf einer leeren Seite
+      // setzt, wollte eine Kalenderkachel.
+      await _kachelHinzufuegen();
+      return;
+    }
     await _datenLaden();
   }
 
@@ -225,44 +236,25 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
         .whereType<CustomTile>()
         .toList();
 
+    // Die Leiste steht nur da, wo sie etwas bedeutet: auf einer Seite ohne
+    // Terminkachel waere sie ein Schalter ohne Wirkung.
+    final zeigtTermine = TileCatalog.zeigtTermine(sichtbar);
+
     return Stack(
       children: [
-        RefreshIndicator(
-          onRefresh: _laden,
-          child: sichtbar.isEmpty
-              ? _leer()
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Zwei Spalten statt drei: lieber grosse Kacheln als
-                    // viele. Auf einem Geraet an der Wand zaehlt Lesbarkeit
-                    // mehr als Dichte.
-                    final spalten = constraints.maxWidth >= 1100 ? 3 : 2;
-                    return GridView.count(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
-                      crossAxisCount: spalten,
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: 1.35,
-                      children: [
-                        for (final k in sichtbar)
-                          ReorderableTile(
-                            key: ValueKey(k.id),
-                            tileKey: k.id,
-                            enabled: _bearbeiten,
-                            onReorder: _verschieben,
-                            child: CustomTileCard(
-                              tile: k,
-                              data: _daten,
-                              arranging: _bearbeiten,
-                              onEdit: () => _kachelBearbeiten(k),
-                              onDelete: () => _kachelLoeschen(k),
-                              onGeaendert: _datenLaden,
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+        Column(
+          children: [
+            if (zeigtTermine)
+              KalenderLeiste(
+                einstellungen: _einstellungen,
+                onGeaendert: (neu) async {
+                  setState(() => _einstellungen = neu);
+                  await _speichern();
+                  await _datenLaden();
+                },
+              ),
+            Expanded(child: _raster(sichtbar)),
+          ],
         ),
         if (_fehler != null)
           Positioned(
@@ -282,22 +274,29 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           child: Row(
             children: [
               if (_bearbeiten) ...[
+                // Beschriftet statt nur bebildert: zwei gleich grosse
+                // runde Knoepfe nebeneinander liessen offen, dass der eine
+                // anlegt und der andere nur filtert.
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: FloatingActionButton.large(
+                  child: FloatingActionButton.extended(
                     heroTag: 'kalender',
-                    tooltip: 'Welche Kalender diese Seite zeigt',
+                    tooltip: 'Nur festlegen, welche Kalender gezeigt werden',
                     onPressed: _kalenderWaehlen,
-                    child: const Icon(Icons.calendar_month_rounded, size: 30),
+                    icon: const Icon(Icons.filter_alt_outlined, size: 26),
+                    label: const Text('Kalender filtern',
+                        style: TextStyle(fontSize: 16)),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: FloatingActionButton.large(
+                  child: FloatingActionButton.extended(
                     heroTag: 'neu',
-                    tooltip: 'Kachel hinzufügen',
+                    tooltip: 'Eine neue Kachel auf diese Seite legen',
                     onPressed: _kachelHinzufuegen,
-                    child: const Icon(Icons.add_rounded, size: 32),
+                    icon: const Icon(Icons.add_rounded, size: 28),
+                    label: const Text('Kachel',
+                        style: TextStyle(fontSize: 16)),
                   ),
                 ),
               ],
@@ -316,6 +315,61 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
     );
   }
 
+  /// Die Kacheln der Seite.
+  ///
+  /// Eine einzelne Kachel bekommt die ganze Flaeche: eine Wochenansicht
+  /// allein auf der Seite soll aussehen wie im Planner und nicht wie ein
+  /// Kaertchen mit viel Weiss daneben.
+  Widget _raster(List<CustomTile> sichtbar) {
+    if (sichtbar.isEmpty) {
+      return RefreshIndicator(onRefresh: _laden, child: _leer());
+    }
+
+    Widget karte(CustomTile k) => ReorderableTile(
+          key: ValueKey(k.id),
+          tileKey: k.id,
+          enabled: _bearbeiten,
+          onReorder: _verschieben,
+          child: CustomTileCard(
+            tile: k,
+            data: _daten,
+            arranging: _bearbeiten,
+            onEdit: () => _kachelBearbeiten(k),
+            onDelete: () => _kachelLoeschen(k),
+            onGeaendert: _datenLaden,
+          ),
+        );
+
+    if (sichtbar.length == 1) {
+      return RefreshIndicator(
+        onRefresh: _laden,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
+          child: karte(sichtbar.first),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _laden,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Zwei Spalten statt drei: lieber grosse Kacheln als viele. Auf
+          // einem Geraet an der Wand zaehlt Lesbarkeit mehr als Dichte.
+          final spalten = constraints.maxWidth >= 1100 ? 3 : 2;
+          return GridView.count(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
+            crossAxisCount: spalten,
+            crossAxisSpacing: 20,
+            mainAxisSpacing: 20,
+            childAspectRatio: 1.35,
+            children: [for (final k in sichtbar) karte(k)],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _leer() => ListView(
         children: [
           const SizedBox(height: 120),
@@ -324,7 +378,8 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           const SizedBox(height: 20),
           const Text(
             'Diese Seite ist noch leer.\n'
-            'Auf den Stift tippen und Kacheln hinzufügen.',
+            'Auf den Stift tippen, dann „Kachel" — für einen Kalender die '
+            'Monatsansicht wählen.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 18, height: 1.4),
           ),

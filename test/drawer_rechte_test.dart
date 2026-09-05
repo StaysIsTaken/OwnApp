@@ -34,6 +34,32 @@ Future<void> _zeige(WidgetTester tester, Set<String> rechte) async {
 
 void main() {
 
+  testWidgets('kein Menüpunkt heißt wie ein anderer', (tester) async {
+    // „Kalender" gab es schon für die Kalenderansicht. Ein zweiter Eintrag
+    // desselben Namens für die Verwaltung war schlicht nicht zu finden –
+    // genau das ist passiert, und genau das faellt hier jetzt auf.
+    await _zeige(tester, {'*'});
+
+    final beschriftungen = tester
+        .widgetList<Text>(find.descendant(
+          of: find.byType(ListTile),
+          matching: find.byType(Text),
+        ))
+        .map((t) => t.data)
+        .whereType<String>()
+        .toList();
+
+    final doppelte = beschriftungen
+        .where((n) => beschriftungen.where((m) => m == n).length > 1)
+        .toSet();
+    expect(doppelte, isEmpty, reason: 'Doppelt vergebene Menünamen: $doppelte');
+  });
+
+  testWidgets('die Kalenderverwaltung steht im Menü', (tester) async {
+    await _zeige(tester, {'*'});
+    expect(find.text('Kalender verwalten'), findsOneWidget);
+  });
+
   testWidgets('mit allen Rechten steht alles im Menü', (tester) async {
     await _zeige(tester, {'*'});
     expect(find.text('Vorräte'), findsOneWidget);

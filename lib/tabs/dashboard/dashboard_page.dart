@@ -224,10 +224,18 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   /// Welche Kalender diese Seite zeigt.
   Future<void> _kalenderWaehlen() async {
-    final neu = await zeigeKalenderAuswahl(context, aktuell: _einstellungen);
-    if (neu == null || !mounted) return;
-    setState(() => _einstellungen = neu);
+    final wunsch = await zeigeKalenderAuswahl(
+      context,
+      aktuell: _einstellungen,
+      hatTerminkachel: TileCatalog.zeigtTermine(_customTiles),
+    );
+    if (wunsch == null || !mounted) return;
+    setState(() => _einstellungen = wunsch.einstellungen);
     await _persist(_widgetOrder, _hidden, _customTiles);
+    if (wunsch.kachelAnlegen && mounted) {
+      await _addCustomTile();
+      return;
+    }
     await _loadData(silent: true);
   }
 

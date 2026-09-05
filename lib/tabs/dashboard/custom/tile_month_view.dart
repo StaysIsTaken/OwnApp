@@ -132,31 +132,49 @@ class TileMonthView extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              width: 18,
-              height: 18,
-              alignment: Alignment.center,
-              decoration: istHeute
-                  ? BoxDecoration(color: colors.primary, shape: BoxShape.circle)
-                  : null,
-              child: Text(
-                '$tagesnummer',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: istHeute ? FontWeight.bold : FontWeight.normal,
-                  color: istHeute ? colors.onPrimary : colors.onSurface,
+      // Die Zelle richtet sich nach ihrer Hoehe. In einem Monatsraster auf
+      // einer kleinen Kachel bleiben je Tag keine dreissig Pixel — dort
+      // passt die Tageszahl und sonst nichts, und das muss sie sagen
+      // duerfen, statt ueberzulaufen.
+      child: LayoutBuilder(
+        builder: (context, zelle) {
+          final zahlHoehe = zelle.maxHeight < 30 ? 12.0 : 18.0;
+          final platzFuerTermine = zelle.maxHeight - zahlHoehe - 2;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  width: zahlHoehe,
+                  height: zahlHoehe,
+                  alignment: Alignment.center,
+                  decoration: istHeute
+                      ? BoxDecoration(
+                          color: colors.primary, shape: BoxShape.circle)
+                      : null,
+                  child: FittedBox(
+                    child: Text(
+                      '$tagesnummer',
+                      style: TextStyle(
+                        fontSize: 10,
+                        height: 1.0,
+                        fontWeight:
+                            istHeute ? FontWeight.bold : FontWeight.normal,
+                        color: istHeute ? colors.onPrimary : colors.onSurface,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Expanded(child: _eintraege(context, eintraege)),
-        ],
+              // Unter etwa zehn Pixeln passt kein Streifen mehr hinein –
+              // dann lieber gar keiner als ein abgeschnittener.
+              if (platzFuerTermine >= 10)
+                Expanded(child: _eintraege(context, eintraege)),
+            ],
+          );
+        },
       ),
     );
   }
