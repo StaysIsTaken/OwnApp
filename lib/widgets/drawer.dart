@@ -133,10 +133,13 @@ class _DrawerWidgetState extends State<DrawerWidget>
       label: 'Termin-Typen',
       route: AppRoutes.plannerTypes,
     ),
+    // „Kalender verwalten", nicht „Kalender": weiter oben steht bereits ein
+    // Eintrag dieses Namens, der die Kalenderansicht oeffnet. Zwei gleich
+    // benannte Menuepunkte sind kein Menue, sondern ein Ratespiel.
     NavItem(
-      icon: Icons.calendar_month_outlined,
-      iconActive: Icons.calendar_month_rounded,
-      label: 'Kalender',
+      icon: Icons.edit_calendar_outlined,
+      iconActive: Icons.edit_calendar_rounded,
+      label: 'Kalender verwalten',
       route: AppRoutes.kalender,
     ),
   ];
