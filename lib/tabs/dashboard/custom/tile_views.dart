@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_charts.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_month_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_week_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 
@@ -55,6 +56,13 @@ class TileViews {
       icon: Icons.calendar_view_week_rounded,
       accepts: const {TileShape.schedule},
       build: (ctx, d) => TileWeekView(data: d),
+    ),
+    TileView(
+      key: 'month',
+      label: 'Monatsansicht',
+      icon: Icons.calendar_month_rounded,
+      accepts: const {TileShape.schedule},
+      build: (ctx, d) => TileMonthView(data: d),
     ),
     TileView(
       key: 'bars',

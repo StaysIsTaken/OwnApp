@@ -30,6 +30,8 @@ TimeEntry zeit(DateTime start, Duration dauer) => TimeEntry(
 void main() {
   _wochenansicht();
 
+  _monatsansicht();
+
   _kopfbloecke();
 
   _aktionen();
@@ -560,9 +562,16 @@ void _wochenansicht() {
       expect(r.emptyHint, isNotEmpty);
     });
 
-    test('nur die Wochenansicht nimmt diese Datenform', () {
-      final passende = TileViews.forShape(TileShape.schedule);
-      expect(passende.map((v) => v.key), ['week']);
+    test('Termine nehmen nur Kalenderdarstellungen', () {
+      // Stand hier frueher als 'genau week' – seit es die Monatsansicht
+      // gibt, war das zu eng. Gemeint war immer: eine Torte oder eine Linie
+      // kann mit Terminen nichts anfangen.
+      final passende =
+          TileViews.forShape(TileShape.schedule).map((v) => v.key).toSet();
+      expect(passende, {'week', 'month'});
+      for (final key in ['pie', 'bars', 'line', 'stat', 'list', 'text']) {
+        expect(passende, isNot(contains(key)));
+      }
     });
   });
 }
@@ -709,6 +718,84 @@ void _vonDraussen() {
     test('eine unbekannte Quelle stört nicht', () {
       // Eine Kachel aus einer neueren Version darf das Laden nicht abreißen.
       expect(TileCatalog.extras([kachel('gibtsnicht')]), isEmpty);
+    });
+  });
+}
+
+
+// ── Monatsansicht ──────────────────────────────────────────────────────
+
+void _monatsansicht() {
+  PlannerEntry termin(String titel, DateTime start) => PlannerEntry(
+        id: start.millisecondsSinceEpoch,
+        userId: 'u',
+        title: titel,
+        scheduledAt: start,
+        endsAt: start.add(const Duration(hours: 1)),
+        createdAt: DateTime(2026),
+      );
+
+  TileData bauen(List<PlannerEntry> termine, {int versatz = 0}) =>
+      TileCatalog.byKey('planner.month')!.build(
+        DashboardData(plannerEntries: termine),
+        {'months': versatz},
+        const [],
+      );
+
+  group('Monatsansicht', () {
+    final heute = DateTime.now();
+
+    test('sie nimmt nur den gewaehlten Monat', () {
+      final drin = DateTime(heute.year, heute.month, 15, 10);
+      final naechster = DateTime(heute.year, heute.month + 1, 15, 10);
+      final d = bauen([termin('Drin', drin), termin('Danach', naechster)]);
+      expect(d.schedule.map((e) => e.title), ['Drin']);
+    });
+
+    test('der Versatz verschiebt den Monat', () {
+      final naechster = DateTime(heute.year, heute.month + 1, 15, 10);
+      final d = bauen([termin('Danach', naechster)], versatz: 1);
+      expect(d.schedule.map((e) => e.title), ['Danach']);
+    });
+
+    test('der Anker sagt, welcher Monat gemeint ist', () {
+      // Ohne ihn zeichnete die Kachel den heutigen Monat, waehrend die
+      // Quelle einen versetzten liefert – das Raster bliebe leer.
+      final d = bauen(const [], versatz: 2);
+      final erwartet = DateTime(heute.year, heute.month + 2);
+      expect(d.anker, isNotNull);
+      expect(d.anker!.year, erwartet.year);
+      expect(d.anker!.month, erwartet.month);
+      expect(d.anker!.day, 1);
+    });
+
+    test('die Wochenansicht ankert auf ihren Montag', () {
+      final d = TileCatalog.byKey('planner.week')!
+          .build(const DashboardData(), const {'weeks': 1}, const []);
+      expect(d.anker, isNotNull);
+      expect(d.anker!.weekday, DateTime.monday);
+    });
+
+    test('Formen ohne Zeitbezug haben keinen Anker', () {
+      final d = TileCatalog.byKey('tasks.open')!
+          .build(const DashboardData(), const {}, const []);
+      expect(d.anker, isNull);
+    });
+
+    test('die Monatsansicht nimmt Termine an, die Torte nicht', () {
+      final monat = TileViews.byKey('month')!;
+      expect(monat.accepts, contains(TileShape.schedule));
+      expect(TileViews.byKey('pie')!.accepts, isNot(contains(TileShape.schedule)));
+    });
+
+    test('sie steht bei den Darstellungen fuer Termine zur Wahl', () {
+      final passende =
+          TileViews.forShape(TileShape.schedule).map((v) => v.key).toList();
+      expect(passende, containsAll(['week', 'month']));
+    });
+
+    test('auch die Monatsansicht kann einen Termin anlegen', () {
+      expect(TileCatalog.byKey('planner.month')!.aktion?.recht, 'planner:write');
     });
   });
 }

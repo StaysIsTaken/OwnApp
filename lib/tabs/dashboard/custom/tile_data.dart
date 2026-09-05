@@ -51,11 +51,21 @@ class TileData {
   /// schedule
   final List<TileScheduleItem> schedule;
 
+  /// Auf welchen Zeitraum sich die Termine beziehen – der Montag der Woche,
+  /// der Erste des Monats.
+  ///
+  /// Ohne das zeichnete die Ansicht immer den *heutigen* Zeitraum, während
+  /// die Quelle einen *versetzten* liefert: bei „nächste Woche" fielen alle
+  /// Termine aus dem Raster und die Kachel blieb leer. Die Quelle weiß, was
+  /// sie ausgewählt hat — also sagt sie es.
+  final DateTime? anker;
+
   /// Wird angezeigt, wenn nichts da ist — statt einer leeren Fläche.
   final String emptyHint;
 
   const TileData.scalar(this.value, {this.target, this.unit})
-      : shape = TileShape.scalar,
+      : anker = null,
+        shape = TileShape.scalar,
         items = const [],
         points = const {},
         body = null,
@@ -64,7 +74,7 @@ class TileData {
         emptyHint = '';
 
   const TileData.schedule(this.schedule,
-      {this.emptyHint = 'Nichts geplant'})
+      {this.anker, this.emptyHint = 'Nichts geplant'})
       : shape = TileShape.schedule,
         value = null,
         target = null,
@@ -75,7 +85,8 @@ class TileData {
         footnote = null;
 
   const TileData.text(this.body, {this.footnote, this.emptyHint = 'Noch nichts'})
-      : shape = TileShape.text,
+      : anker = null,
+        shape = TileShape.text,
         schedule = const [],
         value = null,
         target = null,
@@ -84,7 +95,8 @@ class TileData {
         points = const {};
 
   const TileData.list(this.items, {this.emptyHint = 'Nichts vorhanden'})
-      : shape = TileShape.list,
+      : anker = null,
+        shape = TileShape.list,
         body = null,
         footnote = null,
         schedule = const [],
@@ -94,7 +106,8 @@ class TileData {
         points = const {};
 
   const TileData.series(this.points, {this.unit, this.emptyHint = 'Keine Daten'})
-      : shape = TileShape.series,
+      : anker = null,
+        shape = TileShape.series,
         body = null,
         footnote = null,
         schedule = const [],
@@ -104,7 +117,8 @@ class TileData {
 
   const TileData.distribution(this.points,
       {this.unit, this.emptyHint = 'Keine Daten'})
-      : shape = TileShape.distribution,
+      : anker = null,
+        shape = TileShape.distribution,
         body = null,
         footnote = null,
         schedule = const [],

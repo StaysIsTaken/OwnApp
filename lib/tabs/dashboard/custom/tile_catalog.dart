@@ -33,6 +33,16 @@ class TileCatalog {
     standard: 0,
   );
 
+  /// Welcher Monat: 0 = dieser, 1 = naechster. Auch rueckwaerts, damit man
+  /// nachsehen kann, was letzten Monat war.
+  static const _monatsversatz = TileParam(
+    key: 'months',
+    label: 'Monat (0 = dieser)',
+    min: -12,
+    max: 12,
+    standard: 0,
+  );
+
   static const _anzahl = TileParam(
     key: 'limit', label: 'Wie viele anzeigen', min: 1, max: 20, standard: 5,
   );
@@ -126,7 +136,43 @@ class TileCatalog {
           ));
         }
         return TileData.schedule(termine,
+            anker: montag,
             emptyHint: 'Diese Woche ist nichts geplant');
+      },
+    ),
+
+    TileSource(
+      key: 'planner.month',
+      route: AppRoutes.planner,
+      aktion: TileAktionen.termin(),
+      fields: FilterFields.termine,
+      label: 'Monatsansicht',
+      group: 'Planer',
+      shape: TileShape.schedule,
+      params: const [_monatsversatz],
+      build: (d, p, f) {
+        final versatz = _int(p, 'months', 0);
+        final heute = DateTime.now();
+        final erster = DateTime(heute.year, heute.month + versatz);
+        final naechster = DateTime(erster.year, erster.month + 1);
+
+        final termine = <TileScheduleItem>[];
+        for (final e in applyFilters(
+            d.plannerEntries.cast<PlannerEntry>(), f, FilterFields.termine)) {
+          if (e.parentId != null) continue;
+          if (e.scheduledAt.isBefore(erster)) continue;
+          if (!e.scheduledAt.isBefore(naechster)) continue;
+          termine.add(TileScheduleItem(
+            title: e.title,
+            start: e.scheduledAt,
+            end: e.endsAt,
+            color: e.color,
+            source: e.type,
+          ));
+        }
+        return TileData.schedule(termine,
+            anker: erster,
+            emptyHint: 'In diesem Monat ist nichts geplant');
       },
     ),
 

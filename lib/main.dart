@@ -23,6 +23,7 @@ import 'package:productivity/tabs/journal/journal_page.dart';
 import 'package:productivity/tabs/calendar/calendar_page.dart';
 import 'package:productivity/tabs/planner/planner_tab.dart';
 import 'package:productivity/tabs/planner/manage_planner_types_page.dart';
+import 'package:productivity/tabs/planner/kalender_verwalten_page.dart';
 import 'package:productivity/tabs/assistant/assistant_page.dart';
 import 'package:productivity/tabs/admin/admin_page.dart';
 import 'package:productivity/tabs/tablet/tablet_dashboard.dart';
@@ -158,6 +159,7 @@ class AppRoutes {
   static const String calendar = '/calendar';
   static const String planner = '/planner';
   static const String plannerTypes = '/planner-types';
+  static const String kalender = '/kalender';
   static const String assistant = '/assistant';
   static const String admin = '/admin';
   static const String tablet = '/tablet';
@@ -189,6 +191,7 @@ class AppRoutes {
     calendar: (_) => const CalendarPage(),
     planner: (_) => const PlannerTab(),
     plannerTypes: (_) => const ManagePlannerTypesPage(),
+    kalender: (_) => const KalenderVerwaltenPage(),
     assistant: (_) => const AssistantPage(),
     admin: (_) => const AdminPage(),
     tablet: (_) => const TabletDashboard(),
