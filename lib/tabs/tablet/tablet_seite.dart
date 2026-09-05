@@ -16,12 +16,15 @@ import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/dataservice/rechte_zuordnung.dart';
 import 'package:productivity/dataservice/shopping_list_service.dart';
+import 'package:productivity/dataclasses/kalender.dart';
+import 'package:productivity/dataservice/calendar_service.dart';
 import 'package:productivity/dataservice/feed_service.dart';
 import 'package:productivity/dataservice/task_service.dart';
 import 'package:productivity/dataservice/time_entry_service.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/tabs/dashboard/custom/custom_tile_card.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_editor.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/tabs/dashboard/dashboard_prefs.dart';
@@ -115,6 +118,11 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
       hole('journal', JournalService.loadAll),
     ]);
 
+    // Farben der Kalender – damit die Wochenansicht ihre Termine danach
+    // faerben kann statt alle gleich.
+    final kalender = await _stillHolen(
+        () => CalendarService.laden(alle: _einstellungen.alleKalender));
+
     // Nachrichten und Witz gehen ins Netz und werden deshalb nur geholt,
     // wenn auch eine Kachel danach fragt.
     final gebraucht = TileCatalog.extras(_kacheln);
@@ -131,6 +139,9 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
       _daten = DashboardData(
         nachrichten: nachrichten ?? const [],
         witz: witz,
+        kalenderFarben: {
+          for (final k in kalender ?? const <Kalender>[]) k.id: k.color,
+        },
         tasks: ergebnisse[0] as List<Task>,
         timeEntries: ergebnisse[1] as List<TimeEntry>,
         plannerEntries: ergebnisse[2] as List<PlannerEntry>,
@@ -340,15 +351,12 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           ),
         );
 
-    if (sichtbar.length == 1) {
-      return RefreshIndicator(
-        onRefresh: _laden,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
-          child: karte(sichtbar.first),
-        ),
-      );
-    }
+    // Kalenderansichten bekommen die volle Breite und viel Hoehe. In eine
+    // Rasterspalte gequetscht ist ein Wochenraster unlesbar – sieben Spalten
+    // und ein Dutzend Stunden brauchen Platz, sonst ist es genau die
+    // "kleine Karte", die niemand haben wollte.
+    final kalender = sichtbar.where(_istKalender).toList();
+    final rest = sichtbar.where((k) => !_istKalender(k)).toList();
 
     return RefreshIndicator(
       onRefresh: _laden,
@@ -357,18 +365,41 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           // Zwei Spalten statt drei: lieber grosse Kacheln als viele. Auf
           // einem Geraet an der Wand zaehlt Lesbarkeit mehr als Dichte.
           final spalten = constraints.maxWidth >= 1100 ? 3 : 2;
-          return GridView.count(
+
+          // Liegt nichts anderes auf der Seite, fuellt der Kalender sie ganz.
+          final kalenderHoehe = rest.isEmpty
+              ? (constraints.maxHeight - 130).clamp(360.0, double.infinity)
+              : (constraints.maxHeight * 0.62).clamp(360.0, 720.0);
+
+          return ListView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
-            crossAxisCount: spalten,
-            crossAxisSpacing: 20,
-            mainAxisSpacing: 20,
-            childAspectRatio: 1.35,
-            children: [for (final k in sichtbar) karte(k)],
+            children: [
+              for (final k in kalender)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: SizedBox(height: kalenderHoehe, child: karte(k)),
+                ),
+              if (rest.isNotEmpty)
+                GridView.count(
+                  // Im ListView: eigene Hoehe statt eigenem Scrollen.
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: spalten,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                  childAspectRatio: 1.35,
+                  children: [for (final k in rest) karte(k)],
+                ),
+            ],
           );
         },
       ),
     );
   }
+
+  /// Zeigt diese Kachel einen Kalender – also ein Wochen- oder Monatsraster?
+  static bool _istKalender(CustomTile k) =>
+      TileCatalog.byKey(k.source)?.shape == TileShape.schedule;
 
   Widget _leer() => ListView(
         children: [

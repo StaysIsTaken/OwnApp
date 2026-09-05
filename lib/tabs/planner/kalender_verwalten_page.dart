@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/kalender.dart';
 import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/dataservice/calendar_service.dart';
+import 'package:productivity/dataclasses/planner_entry_type.dart';
+import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/widgets/color_picker_dialog.dart';
 
@@ -100,6 +102,19 @@ class _InhaltState extends State<_Inhalt> {
     }
   }
 
+  /// Eine .ics-Datei einmalig in diesen Kalender einlesen.
+  ///
+  /// Das ist der andere Fall neben dem Abonnement: eine Datei, die man
+  /// einmal bekommt und nicht regelmäßig holen will. Vorher ging beides
+  /// nicht in einen bestimmten Kalender — alles fiel in den Standard.
+  Future<void> _importieren(Kalender k) async {
+    final ergebnis = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ImportDialog(kalender: k),
+    );
+    if (ergebnis == true) await _laden();
+  }
+
   Future<void> _loeschen(Kalender k) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -193,6 +208,11 @@ class _InhaltState extends State<_Inhalt> {
                 tooltip: 'Jetzt holen',
                 onPressed: () => _abholen(k),
               ),
+            IconButton(
+              icon: const Icon(Icons.file_upload_outlined),
+              tooltip: 'Termine aus einer .ics-Datei einlesen',
+              onPressed: () => _importieren(k),
+            ),
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'Ändern',
@@ -385,6 +405,172 @@ class _KalenderDialogState extends State<_KalenderDialog> {
               ? null
               : _speichern,
           child: Text(neu ? 'Anlegen' : 'Speichern'),
+        ),
+      ],
+    );
+  }
+}
+
+
+// ── .ics in diesen Kalender ─────────────────────────────────────────────
+
+class _ImportDialog extends StatefulWidget {
+  final Kalender kalender;
+  const _ImportDialog({required this.kalender});
+
+  @override
+  State<_ImportDialog> createState() => _ImportDialogState();
+}
+
+class _ImportDialogState extends State<_ImportDialog> {
+  final _inhalt = TextEditingController();
+  final _adresse = TextEditingController();
+
+  List<PlannerEntryType> _typen = [];
+  int? _typ;
+  bool _laedt = true;
+  bool _arbeitet = false;
+  String? _fehler;
+
+  @override
+  void initState() {
+    super.initState();
+    _typenLaden();
+  }
+
+  Future<void> _typenLaden() async {
+    try {
+      final typen = await PlannerService.loadTypes();
+      if (!mounted) return;
+      setState(() {
+        _typen = typen;
+        _typ = typen.isEmpty ? null : typen.first.id;
+        _laedt = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _laedt = false;
+        _fehler = 'Die Terminarten konnten nicht geladen werden.';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _inhalt.dispose();
+    _adresse.dispose();
+    super.dispose();
+  }
+
+  Future<void> _einlesen() async {
+    if (_typ == null) return;
+    setState(() {
+      _arbeitet = true;
+      _fehler = null;
+    });
+    try {
+      final antwort = await PlannerService.importieren(
+        typeId: _typ!,
+        ics: _inhalt.text.trim(),
+        url: _adresse.text.trim(),
+        calendarId: widget.kalender.id,
+        color: widget.kalender.color,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${antwort['imported'] ?? 0} Termine eingelesen, '
+            '${antwort['updated'] ?? 0} aktualisiert.'),
+      ));
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _arbeitet = false;
+        _fehler = ApiFehler.text(e);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final etwasDa =
+        _inhalt.text.trim().isNotEmpty || _adresse.text.trim().isNotEmpty;
+
+    if (_laedt) {
+      return const AlertDialog(
+        content: SizedBox(
+            height: 80, child: Center(child: CircularProgressIndicator())),
+      );
+    }
+
+    return AlertDialog(
+      title: Text('Termine in „${widget.kalender.name}"'),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Einmalig einlesen — anders als das Abonnement, das sich '
+                'regelmäßig selbst holt. Entweder eine Adresse angeben oder '
+                'den Inhalt einer .ics-Datei hineinkopieren.',
+                style: TextStyle(color: colors.onSurfaceVariant, height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _adresse,
+                decoration: const InputDecoration(
+                  labelText: 'Adresse (.ics)',
+                  hintText: 'https://…/termine.ics',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _inhalt,
+                minLines: 4,
+                maxLines: 10,
+                decoration: const InputDecoration(
+                  labelText: 'oder Inhalt der Datei',
+                  hintText: 'BEGIN:VCALENDAR …',
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              if (_typen.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  initialValue: _typ,
+                  decoration: const InputDecoration(
+                      labelText: 'Als welche Terminart?'),
+                  items: [
+                    for (final t in _typen)
+                      DropdownMenuItem(value: t.id, child: Text(t.name)),
+                  ],
+                  onChanged: (v) => setState(() => _typ = v),
+                ),
+              ],
+              if (_fehler != null) ...[
+                const SizedBox(height: 16),
+                Text(_fehler!, style: TextStyle(color: colors.error)),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _arbeitet ? null : () => Navigator.pop(context, false),
+            child: const Text('Abbrechen')),
+        FilledButton(
+          onPressed: (_arbeitet || !etwasDa || _typ == null) ? null : _einlesen,
+          child: const Text('Einlesen'),
         ),
       ],
     );

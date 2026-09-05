@@ -110,7 +110,7 @@ class TileCatalog {
       route: AppRoutes.planner,
       aktion: TileAktionen.termin(),
       fields: FilterFields.termine,
-      label: 'Wochenansicht',
+      label: 'Kalender: Woche',
       group: 'Planer',
       shape: TileShape.schedule,
       params: const [_wochenversatz],
@@ -131,7 +131,9 @@ class TileCatalog {
             title: e.title,
             start: e.scheduledAt,
             end: e.endsAt,
-            color: e.color,
+            // Farbe des Kalenders vor der des Termins: so erkennt man auf
+            // einen Blick, welcher Termin aus welchem Kalender kommt.
+            color: d.kalenderFarben[e.calendarId] ?? e.color,
             source: e.type,
           ));
         }
@@ -146,7 +148,7 @@ class TileCatalog {
       route: AppRoutes.planner,
       aktion: TileAktionen.termin(),
       fields: FilterFields.termine,
-      label: 'Monatsansicht',
+      label: 'Kalender: Monat',
       group: 'Planer',
       shape: TileShape.schedule,
       params: const [_monatsversatz],
@@ -166,7 +168,7 @@ class TileCatalog {
             title: e.title,
             start: e.scheduledAt,
             end: e.endsAt,
-            color: e.color,
+            color: d.kalenderFarben[e.calendarId] ?? e.color,
             source: e.type,
           ));
         }

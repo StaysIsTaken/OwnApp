@@ -252,6 +252,11 @@ class DashboardData {
   final List<dynamic> nachrichten;
   final String? witz;
 
+  /// Kalender-ID → Farbe. Damit faerbt eine Wochenansicht ihre Termine nach
+  /// dem Kalender, aus dem sie stammen — sonst sieht man zwar alle
+  /// ausgewählten, kann sie aber nicht auseinanderhalten.
+  final Map<int, String> kalenderFarben;
+
   const DashboardData({
     this.tasks = const [],
     this.timeEntries = const [],
@@ -264,5 +269,6 @@ class DashboardData {
     this.ingredientMap = const {},
     this.nachrichten = const [],
     this.witz,
+    this.kalenderFarben = const {},
   });
 }

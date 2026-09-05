@@ -830,6 +830,47 @@ void _monatsansicht() {
       expect(TileCatalog.zeigtTermine(const []), isFalse);
     });
 
+    test('Termine tragen die Farbe ihres Kalenders', () {
+      // Sonst sieht man zwar alle ausgewaehlten Kalender, kann sie aber
+      // nicht auseinanderhalten – und genau dafuer waehlt man sie aus.
+      final heute = DateTime.now();
+      final termin = PlannerEntry(
+        id: 1, userId: 'u', title: 'Muell',
+        scheduledAt: DateTime(heute.year, heute.month, 15, 8),
+        endsAt: DateTime(heute.year, heute.month, 15, 9),
+        createdAt: DateTime(2026),
+        color: '#111111',
+        calendarId: 7,
+      );
+      final d = TileCatalog.byKey('planner.month')!.build(
+        DashboardData(
+          plannerEntries: [termin],
+          kalenderFarben: const {7: '#22C55E'},
+        ),
+        const {'months': 0},
+        const [],
+      );
+      expect(d.schedule.single.color, '#22C55E');
+    });
+
+    test('ohne Kalenderfarbe bleibt die des Termins', () {
+      // Termine aus der Zeit vor den Kalendern haben keine Zuordnung.
+      final heute = DateTime.now();
+      final termin = PlannerEntry(
+        id: 2, userId: 'u', title: 'Alt',
+        scheduledAt: DateTime(heute.year, heute.month, 16, 8),
+        endsAt: DateTime(heute.year, heute.month, 16, 9),
+        createdAt: DateTime(2026),
+        color: '#111111',
+      );
+      final d = TileCatalog.byKey('planner.month')!.build(
+        DashboardData(plannerEntries: [termin]),
+        const {'months': 0},
+        const [],
+      );
+      expect(d.schedule.single.color, '#111111');
+    });
+
     test('auch die Monatsansicht kann einen Termin anlegen', () {
       expect(TileCatalog.byKey('planner.month')!.aktion?.recht, 'planner:write');
     });
