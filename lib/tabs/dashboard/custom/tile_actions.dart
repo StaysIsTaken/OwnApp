@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/dataclasses/kalender.dart';
 import 'package:productivity/dataclasses/planner_entry_type.dart';
+import 'package:productivity/dataservice/calendar_service.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/dataservice/task_service.dart';
@@ -60,6 +62,12 @@ class _TerminDialogState extends State<_TerminDialog> {
 
   List<PlannerEntryType> _typen = [];
   int? _typ;
+
+  /// In welchen Kalender der Termin soll. Ohne Auswahl entscheidet das
+  /// Backend (Standardkalender) — deshalb darf das null bleiben.
+  List<Kalender> _kalender = [];
+  int? _kalenderId;
+
   bool _laedt = true;
   bool _speichert = false;
   String? _fehler;
@@ -77,11 +85,26 @@ class _TerminDialogState extends State<_TerminDialog> {
 
   Future<void> _typenLaden() async {
     try {
-      final typen = await PlannerService.loadTypes();
+      // Beides zusammen: ein Dialog, der zweimal nacheinander laedt, steht
+      // doppelt so lange leer da.
+      final ergebnis = await Future.wait([
+        PlannerService.loadTypes(),
+        CalendarService.laden().catchError((_) => <Kalender>[]),
+      ]);
+      final typen = ergebnis[0] as List<PlannerEntryType>;
+      final kalender = ergebnis[1] as List<Kalender>;
       if (!mounted) return;
       setState(() {
         _typen = typen;
         _typ = typen.isEmpty ? null : typen.first.id;
+        _kalender = kalender;
+        // Der Standardkalender ist die richtige Vorgabe – wer woanders hin
+        // will, sagt es ausdruecklich.
+        _kalenderId = kalender
+            .where((k) => k.istStandard)
+            .map((k) => k.id)
+            .firstOrNull ??
+            kalender.map((k) => k.id).firstOrNull;
         _laedt = false;
       });
     } catch (e) {
@@ -113,6 +136,7 @@ class _TerminDialogState extends State<_TerminDialog> {
         typeId: _typ!,
         scheduledAt: start,
         endsAt: start.add(Duration(minutes: _dauer)),
+        calendarId: _kalenderId,
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -207,6 +231,35 @@ class _TerminDialogState extends State<_TerminDialog> {
                     DropdownMenuItem(value: t.id, child: Text(t.name)),
                 ],
                 onChanged: (v) => setState(() => _typ = v),
+              ),
+            ],
+            // Der Grund, warum es das hier gibt: ein Termin in der Kueche
+            // gehoert oft nicht in den eigenen Kalender, sondern in den
+            // gemeinsamen oder den fuer die Muellabfuhr.
+            if (_kalender.length > 1) ...[
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                initialValue: _kalenderId,
+                decoration: const InputDecoration(labelText: 'In welchen Kalender?'),
+                items: [
+                  for (final k in _kalender)
+                    DropdownMenuItem(
+                      value: k.id,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 12, height: 12,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              color: _farbe(k.color), shape: BoxShape.circle),
+                          ),
+                          Text(k.name),
+                        ],
+                      ),
+                    ),
+                ],
+                onChanged: (v) => setState(() => _kalenderId = v),
               ),
             ],
             if (_fehler != null) ...[
@@ -401,4 +454,11 @@ class _Waehler extends StatelessWidget {
       ),
     );
   }
+}
+
+
+Color _farbe(String hex) {
+  final roh = hex.replaceFirst('#', '');
+  final wert = int.tryParse(roh, radix: 16);
+  return wert == null ? const Color(0xFF3B82F6) : Color(0xFF000000 | wert);
 }

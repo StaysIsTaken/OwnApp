@@ -72,12 +72,16 @@ class PlannerService {
     int? parentId,
     int orderIndex = 0,
     List<String>? participantIds,
+    int? calendarId,
   }) async {
     try {
       final response = await ApiClient.dio.post(_path, data: {
         'title': title,
         'description': description,
         'type_id': typeId,
+        // Ohne Angabe landet der Termin im Standardkalender – das
+        // entscheidet das Backend.
+        'calendar_id': ?calendarId,
         'scheduled_at': scheduledAt.toIso8601String(),
         'ends_at': endsAt.toIso8601String(),
         'notify_min_before': notifyMinBefore,
@@ -95,6 +99,27 @@ class PlannerService {
     } catch (e) {
       throw Exception('Fehler beim Erstellen des Eintrags: $e');
     }
+  }
+
+  /// Eine .ics-Datei oder -Adresse einlesen.
+  ///
+  /// [calendarId] sagt, wohin. Ohne Angabe in den Standardkalender — dann
+  /// waere die Trennung nach Kalendern fuer den Import wirkungslos.
+  static Future<Map<String, dynamic>> importieren({
+    required int typeId,
+    String? url,
+    String? ics,
+    int? calendarId,
+    String color = '#3B82F6',
+  }) async {
+    final r = await ApiClient.dio.post('$_path/import', data: {
+      'type_id': typeId,
+      if (url != null && url.isNotEmpty) 'url': url,
+      if (ics != null && ics.isNotEmpty) 'ics': ics,
+      'calendar_id': ?calendarId,
+      'color': color,
+    });
+    return (r.data as Map).cast<String, dynamic>();
   }
 
   static Future<PlannerEntry> update(
