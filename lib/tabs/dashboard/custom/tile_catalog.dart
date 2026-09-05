@@ -484,6 +484,15 @@ class TileCatalog {
         for (final k in kacheln) ?byKey(k.source)?.extra,
       };
 
+  /// Liegt auf dieser Seite überhaupt eine Kachel, die Termine zeigt?
+  ///
+  /// Die Kalenderauswahl ist ein **Filter**, keine Anzeige. Auf einer Seite
+  /// ohne Terminkachel wirkt sie auf nichts — und genau das hat verwirrt:
+  /// zwei gleich große Knöpfe nebeneinander, einer legt an, einer filtert,
+  /// und beim Übernehmen passierte sichtbar nichts.
+  static bool zeigtTermine(Iterable<CustomTile> kacheln) => kacheln.any(
+      (k) => byKey(k.source)?.shape == TileShape.schedule);
+
   static TileSource? byKey(String key) {
     for (final s in sources) {
       if (s.key == key) return s;

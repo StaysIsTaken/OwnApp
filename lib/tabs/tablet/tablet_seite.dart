@@ -164,10 +164,20 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
   }
 
   Future<void> _kalenderWaehlen() async {
-    final neu = await zeigeKalenderAuswahl(context, aktuell: _einstellungen);
-    if (neu == null || !mounted) return;
-    setState(() => _einstellungen = neu);
+    final wunsch = await zeigeKalenderAuswahl(
+      context,
+      aktuell: _einstellungen,
+      hatTerminkachel: TileCatalog.zeigtTermine(_kacheln),
+    );
+    if (wunsch == null || !mounted) return;
+    setState(() => _einstellungen = wunsch.einstellungen);
     await _speichern();
+    if (wunsch.kachelAnlegen && mounted) {
+      // Der Filter allein zeigt nichts – wer ihn auf einer leeren Seite
+      // setzt, wollte eine Kalenderkachel.
+      await _kachelHinzufuegen();
+      return;
+    }
     await _datenLaden();
   }
 
@@ -282,22 +292,29 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           child: Row(
             children: [
               if (_bearbeiten) ...[
+                // Beschriftet statt nur bebildert: zwei gleich grosse
+                // runde Knoepfe nebeneinander liessen offen, dass der eine
+                // anlegt und der andere nur filtert.
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: FloatingActionButton.large(
+                  child: FloatingActionButton.extended(
                     heroTag: 'kalender',
-                    tooltip: 'Welche Kalender diese Seite zeigt',
+                    tooltip: 'Nur festlegen, welche Kalender gezeigt werden',
                     onPressed: _kalenderWaehlen,
-                    child: const Icon(Icons.calendar_month_rounded, size: 30),
+                    icon: const Icon(Icons.filter_alt_outlined, size: 26),
+                    label: const Text('Kalender filtern',
+                        style: TextStyle(fontSize: 16)),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: FloatingActionButton.large(
+                  child: FloatingActionButton.extended(
                     heroTag: 'neu',
-                    tooltip: 'Kachel hinzufügen',
+                    tooltip: 'Eine neue Kachel auf diese Seite legen',
                     onPressed: _kachelHinzufuegen,
-                    child: const Icon(Icons.add_rounded, size: 32),
+                    icon: const Icon(Icons.add_rounded, size: 28),
+                    label: const Text('Kachel',
+                        style: TextStyle(fontSize: 16)),
                   ),
                 ),
               ],
@@ -324,7 +341,8 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           const SizedBox(height: 20),
           const Text(
             'Diese Seite ist noch leer.\n'
-            'Auf den Stift tippen und Kacheln hinzufügen.',
+            'Auf den Stift tippen, dann „Kachel" — für einen Kalender die '
+            'Monatsansicht wählen.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 18, height: 1.4),
           ),

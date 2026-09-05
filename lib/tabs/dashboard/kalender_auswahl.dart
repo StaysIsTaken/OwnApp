@@ -16,19 +16,42 @@ import 'package:provider/provider.dart';
 /// Bewusst großzügig gebaut — Zeilen zum Antippen statt einer Reihe
 /// gedrängter Kästchen, und zu jedem Schalter ein Satz, was er tut. Das
 /// hier wird auf einem Gerät bedient, das in der Küche steht.
-Future<SeitenEinstellungen?> zeigeKalenderAuswahl(
+/// [hatTerminkachel] sagt, ob auf der Seite überhaupt etwas liegt, worauf
+/// der Filter wirken kann. Ist da nichts, sagt der Dialog das deutlich und
+/// bietet an, gleich eine Kachel anzulegen — sonst drückt man „Übernehmen"
+/// und nichts passiert, was wie ein Fehler aussieht und keiner ist.
+Future<KalenderWunsch?> zeigeKalenderAuswahl(
   BuildContext context, {
   required SeitenEinstellungen aktuell,
+  bool hatTerminkachel = true,
 }) {
-  return showDialog<SeitenEinstellungen>(
+  return showDialog<KalenderWunsch>(
     context: context,
-    builder: (_) => _KalenderAuswahl(aktuell: aktuell),
+    builder: (_) => _KalenderAuswahl(
+      aktuell: aktuell,
+      hatTerminkachel: hatTerminkachel,
+    ),
   );
+}
+
+/// Was der Aufrufer nach dem Schließen tun soll.
+///
+/// Der Dialog legt die Kachel nicht selbst an — er weiß nicht, in welchen
+/// Bereich sie gehört und wie die Seite speichert. Er meldet nur den Wunsch.
+class KalenderWunsch {
+  final SeitenEinstellungen einstellungen;
+  final bool kachelAnlegen;
+
+  const KalenderWunsch(this.einstellungen, {this.kachelAnlegen = false});
 }
 
 class _KalenderAuswahl extends StatefulWidget {
   final SeitenEinstellungen aktuell;
-  const _KalenderAuswahl({required this.aktuell});
+  final bool hatTerminkachel;
+  const _KalenderAuswahl({
+    required this.aktuell,
+    this.hatTerminkachel = true,
+  });
 
   @override
   State<_KalenderAuswahl> createState() => _KalenderAuswahlState();
@@ -114,6 +137,49 @@ class _KalenderAuswahlState extends State<_KalenderAuswahl> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Der wichtigste Satz im ganzen Dialog, wenn er zutrifft:
+            // hier wird gefiltert, nicht angezeigt.
+            if (!widget.hatTerminkachel) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colors.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline,
+                        size: 20, color: colors.onTertiaryContainer),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Auf dieser Seite liegt noch keine Kachel, die '
+                        'Termine zeigt. Diese Auswahl legt nur fest, welche '
+                        'Kalender eine solche Kachel zeigen darf — sichtbar '
+                        'wird sie erst mit der Kachel.',
+                        style: TextStyle(
+                            color: colors.onTertiaryContainer, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                icon: const Icon(Icons.calendar_month_rounded),
+                label: const Text('Kalenderkachel anlegen'),
+                onPressed: () => Navigator.pop(
+                  context,
+                  KalenderWunsch(
+                    SeitenEinstellungen(
+                        kalender: _gewaehlt, alleKalender: _alle),
+                    kachelAnlegen: true,
+                  ),
+                ),
+              ),
+              const Divider(height: 28),
+            ],
             if (darfAlle) ...[
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -179,7 +245,9 @@ class _KalenderAuswahlState extends State<_KalenderAuswahl> {
         FilledButton(
           onPressed: () => Navigator.pop(
             context,
-            SeitenEinstellungen(kalender: _gewaehlt, alleKalender: _alle),
+            KalenderWunsch(
+              SeitenEinstellungen(kalender: _gewaehlt, alleKalender: _alle),
+            ),
           ),
           child: const Text('Übernehmen'),
         ),

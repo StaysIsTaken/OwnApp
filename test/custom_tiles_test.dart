@@ -794,6 +794,42 @@ void _monatsansicht() {
       expect(passende, containsAll(['week', 'month']));
     });
 
+    test('eine Seite ohne Terminkachel wird als solche erkannt', () {
+      // Daran haengt der Hinweis im Kalenderdialog: der Filter wirkt auf
+      // nichts, wenn keine Terminkachel da ist – und genau das hat
+      // verwirrt, weil "Uebernehmen" dann sichtbar nichts tat.
+      const ohne = [
+        CustomTile(id: 'a', source: 'tasks.open', view: 'stat'),
+        CustomTile(id: 'b', source: 'kopf.quote', view: 'text'),
+      ];
+      expect(TileCatalog.zeigtTermine(ohne), isFalse);
+    });
+
+    test('Wochen- und Monatskachel zaehlen beide als Terminkachel', () {
+      for (final quelle in ['planner.week', 'planner.month']) {
+        expect(
+          TileCatalog.zeigtTermine(
+              [CustomTile(id: 'x', source: quelle, view: 'month')]),
+          isTrue,
+          reason: quelle,
+        );
+      }
+    });
+
+    test('eine Terminliste ist keine Kalenderansicht', () {
+      // planner.upcoming liefert eine Liste, keinen Zeitraum – der
+      // Kalenderfilter greift dort nicht auf dieselbe Weise.
+      expect(
+        TileCatalog.zeigtTermine(
+            [const CustomTile(id: 'x', source: 'planner.upcoming', view: 'list')]),
+        isFalse,
+      );
+    });
+
+    test('eine leere Seite hat keine Terminkachel', () {
+      expect(TileCatalog.zeigtTermine(const []), isFalse);
+    });
+
     test('auch die Monatsansicht kann einen Termin anlegen', () {
       expect(TileCatalog.byKey('planner.month')!.aktion?.recht, 'planner:write');
     });
