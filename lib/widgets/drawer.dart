@@ -133,6 +133,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
       label: 'Termin-Typen',
       route: AppRoutes.plannerTypes,
     ),
+    NavItem(
+      icon: Icons.calendar_month_outlined,
+      iconActive: Icons.calendar_month_rounded,
+      label: 'Kalender',
+      route: AppRoutes.kalender,
+    ),
   ];
 
   /// Erscheint nur, wer verwalten darf. Das ist Hoeflichkeit, keine

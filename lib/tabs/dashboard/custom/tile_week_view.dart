@@ -23,7 +23,9 @@ class TileWeekView extends StatelessWidget {
   static const List<String> _tage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
   DateTime get _wochenstart {
-    final d = woche ?? DateTime.now();
+    // Reihenfolge mit Absicht: was ausdruecklich uebergeben wurde, dann was
+    // die Quelle ausgewaehlt hat, erst zuletzt heute.
+    final d = woche ?? data.anker ?? DateTime.now();
     final montag = d.subtract(Duration(days: d.weekday - 1));
     // Auf Mitternacht normalisieren, sonst fallen Termine vom Montagmorgen
     // aus dem Wochenfilter.

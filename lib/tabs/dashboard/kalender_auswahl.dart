@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/kalender.dart';
+import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/dataservice/calendar_service.dart';
+import 'package:productivity/main.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/tabs/dashboard/seiten_einstellungen.dart';
 import 'package:provider/provider.dart';
@@ -43,6 +45,11 @@ class _KalenderAuswahlState extends State<_KalenderAuswahl> {
   bool _laedt = true;
   String? _fehler;
 
+  /// „Dir fehlt ein Recht" ist etwas anderes als „der Server antwortet
+  /// nicht" — und nur beim Ersten hilft ein Administrator weiter. Vorher
+  /// stand hier für beides derselbe nichtssagende Satz.
+  bool _verboten = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +60,7 @@ class _KalenderAuswahlState extends State<_KalenderAuswahl> {
     setState(() {
       _laedt = true;
       _fehler = null;
+      _verboten = false;
     });
     try {
       final liste = await CalendarService.laden(alle: _alle);
@@ -65,7 +73,11 @@ class _KalenderAuswahlState extends State<_KalenderAuswahl> {
       if (!mounted) return;
       setState(() {
         _laedt = false;
-        _fehler = 'Die Kalender konnten nicht geladen werden.';
+        _verboten = ApiFehler.istVerboten(e);
+        _fehler = _verboten
+            ? 'Für Kalender fehlt dieser Rolle das Recht „planner:read".\n'
+                'Ein Administrator kann es vergeben.'
+            : 'Die Kalender konnten nicht geladen werden.';
       });
     }
   }
@@ -145,6 +157,16 @@ class _KalenderAuswahlState extends State<_KalenderAuswahl> {
         ),
       ),
       actions: [
+        // Von hier aus erreichbar: sonst sucht man die Verwaltung im Menü,
+        // während man gerade vor der leeren Auswahl steht.
+        TextButton.icon(
+          icon: const Icon(Icons.settings_outlined, size: 18),
+          label: const Text('Kalender verwalten'),
+          onPressed: () async {
+            await Navigator.pushNamed(context, AppRoutes.kalender);
+            if (context.mounted) _laden();
+          },
+        ),
         // Zurück auf „alle" – der Weg heraus, wenn man sich verklickt hat.
         if (_gewaehlt != null)
           TextButton(
@@ -169,7 +191,8 @@ class _KalenderAuswahlState extends State<_KalenderAuswahl> {
     if (_kalender.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(24),
-        child: Text('Es gibt noch keine Kalender.'),
+        child: Text('Es gibt noch keine Kalender. Über „Kalender verwalten" '
+            'lässt sich einer anlegen — etwa für die Müllabfuhr.'),
       );
     }
     return ListView(

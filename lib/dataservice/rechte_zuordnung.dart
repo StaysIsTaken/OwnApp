@@ -14,6 +14,7 @@ const Map<String, String> rechtJeRoute = {
   '/calendar': 'planner:read',
   '/planner': 'planner:read',
   '/planner-types': 'planner:write',
+  '/kalender': 'planner:read',
   '/recipes': 'recipes:read',
   '/categories': 'recipes:write',
   '/ingredients': 'recipes:write',
