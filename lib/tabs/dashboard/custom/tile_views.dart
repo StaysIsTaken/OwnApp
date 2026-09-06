@@ -1,9 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_charts.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_board_view.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_checklist_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_month_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_week_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
+
+/// Was eine Darstellung zurückmelden kann.
+///
+/// Fast alle Kacheln zeigen nur — für die ist das leer. Die Einkaufsliste
+/// ist die Ausnahme: dort hakt man ab, während man einräumt, und das muss
+/// beim Server ankommen. Statt jeder Darstellung einen eigenen Weg zu
+/// bauen, bekommt sie diesen einen.
+class TileKontext {
+  /// Einen Eintrag ab- oder wieder anhaken.
+  final Future<void> Function(String id, bool erledigt)? umschalten;
+
+  /// Etwas Neues auf die Liste setzen.
+  final Future<void> Function(String text)? hinzufuegen;
+
+  const TileKontext({this.umschalten, this.hinzufuegen});
+
+  static const leer = TileKontext();
+
+  bool get schreibt => umschalten != null || hinzufuegen != null;
+}
 
 /// Eine Darstellungsart im Katalog.
 ///
@@ -15,7 +36,11 @@ class TileView {
   final String label;
   final IconData icon;
   final Set<TileShape> accepts;
-  final Widget Function(BuildContext context, TileData data) build;
+  final Widget Function(
+    BuildContext context,
+    TileData data,
+    TileKontext kontext,
+  ) build;
 
   /// Diese Darstellung ist ein Raster, kein Textbaustein.
   ///
@@ -51,21 +76,21 @@ class TileViews {
       label: 'Große Zahl',
       icon: Icons.numbers_rounded,
       accepts: const {TileShape.scalar},
-      build: (ctx, d) => _Stat(data: d),
+      build: (ctx, d, _) => _Stat(data: d),
     ),
     TileView(
       key: 'list',
       label: 'Liste',
       icon: Icons.format_list_bulleted_rounded,
       accepts: const {TileShape.list},
-      build: (ctx, d) => _List(data: d),
+      build: (ctx, d, _) => _List(data: d),
     ),
     TileView(
       key: 'text',
       label: 'Text',
       icon: Icons.notes_rounded,
       accepts: const {TileShape.text},
-      build: (ctx, d) => _Text(data: d),
+      build: (ctx, d, _) => _Text(data: d),
     ),
     TileView(
       key: 'week',
@@ -73,7 +98,7 @@ class TileViews {
       icon: Icons.calendar_view_week_rounded,
       accepts: const {TileShape.schedule},
       fuelltFlaeche: true,
-      build: (ctx, d) => TileWeekView(data: d),
+      build: (ctx, d, _) => TileWeekView(data: d),
     ),
     TileView(
       key: 'month',
@@ -81,7 +106,20 @@ class TileViews {
       icon: Icons.calendar_month_rounded,
       accepts: const {TileShape.schedule},
       fuelltFlaeche: true,
-      build: (ctx, d) => TileMonthView(data: d),
+      build: (ctx, d, _) => TileMonthView(data: d),
+    ),
+    TileView(
+      key: 'checklist',
+      label: 'Zum Abhaken',
+      icon: Icons.checklist_rounded,
+      accepts: const {TileShape.checklist},
+      // Auch leer sinnvoll: das Eingabefeld gehoert dazu, sonst kann man
+      // auf eine leere Liste nichts setzen.
+      fuelltFlaeche: true,
+      build: (ctx, d, k) => LayoutBuilder(
+        builder: (_, c) =>
+            TileChecklistView(data: d, kontext: k, gross: c.maxHeight >= 420),
+      ),
     ),
     TileView(
       key: 'board',
@@ -91,7 +129,7 @@ class TileViews {
       // Wie die Kalender: ein Raster, das die Flaeche braucht und auch
       // ohne Karten etwas aussagt – leere Spalten heissen "nichts offen".
       fuelltFlaeche: true,
-      build: (ctx, d) => LayoutBuilder(
+      build: (ctx, d, _) => LayoutBuilder(
         builder: (_, c) => TileBoardView(data: d, gross: c.maxHeight >= 420),
       ),
     ),
@@ -100,7 +138,7 @@ class TileViews {
       label: 'Balkendiagramm',
       icon: Icons.bar_chart_rounded,
       accepts: const {TileShape.series, TileShape.distribution},
-      build: (ctx, d) => TileBarChart(data: d),
+      build: (ctx, d, _) => TileBarChart(data: d),
     ),
     TileView(
       key: 'line',
@@ -109,7 +147,7 @@ class TileViews {
       // Nur Verlaeufe: eine Linie durch Kategorien zu ziehen suggeriert
       // einen Zusammenhang, den es nicht gibt.
       accepts: const {TileShape.series},
-      build: (ctx, d) => TileLineChart(data: d),
+      build: (ctx, d, _) => TileLineChart(data: d),
     ),
     TileView(
       key: 'pie',
@@ -118,14 +156,14 @@ class TileViews {
       // Nur Verteilungen: ein Kuchenstueck je Tag waere zeichenbar, wuerde
       // aber nichts aussagen.
       accepts: const {TileShape.distribution},
-      build: (ctx, d) => TilePieChart(data: d),
+      build: (ctx, d, _) => TilePieChart(data: d),
     ),
     TileView(
       key: 'donut',
       label: 'Ringdiagramm',
       icon: Icons.donut_large_rounded,
       accepts: const {TileShape.distribution},
-      build: (ctx, d) => TilePieChart(data: d, alsRing: true),
+      build: (ctx, d, _) => TilePieChart(data: d, alsRing: true),
     ),
   ];
 

@@ -3,6 +3,7 @@ import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/time_entry.dart';
 import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
+import 'package:productivity/dataclasses/ingredient.dart';
 import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/main.dart';
@@ -478,6 +479,35 @@ class TileCatalog {
             .toDouble(),
         unit: 'Posten',
       ),
+    ),
+    TileSource(
+      key: 'shopping.checklist',
+      route: AppRoutes.shoppingList,
+      fields: FilterFields.einkauf,
+      label: 'Einkaufsliste zum Abhaken',
+      group: 'Einkauf',
+      shape: TileShape.checklist,
+      build: (d, p, f) {
+        final posten = applyFilters(
+            d.shoppingItems.cast<ShoppingListItem>(), f, FilterFields.einkauf);
+        return TileData.checklist(
+          [
+            for (final i in posten)
+              TileCheckItem(
+                id: i.id,
+                // Der Name der Zutat, nicht ihre Kennung – die steht auf
+                // keinem Einkaufszettel der Welt.
+                titel: (d.ingredientMap[i.ingredientId] as Ingredient?)?.name ??
+                    'Unbekannt',
+                untertitel: i.note?.trim().isNotEmpty == true
+                    ? i.note
+                    : (i.amount > 0 ? _zahl(i.amount) : null),
+                erledigt: i.isBought,
+              ),
+          ],
+          emptyHint: 'Die Liste ist leer',
+        );
+      },
     ),
     TileSource(
       key: 'pantry.low',
