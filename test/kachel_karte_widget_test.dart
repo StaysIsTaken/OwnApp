@@ -17,7 +17,7 @@ Future<void> zeige(
   WidgetTester tester,
   CustomTile kachel, {
   DashboardData daten = const DashboardData(),
-  bool nurAnzeige = false,
+  bool kuechenmodus = false,
   double breite = 1200,
   double hoehe = 700,
 }) async {
@@ -37,7 +37,7 @@ Future<void> zeige(
               child: CustomTileCard(
                 tile: kachel,
                 data: daten,
-                nurAnzeige: nurAnzeige,
+                kuechenmodus: kuechenmodus,
               ),
             ),
           ),
@@ -89,20 +89,42 @@ void main() {
 
   group('Kuechenmodus fuehrt nicht weg', () {
     testWidgets('kein Pfeil, der in die App zeigt', (tester) async {
-      await zeige(tester, wochenkachel, nurAnzeige: true);
+      await zeige(tester, wochenkachel, kuechenmodus: true);
       expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
     });
 
     testWidgets('ausserhalb der Kueche gibt es ihn', (tester) async {
       // Gegenprobe im selben Test: dieselbe Kachel, nur nicht als Anzeige.
-      await zeige(tester, wochenkachel, nurAnzeige: false);
+      await zeige(tester, wochenkachel, kuechenmodus: false);
       expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
     });
 
     testWidgets('der Knopf zum Anlegen bleibt', (tester) async {
       // Termine direkt anlegen war ausdruecklich gewuenscht – das fuehrt
       // nicht weg, sondern traegt ein.
-      await zeige(tester, wochenkachel, nurAnzeige: true);
+      await zeige(tester, wochenkachel, kuechenmodus: true);
+      expect(find.byIcon(Icons.event_available_outlined), findsOneWidget);
+    });
+
+    testWidgets('und er ist beschriftet und gross', (tester) async {
+      // An der Wand wird er mit dem Daumen getroffen, oft im Vorbeigehen.
+      // Ein 20-Pixel-Symbol reicht dafuer nicht.
+      await zeige(tester, wochenkachel, kuechenmodus: true);
+
+      expect(find.text('Termin'), findsOneWidget);
+      final flaeche = tester.getSize(find.ancestor(
+        of: find.text('Termin'),
+        matching: find.byType(FilledButton),
+      ).first);
+      // Die uebliche Mindestgroesse fuer eine Trefferflaeche ist 48.
+      expect(flaeche.height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('ausserhalb der Kueche bleibt es ein Symbol', (tester) async {
+      // Im Dashboard am Rechner waere ein beschrifteter Knopf im
+      // Kachelkopf zu laut – dort zaehlt Dichte.
+      await zeige(tester, wochenkachel, kuechenmodus: false);
+      expect(find.text('Termin'), findsNothing);
       expect(find.byIcon(Icons.event_available_outlined), findsOneWidget);
     });
   });

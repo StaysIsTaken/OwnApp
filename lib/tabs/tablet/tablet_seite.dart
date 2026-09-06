@@ -44,7 +44,16 @@ import 'package:provider/provider.dart';
 class TabletSeitenInhalt extends StatefulWidget {
   final DashboardSeite seite;
 
-  const TabletSeitenInhalt({super.key, required this.seite});
+  /// Ob gerade eingerichtet wird. Kommt von oben, weil der Schalter dafür
+  /// in der Kopfzeile sitzt und nicht auf der Seite: die Küchenansicht soll
+  /// im Normalbetrieb keinen Knopf zeigen, den jemand versehentlich trifft.
+  final bool bearbeiten;
+
+  const TabletSeitenInhalt({
+    super.key,
+    required this.seite,
+    this.bearbeiten = false,
+  });
 
   @override
   State<TabletSeitenInhalt> createState() => _TabletSeitenInhaltState();
@@ -57,7 +66,6 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
   SeitenEinstellungen _einstellungen = SeitenEinstellungen.leer;
 
   bool _laedt = true;
-  bool _bearbeiten = false;
   String? _fehler;
 
   DashboardData _daten = const DashboardData();
@@ -279,12 +287,14 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
               ),
             ),
           ),
-        Positioned(
-          right: 24,
-          bottom: 24,
-          child: Row(
-            children: [
-              if (_bearbeiten) ...[
+        // Nur beim Einrichten. Im Normalbetrieb bleibt der Bildschirm frei
+        // von Knoepfen – die Kuechenansicht zeigt, sie wird nicht bedient.
+        if (widget.bearbeiten)
+          Positioned(
+            right: 24,
+            bottom: 24,
+            child: Row(
+              children: [
                 // Beschriftet statt nur bebildert: zwei gleich grosse
                 // runde Knoepfe nebeneinander liessen offen, dass der eine
                 // anlegt und der andere nur filtert.
@@ -311,17 +321,8 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
                   ),
                 ),
               ],
-              FloatingActionButton.large(
-                heroTag: 'bearbeiten',
-                onPressed: () => setState(() => _bearbeiten = !_bearbeiten),
-                child: Icon(
-                  _bearbeiten ? Icons.check_rounded : Icons.edit_outlined,
-                  size: 30,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -339,19 +340,18 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
     Widget karte(CustomTile k) => ReorderableTile(
           key: ValueKey(k.id),
           tileKey: k.id,
-          enabled: _bearbeiten,
+          enabled: widget.bearbeiten,
           onReorder: _verschieben,
           child: CustomTileCard(
             tile: k,
             data: _daten,
-            arranging: _bearbeiten,
+            arranging: widget.bearbeiten,
             onEdit: () => _kachelBearbeiten(k),
             onDelete: () => _kachelLoeschen(k),
             onGeaendert: _datenLaden,
-            // Die Kuechenansicht zeigt, sie fuehrt nicht weg. Wer im
-            // Vorbeigehen die Kachel streift, soll nicht in der grossen App
-            // landen und dort stehenbleiben.
-            nurAnzeige: true,
+            // Haengt an der Wand: nichts fuehrt weg, und was bleibt, ist
+            // gross genug fuer den Daumen im Vorbeigehen.
+            kuechenmodus: true,
           ),
         );
 
@@ -413,8 +413,9 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           const SizedBox(height: 20),
           const Text(
             'Diese Seite ist noch leer.\n'
-            'Auf den Stift tippen, dann „Kachel" — für einen Kalender die '
-            'Monatsansicht wählen.',
+            'Oben rechts über die drei Punkte „Seite einrichten" wählen, '
+            'dann „Kachel" — für einen Kalender die Wochen- oder '
+            'Monatsansicht.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 18, height: 1.4),
           ),
