@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/dataclasses/kalender.dart';
+import 'package:productivity/dataservice/calendar_service.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/planner_recurrence.dart';
@@ -24,6 +26,10 @@ class PlannerFormResult {
   final RecurrenceInput? recurrence; // null = einmaliger Termin
   final List<String> participantIds; // leer = nicht geteilt
 
+  /// In welchen Kalender der Termin gehört. Null = Standardkalender, das
+  /// entscheidet dann das Backend.
+  final int? calendarId;
+
   PlannerFormResult({
     required this.title,
     required this.description,
@@ -34,6 +40,7 @@ class PlannerFormResult {
     required this.color,
     required this.recurrence,
     required this.participantIds,
+    this.calendarId,
   });
 }
 
@@ -66,6 +73,27 @@ class PlannerEditDialog extends StatefulWidget {
 }
 
 class _PlannerEditDialogState extends State<PlannerEditDialog> {
+  /// Auswahl des Kalenders. Leer, solange nichts geladen wurde – dann
+  /// bleibt das Feld weg und der Standardkalender gilt.
+  List<Kalender> _kalender = [];
+  int? _kalenderId;
+
+  Future<void> _kalenderLaden() async {
+    try {
+      final liste = await CalendarService.laden();
+      if (!mounted) return;
+      setState(() {
+        _kalender = liste;
+        _kalenderId = widget.entry?.calendarId ??
+            liste.where((k) => k.istStandard).map((k) => k.id).firstOrNull ??
+            liste.map((k) => k.id).firstOrNull;
+      });
+    } catch (_) {
+      // Ohne Kalenderliste bleibt das Feld weg – der Termin landet dann im
+      // Standardkalender, wie vor dieser Änderung.
+    }
+  }
+
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _notifyController;
@@ -103,6 +131,7 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
   @override
   void initState() {
     super.initState();
+    _kalenderLaden();
     _titleController = TextEditingController(text: widget.entry?.title ?? '');
     _descriptionController =
         TextEditingController(text: widget.entry?.description ?? '');
@@ -355,6 +384,40 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
                   ),
                 ],
               ),
+              // Erst ab zwei Kalendern: bei einem gibt es nichts zu waehlen,
+              // und ein Feld mit genau einer Moeglichkeit ist nur im Weg.
+              if (_kalender.length > 1) ...[
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  initialValue: _kalenderId,
+                  decoration: const InputDecoration(
+                    labelText: 'Kalender',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (final k in _kalender)
+                      DropdownMenuItem(
+                        value: k.id,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: _kalenderfarbe(k.color),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            Text(k.name),
+                          ],
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _kalenderId = v),
+                ),
+              ],
               const SizedBox(height: 16),
               _PickerTile(
                 icon: Icons.calendar_today,
@@ -975,6 +1038,7 @@ class _PlannerEditDialogState extends State<PlannerEditDialog> {
       notifyMinBefore: _notifyMinBefore,
       color: _color,
       recurrence: _isEditing ? null : _buildRecurrence(),
+      calendarId: _kalenderId,
       participantIds:
           (!_isEditing && _recurFreq == null) ? _participantIds.toList() : const [],
     );
@@ -1066,4 +1130,11 @@ class _PickerTile extends StatelessWidget {
       ),
     );
   }
+}
+
+
+Color _kalenderfarbe(String hex) {
+  final roh = hex.replaceFirst('#', '');
+  final wert = int.tryParse(roh, radix: 16);
+  return wert == null ? const Color(0xFF3B82F6) : Color(0xFF000000 | wert);
 }

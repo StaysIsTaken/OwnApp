@@ -56,6 +56,7 @@ class PlannerProvider extends ChangeNotifier {
     int? parentId,
     int orderIndex = 0,
     List<String>? participantIds,
+    int? calendarId,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -72,6 +73,8 @@ class PlannerProvider extends ChangeNotifier {
         parentId: parentId,
         orderIndex: orderIndex,
         participantIds: participantIds,
+        // Ohne Angabe entscheidet das Backend (Standardkalender).
+        calendarId: calendarId,
       );
 
       _entries.add(newEntry);

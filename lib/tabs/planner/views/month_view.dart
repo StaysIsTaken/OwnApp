@@ -447,6 +447,7 @@ class _MonthViewState extends State<MonthView> {
         notifyMinBefore: result.notifyMinBefore,
         color: result.color,
         participantIds: result.participantIds,
+        calendarId: result.calendarId,
       );
     }
   }

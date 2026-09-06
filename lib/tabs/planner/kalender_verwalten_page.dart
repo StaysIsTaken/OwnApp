@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/kalender.dart';
 import 'package:productivity/dataservice/api_error.dart';
@@ -428,6 +431,7 @@ class _ImportDialogState extends State<_ImportDialog> {
 
   List<PlannerEntryType> _typen = [];
   int? _typ;
+  String? _dateiname;
   bool _laedt = true;
   bool _arbeitet = false;
   String? _fehler;
@@ -461,6 +465,35 @@ class _ImportDialogState extends State<_ImportDialog> {
     _inhalt.dispose();
     _adresse.dispose();
     super.dispose();
+  }
+
+  /// Eine .ics-Datei vom Geraet waehlen.
+  ///
+  /// `withData` ist wichtig: im Web gibt es keinen Pfad, den man
+  /// nachtraeglich oeffnen koennte — die Bytes muessen gleich mitkommen.
+  Future<void> _dateiWaehlen() async {
+    try {
+      final wahl = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
+      final datei = wahl?.files.firstOrNull;
+      if (datei == null) return;
+      final bytes = datei.bytes;
+      if (bytes == null) {
+        setState(() => _fehler = 'Die Datei konnte nicht gelesen werden.');
+        return;
+      }
+      setState(() {
+        // .ics ist Text; allowMalformed, damit ein krummes Zeichen in einer
+        // Terminbeschreibung nicht den ganzen Import verhindert.
+        _inhalt.text = utf8.decode(bytes, allowMalformed: true);
+        _dateiname = datei.name;
+        _fehler = null;
+      });
+    } catch (e) {
+      setState(() => _fehler = 'Datei konnte nicht geoeffnet werden: $e');
+    }
   }
 
   Future<void> _einlesen() async {
@@ -516,10 +549,32 @@ class _ImportDialogState extends State<_ImportDialog> {
             children: [
               Text(
                 'Einmalig einlesen — anders als das Abonnement, das sich '
-                'regelmäßig selbst holt. Entweder eine Adresse angeben oder '
-                'den Inhalt einer .ics-Datei hineinkopieren.',
+                'regelmäßig selbst holt.',
                 style: TextStyle(color: colors.onSurfaceVariant, height: 1.4),
               ),
+              const SizedBox(height: 20),
+              // Der naheliegende Weg zuerst: eine Datei, die man bekommen
+              // hat. Adresse und Hineinkopieren stehen darunter.
+              OutlinedButton.icon(
+                onPressed: _arbeitet ? null : _dateiWaehlen,
+                icon: const Icon(Icons.folder_open_outlined),
+                label: Text(_dateiname == null
+                    ? '.ics-Datei auswählen'
+                    : 'Gewählt: $_dateiname'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('oder',
+                      style: TextStyle(color: colors.onSurfaceVariant)),
+                ),
+                const Expanded(child: Divider()),
+              ]),
               const SizedBox(height: 20),
               TextField(
                 controller: _adresse,
@@ -536,7 +591,7 @@ class _ImportDialogState extends State<_ImportDialog> {
                 minLines: 4,
                 maxLines: 10,
                 decoration: const InputDecoration(
-                  labelText: 'oder Inhalt der Datei',
+                  labelText: 'Inhalt der Datei (zum Hineinkopieren)',
                   hintText: 'BEGIN:VCALENDAR …',
                   border: OutlineInputBorder(),
                   alignLabelWithHint: true,
