@@ -93,14 +93,16 @@ void main() {
 
   group('Kuechenmodus fuehrt nicht weg', () {
     testWidgets('kein Pfeil, der in die App zeigt', (tester) async {
+      // Ueber die Kennung, nicht ueber das Symbol: dieselbe Pfeilform
+      // steht seit dem Blaettern auch in der Kalenderleiste.
       await zeige(tester, wochenkachel, kuechenmodus: true);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(find.byKey(const Key('kachel_fuehrt_weiter')), findsNothing);
     });
 
     testWidgets('ausserhalb der Kueche gibt es ihn', (tester) async {
       // Gegenprobe im selben Test: dieselbe Kachel, nur nicht als Anzeige.
       await zeige(tester, wochenkachel, kuechenmodus: false);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+      expect(find.byKey(const Key('kachel_fuehrt_weiter')), findsOneWidget);
     });
 
     testWidgets('der Knopf zum Anlegen bleibt', (tester) async {

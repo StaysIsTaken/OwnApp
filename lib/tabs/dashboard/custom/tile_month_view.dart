@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/tabs/dashboard/custom/kalender_blaettern.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
@@ -14,7 +15,7 @@ import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 /// eine Zelle — wer etwas ändern will, tippt die Kachel an und landet im
 /// Planner. Was hier bleibt, ist der Knopf „+ Termin" am Kachelrand, und der
 /// gehört zur Kachel, nicht zum Raster.
-class TileMonthView extends StatelessWidget {
+class TileMonthView extends StatefulWidget {
   final TileData data;
 
   /// Tag, dessen Monat gezeigt wird. Ohne Angabe der laufende.
@@ -30,6 +31,27 @@ class TileMonthView extends StatelessWidget {
     this.kontext = TileKontext.leer,
   });
 
+  @override
+  State<TileMonthView> createState() => _TileMonthViewState();
+}
+
+class _TileMonthViewState extends State<TileMonthView> {
+  /// Wie viele Monate vom Ausgangspunkt weg geblättert wurde.
+  ///
+  /// Bewusst nur im Widget: die Kachel steht morgen wieder auf ihrem
+  /// eingestellten Monat. Wer dauerhaft den nächsten sehen will, stellt
+  /// ihn im Editor ein — geblättert wird zum Nachsehen.
+  int _versatz = 0;
+
+  @override
+  void didUpdateWidget(TileMonthView alt) {
+    super.didUpdateWidget(alt);
+    // Wurde die Kachel umgestellt, zaehlt wieder ihr Ausgangspunkt.
+    if (alt.data.anker != widget.data.anker || alt.monat != widget.monat) {
+      _versatz = 0;
+    }
+  }
+
   static const List<String> _wochentage = [
     'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So',
   ];
@@ -39,11 +61,16 @@ class TileMonthView extends StatelessWidget {
     'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
   ];
 
-  DateTime get _erster {
+  DateTime get _ausgangspunkt {
     // Wie bei der Wochenansicht: ausdrueckliche Angabe, sonst der Zeitraum,
     // den die Quelle ausgewaehlt hat, erst zuletzt heute.
-    final d = monat ?? data.anker ?? DateTime.now();
+    final d = widget.monat ?? widget.data.anker ?? DateTime.now();
     return DateTime(d.year, d.month);
+  }
+
+  DateTime get _erster {
+    final a = _ausgangspunkt;
+    return DateTime(a.year, a.month + _versatz);
   }
 
   int get _tageImMonat => DateTime(_erster.year, _erster.month + 1, 0).day;
@@ -53,20 +80,26 @@ class TileMonthView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
 
     final tage = _tageImMonat;
-    final versatz = _ersterWochentag;
-    final wochen = ((tage + versatz - 1) / 7).ceil();
+    final erstertag = _ersterWochentag;
+    final wochen = ((tage + erstertag - 1) / 7).ceil();
 
-    return Column(
+    // Grosse Knoepfe, wenn die KACHEL gross genug ist – nicht der
+    // Bildschirm. Eine schmale Kachel auf einem grossen Tablet braucht
+    // trotzdem kleine Knoepfe.
+    return LayoutBuilder(builder: (context, constraints) {
+      final gross = constraints.maxHeight >= 420;
+      return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          '${_monatsnamen[_erster.month - 1]} ${_erster.year}',
-          textAlign: TextAlign.center,
-          style: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+        KalenderBlaettern(
+          zeitraum: '${_monatsnamen[_erster.month - 1]} ${_erster.year}',
+          gross: gross,
+          onZurueck: () => setState(() => _versatz--),
+          onVor: () => setState(() => _versatz++),
+          onHeute: _versatz == 0 ? null : () => setState(() => _versatz = 0),
         ),
         const SizedBox(height: 6),
         Row(
@@ -96,7 +129,8 @@ class TileMonthView extends StatelessWidget {
                     children: [
                       for (var wt = 0; wt < 7; wt++)
                         Expanded(
-                          child: _zelle(context, woche * 7 + wt - versatz + 2),
+                          child:
+                              _zelle(context, woche * 7 + wt - erstertag + 2),
                         ),
                     ],
                   ),
@@ -104,8 +138,9 @@ class TileMonthView extends StatelessWidget {
             ],
           ),
         ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   Widget _zelle(BuildContext context, int tagesnummer) {
@@ -120,7 +155,7 @@ class TileMonthView extends StatelessWidget {
         tag.month == jetzt.month &&
         tag.day == jetzt.day;
 
-    final eintraege = data.schedule
+    final eintraege = widget.data.schedule
         .where((e) =>
             e.start.year == tag.year &&
             e.start.month == tag.month &&
@@ -225,7 +260,7 @@ class TileMonthView extends StatelessWidget {
   }
 
   Widget _streifen(BuildContext context, TileScheduleItem e) {
-    final f = kontext.terminOeffnen;
+    final f = widget.kontext.terminOeffnen;
     final streifen = _streifenInhalt(context, e);
     if (f == null || e.id == 0) return streifen;
     return GestureDetector(

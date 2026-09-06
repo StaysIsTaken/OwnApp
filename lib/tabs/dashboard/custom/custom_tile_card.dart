@@ -208,7 +208,13 @@ class _Rahmen extends StatelessWidget {
                         ),
                 if (onTap != null && !arranging)
                   Icon(Icons.chevron_right_rounded,
-                      size: 18, color: colors.outline),
+                      // Eigene Kennung: seit die Kalender eine
+                      // Blaetterleiste haben, steht derselbe Pfeil auch
+                      // dort – am Symbol allein ist er nicht mehr zu
+                      // erkennen.
+                      key: const Key('kachel_fuehrt_weiter'),
+                      size: 18,
+                      color: colors.outline),
                 if (arranging) ...[
                   if (onEdit != null)
                     IconButton(
