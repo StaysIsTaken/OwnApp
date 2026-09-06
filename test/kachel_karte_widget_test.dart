@@ -10,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/tabs/dashboard/custom/custom_tile_card.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_week_view.dart';
 import 'package:provider/provider.dart';
 
@@ -52,6 +54,8 @@ const wochenkachel =
     CustomTile(id: 'w', source: 'planner.week', view: 'week', title: 'JP Kalender');
 
 void main() {
+  _antippen();
+
   group('Leerer Kalender', () {
     testWidgets('zeichnet trotzdem das Wochenraster', (tester) async {
       // Der Fehler aus dem Bildschirmfoto: statt des Rasters stand nur ein
@@ -126,6 +130,97 @@ void main() {
       await zeige(tester, wochenkachel, kuechenmodus: false);
       expect(find.text('Termin'), findsNothing);
       expect(find.byIcon(Icons.event_available_outlined), findsOneWidget);
+    });
+  });
+}
+
+// Nachtrag: Termine antippen.
+void _antippen() {
+  TileScheduleItem termin(String titel, DateTime start, {int id = 1}) =>
+      TileScheduleItem(
+        id: id,
+        title: titel,
+        start: start,
+        end: start.add(const Duration(hours: 1)),
+      );
+
+  DateTime montag() {
+    final h = DateTime.now();
+    final m = h.subtract(Duration(days: h.weekday - 1));
+    return DateTime(m.year, m.month, m.day);
+  }
+
+  Future<void> zeichneWoche(WidgetTester tester,
+      {TileKontext kontext = TileKontext.leer}) async {
+    tester.view.physicalSize = const Size(1300, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+          width: 1200,
+          height: 700,
+          child: TileWeekView(
+            data: TileData.schedule(
+              [termin('Zahnarzt', montag().add(const Duration(hours: 9)))],
+              anker: montag(),
+            ),
+            kontext: kontext,
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+  }
+
+  group('Termine antippen', () {
+    testWidgets('ohne Rueckkanal passiert nichts', (tester) async {
+      // Im Dashboard am Rechner fuehrt die Kachel als Ganzes in den
+      // Planner – dort braucht der einzelne Termin keinen eigenen Griff.
+      await zeichneWoche(tester);
+      await tester.tap(find.text('Zahnarzt'));
+      await tester.pump();
+      // Kein Absturz, kein Dialog.
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('mit Rueckkanal meldet der Termin seine Kennung',
+        (tester) async {
+      int? geoeffnet;
+      await zeichneWoche(tester,
+          kontext: TileKontext(terminOeffnen: (id) async => geoeffnet = id));
+
+      await tester.tap(find.text('Zahnarzt'));
+      await tester.pump();
+      expect(geoeffnet, 1);
+    });
+
+    testWidgets('ein Termin ohne Kennung bleibt unantippbar', (tester) async {
+      // Kennung 0 heisst: der kommt nicht aus der Datenbank.
+      var gerufen = false;
+      tester.view.physicalSize = const Size(1300, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 1200,
+            height: 700,
+            child: TileWeekView(
+              data: TileData.schedule(
+                [termin('Ohne', montag().add(const Duration(hours: 9)), id: 0)],
+                anker: montag(),
+              ),
+              kontext: TileKontext(terminOeffnen: (_) async => gerufen = true),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+
+      await tester.tap(find.text('Ohne'));
+      await tester.pump();
+      expect(gerufen, isFalse);
     });
   });
 }

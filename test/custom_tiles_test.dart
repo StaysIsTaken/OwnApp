@@ -830,6 +830,45 @@ void _monatsansicht() {
       expect(TileCatalog.zeigtTermine(const []), isFalse);
     });
 
+    test('Termine tragen ihre Kennung', () {
+      // Ohne sie liesse sich der Termin zwar zeichnen, aber nicht
+      // antippen – man haette ein Bild statt eines Kalenders.
+      final heute = DateTime.now();
+      final termin = PlannerEntry(
+        id: 4711, userId: 'u', title: 'Zahnarzt',
+        scheduledAt: DateTime(heute.year, heute.month, 14, 9),
+        endsAt: DateTime(heute.year, heute.month, 14, 10),
+        createdAt: DateTime(2026),
+      );
+      final imMonat = TileCatalog.byKey('planner.month')!.build(
+        DashboardData(plannerEntries: [termin]),
+        const {},
+        const [],
+      );
+      expect(imMonat.schedule.single.id, 4711);
+    });
+
+    test('auch die Wochenansicht traegt sie', () {
+      // Eigener Test mit eigenem Datum: der 14. liegt selten in der
+      // laufenden Woche, und eine Schleife ueber eine leere Liste prueft
+      // nichts – das waere ein Test, der immer gruen ist.
+      final heute = DateTime.now();
+      final montag = DateTime(heute.year, heute.month, heute.day)
+          .subtract(Duration(days: heute.weekday - 1));
+      final termin = PlannerEntry(
+        id: 4712, userId: 'u', title: 'Diese Woche',
+        scheduledAt: montag.add(const Duration(hours: 9)),
+        endsAt: montag.add(const Duration(hours: 10)),
+        createdAt: DateTime(2026),
+      );
+      final d = TileCatalog.byKey('planner.week')!.build(
+        DashboardData(plannerEntries: [termin]),
+        const {'weeks': 0},
+        const [],
+      );
+      expect(d.schedule.single.id, 4712);
+    });
+
     test('Termine tragen die Farbe ihres Kalenders', () {
       // Sonst sieht man zwar alle ausgewaehlten Kalender, kann sie aber
       // nicht auseinanderhalten – und genau dafuer waehlt man sie aus.
