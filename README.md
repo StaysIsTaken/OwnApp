@@ -203,6 +203,32 @@ Der Weg über AltStore/SideStore (Workflow *iOS-ipa-build*) bleibt daneben
 bestehen — dort signiert das Telefon selbst, dafür muss man die App über
 AltStore aktualisieren statt über das Kabel.
 
+## 🤖 Aufs Android-Tablet bringen
+
+```bash
+./deploy/aufs-tablet.sh              # per Kabel
+./deploy/aufs-tablet.sh --anbieten   # ohne Kabel, ohne Entwickleroptionen
+./deploy/aufs-tablet.sh --funk 192.168.1.42:5555   # drahtlos per adb
+```
+
+Drei Wege, weil ein Tablet an der Küchenwand selten am Kabel hängt:
+
+| Weg | Voraussetzung |
+|---|---|
+| **Kabel** | Entwickleroptionen → USB-Debugging |
+| **Funk** | Android 11+, einmal `adb pair` |
+| **Anbieten** | nichts — das Tablet lädt die Datei im Browser |
+
+`--anbieten` baut und stellt die APK im WLAN bereit; auf dem Tablet die
+angezeigte Adresse öffnen, herunterladen, antippen. Die Installation aus
+unbekannter Quelle muss einmal erlaubt werden.
+
+**Zur Signierung:** Die Freigabe-APK wird derzeit mit dem *Debug*-Schlüssel
+signiert (`android/app/build.gradle.kts`). Für den Eigengebrauch reicht
+das, hat aber zwei Folgen: Der Schlüssel hängt an diesem Mac, und ein
+späterer Wechsel auf einen echten Schlüssel verlangt einmal
+Deinstallieren.
+
 ## 🛠️ Technologie-Stack
 
 ### Frontend

@@ -180,6 +180,10 @@ void _antippen() {
       // Im Dashboard am Rechner fuehrt die Kachel als Ganzes in den
       // Planner – dort braucht der einzelne Termin keinen eigenen Griff.
       await zeichneWoche(tester);
+      // In den Blick holen: die Ansicht faengt bei der jetzigen Stunde an,
+      // ein Termin um neun liegt abends ausserhalb.
+      await tester.ensureVisible(find.text('Zahnarzt'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Zahnarzt'));
       await tester.pump();
       // Kein Absturz, kein Dialog.
@@ -192,6 +196,8 @@ void _antippen() {
       await zeichneWoche(tester,
           kontext: TileKontext(terminOeffnen: (id) async => geoeffnet = id));
 
+      await tester.ensureVisible(find.text('Zahnarzt'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Zahnarzt'));
       await tester.pump();
       expect(geoeffnet, 1);
@@ -220,6 +226,8 @@ void _antippen() {
       ));
       await tester.pump();
 
+      await tester.ensureVisible(find.text('Ohne'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Ohne'));
       await tester.pump();
       expect(gerufen, isFalse);
