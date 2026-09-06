@@ -30,6 +30,30 @@ enum TileShape {
   /// zählt, bleiben hier die Einträge selbst erhalten — nur damit lässt
   /// sich ein Board zeichnen, auf dem man liest, was ansteht.
   board,
+
+  /// Eine Liste zum Abhaken. Anders als `list`, die nur zeigt, gehört zu
+  /// jedem Eintrag seine Kennung und sein Zustand — nur damit lässt sich
+  /// etwas zurückschreiben.
+  ///
+  /// Das ist die einzige Form, bei der eine Kachel etwas ändert. Für eine
+  /// Einkaufsliste in der Küche ist genau das der Sinn: man hakt ab,
+  /// während man einräumt.
+  checklist,
+}
+
+/// Ein Eintrag zum Abhaken.
+class TileCheckItem {
+  final String id;
+  final String titel;
+  final String? untertitel;
+  final bool erledigt;
+
+  const TileCheckItem({
+    required this.id,
+    required this.titel,
+    this.untertitel,
+    this.erledigt = false,
+  });
 }
 
 /// Eine Spalte eines Boards.
@@ -67,6 +91,9 @@ class TileData {
   /// board
   final List<TileBoardSpalte> spalten;
 
+  /// checklist
+  final List<TileCheckItem> haken;
+
   /// Auf welchen Zeitraum sich die Termine beziehen – der Montag der Woche,
   /// der Erste des Monats.
   ///
@@ -82,6 +109,7 @@ class TileData {
   const TileData.scalar(this.value, {this.target, this.unit})
       : anker = null,
         spalten = const [],
+        haken = const [],
         shape = TileShape.scalar,
         items = const [],
         points = const {},
@@ -90,8 +118,23 @@ class TileData {
         schedule = const [],
         emptyHint = '';
 
+  const TileData.checklist(this.haken,
+      {this.emptyHint = 'Nichts auf der Liste'})
+      : shape = TileShape.checklist,
+        anker = null,
+        spalten = const [],
+        schedule = const [],
+        value = null,
+        target = null,
+        unit = null,
+        items = const [],
+        points = const {},
+        body = null,
+        footnote = null;
+
   const TileData.board(this.spalten, {this.emptyHint = 'Nichts zu tun'})
       : shape = TileShape.board,
+        haken = const [],
         anker = null,
         schedule = const [],
         value = null,
@@ -106,6 +149,7 @@ class TileData {
       {this.anker, this.emptyHint = 'Nichts geplant'})
       : shape = TileShape.schedule,
         spalten = const [],
+        haken = const [],
         value = null,
         target = null,
         unit = null,
@@ -117,6 +161,7 @@ class TileData {
   const TileData.text(this.body, {this.footnote, this.emptyHint = 'Noch nichts'})
       : anker = null,
         spalten = const [],
+        haken = const [],
         shape = TileShape.text,
         schedule = const [],
         value = null,
@@ -128,6 +173,7 @@ class TileData {
   const TileData.list(this.items, {this.emptyHint = 'Nichts vorhanden'})
       : anker = null,
         spalten = const [],
+        haken = const [],
         shape = TileShape.list,
         body = null,
         footnote = null,
@@ -140,6 +186,7 @@ class TileData {
   const TileData.series(this.points, {this.unit, this.emptyHint = 'Keine Daten'})
       : anker = null,
         spalten = const [],
+        haken = const [],
         shape = TileShape.series,
         body = null,
         footnote = null,
@@ -152,6 +199,7 @@ class TileData {
       {this.unit, this.emptyHint = 'Keine Daten'})
       : anker = null,
         spalten = const [],
+        haken = const [],
         shape = TileShape.distribution,
         body = null,
         footnote = null,
@@ -173,6 +221,8 @@ class TileData {
         return body == null || body!.trim().isEmpty;
       case TileShape.schedule:
         return schedule.isEmpty;
+      case TileShape.checklist:
+        return haken.isEmpty;
       case TileShape.board:
         // Leer heisst: keine einzige Karte. Leere Spalten sind kein leeres
         // Board – "nichts in Arbeit" ist eine Auskunft.

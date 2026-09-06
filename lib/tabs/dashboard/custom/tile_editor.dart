@@ -72,6 +72,10 @@ class _TileEditorState extends State<_TileEditor> {
   final Map<String, TextEditingController> _textfelder = {};
   List<FilterRule> _filter = [];
 
+  /// 0 = automatisch. Die Darstellung entscheidet dann.
+  int _breite = CustomTile.automatisch;
+  int _hoehe = CustomTile.automatisch;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +93,8 @@ class _TileEditorState extends State<_TileEditor> {
         };
       }
       _filter = List<FilterRule>.from(v.filters);
+      _breite = v.breite;
+      _hoehe = v.hoehe;
     }
   }
 
@@ -144,6 +150,8 @@ class _TileEditorState extends State<_TileEditor> {
       title: titel.isEmpty ? null : titel,
       params: Map<String, dynamic>.from(_werte),
       filters: _filter,
+      breite: _breite,
+      hoehe: _hoehe,
     );
   }
 
@@ -328,6 +336,35 @@ class _TileEditorState extends State<_TileEditor> {
         ),
       if (_quelle != null)
         _Schritt(
+          nummer: _naechsteNummer - 1,
+          titel: 'Größe auf der Seite',
+          erklaerung: 'Gilt für die Küchenansicht. „Automatisch" heißt: ein '
+              'Kalender oder Board nimmt sich die ganze Breite, alles '
+              'andere eine Spalte. Zwei schmale Kacheln nebeneinander '
+              'ergeben zwei Spalten.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _stufenwahl(
+                titel: 'Breite',
+                wert: _breite,
+                max: CustomTile.maxBreite,
+                namen: const ['1 Spalte', '2 Spalten', '3 Spalten', 'ganze Reihe'],
+                onGewaehlt: (v) => setState(() => _breite = v),
+              ),
+              const SizedBox(height: 16),
+              _stufenwahl(
+                titel: 'Höhe',
+                wert: _hoehe,
+                max: CustomTile.maxHoehe,
+                namen: const ['flach', 'mittel', 'hoch', 'ganze Seite'],
+                onGewaehlt: (v) => setState(() => _hoehe = v),
+              ),
+            ],
+          ),
+        ),
+      if (_quelle != null)
+        _Schritt(
           nummer: _naechsteNummer,
           titel: 'Überschrift',
           erklaerung: 'Freilassen genügt – dann steht der Name der '
@@ -347,12 +384,47 @@ class _TileEditorState extends State<_TileEditor> {
   }
 
   /// Die Nummer des letzten Schritts – hängt davon ab, welche davor
-  /// überhaupt vorkommen.
+  /// überhaupt vorkommen. Der Größenschritt liegt immer direkt davor.
   int get _naechsteNummer {
-    var n = 2;
+    var n = 3; // Quelle, Darstellung, Größe
     if (_quelle!.params.isNotEmpty) n++;
     if (_quelle!.filterable) n++;
     return n + 1;
+  }
+
+  /// Eine Reihe aus „Automatisch" und den festen Stufen.
+  Widget _stufenwahl({
+    required String titel,
+    required int wert,
+    required int max,
+    required List<String> namen,
+    required ValueChanged<int> onGewaehlt,
+  }) {
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(titel, style: text.labelLarge),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ChoiceChip(
+              label: const Text('Automatisch'),
+              selected: wert == CustomTile.automatisch,
+              onSelected: (_) => onGewaehlt(CustomTile.automatisch),
+            ),
+            for (var i = 1; i <= max; i++)
+              ChoiceChip(
+                label: Text(namen[i - 1]),
+                selected: wert == i,
+                onSelected: (_) => onGewaehlt(i),
+              ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _quellenwahl() {

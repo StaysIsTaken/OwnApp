@@ -22,6 +22,10 @@ class CustomTileCard extends StatelessWidget {
   /// Ein abgebrochener Dialog löst nichts aus.
   final VoidCallback? onGeaendert;
 
+  /// Was diese Kachel zurueckschreiben darf. Nur die Einkaufsliste nutzt
+  /// das; alle anderen zeigen nur.
+  final TileKontext kontext;
+
   /// Diese Kachel haengt auf einem Kuechengeraet. Daraus folgt zweierlei:
   ///
   /// * **Nichts fuehrt weg.** Wer im Vorbeigehen die Kachel streift, soll
@@ -41,6 +45,7 @@ class CustomTileCard extends StatelessWidget {
     this.onDelete,
     this.onGeaendert,
     this.kuechenmodus = false,
+    this.kontext = TileKontext.leer,
   });
 
   @override
@@ -104,7 +109,7 @@ class CustomTileCard extends StatelessWidget {
               ergebnis.emptyHint,
               style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
             )
-          : view.build(context, ergebnis),
+          : view.build(context, ergebnis, kontext),
     );
   }
 }

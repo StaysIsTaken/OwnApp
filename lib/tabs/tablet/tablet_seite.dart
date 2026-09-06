@@ -15,6 +15,7 @@ import 'package:productivity/dataservice/note_service.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/dataservice/rechte_zuordnung.dart';
+import 'package:productivity/dataservice/ingredient_service.dart' as zutaten;
 import 'package:productivity/dataservice/shopping_list_service.dart';
 import 'package:productivity/dataclasses/kalender.dart';
 import 'package:productivity/dataservice/calendar_service.dart';
@@ -24,12 +25,14 @@ import 'package:productivity/dataservice/time_entry_service.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/tabs/dashboard/custom/custom_tile_card.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_editor.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/tabs/dashboard/dashboard_prefs.dart';
 import 'package:productivity/tabs/dashboard/kalender_auswahl.dart';
 import 'package:productivity/tabs/dashboard/seiten_einstellungen.dart';
+import 'package:productivity/tabs/tablet/kachel_layout.dart';
 import 'package:productivity/tabs/tablet/kalender_leiste.dart';
 import 'package:productivity/widgets/dashboard/reorderable_tile.dart';
 import 'package:provider/provider.dart';
@@ -43,27 +46,6 @@ const double randOben = 20;
 /// reservierte Streifen blieb als toter schwarzer Rand stehen, genau
 /// unterhalb des Kalenders.
 double randUnten(bool bearbeiten) => bearbeiten ? 110 : 20;
-
-/// Wie hoch eine Kachel wird, die die ganze Breite braucht —
-/// Wochenansicht, Monatsansicht, Kanban-Board.
-///
-/// Allein auf der Seite bekommt sie alles, was übrig ist: ein Raster lebt
-/// von seiner Höhe. Teilt sie sich die Seite mit anderen Kacheln, nimmt sie
-/// knapp zwei Drittel und lässt den Rest darunter Platz.
-///
-/// Als eigene Funktion, weil die Seite selbst nicht prüfbar ist: sie lädt
-/// beim Aufbau vom Server. Die Rechnung ist es.
-double hoeheGrosseKachel({
-  required double verfuegbar,
-  required bool bearbeiten,
-  required bool alleinAufDerSeite,
-}) {
-  if (!alleinAufDerSeite) {
-    return (verfuegbar * 0.62).clamp(360.0, 720.0);
-  }
-  return (verfuegbar - randOben - randUnten(bearbeiten))
-      .clamp(360.0, double.infinity);
-}
 
 /// Der Inhalt einer Küchen-Seite: Kacheln, die der Nutzer selbst
 /// zusammenstellt.
@@ -213,6 +195,42 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
       tiles: _kacheln, einstellungen: _einstellungen,
     );
   }
+
+  /// Was die Einkaufskachel zurueckschreiben darf.
+  ///
+  /// Die einzige Kachel, die etwas aendert. Nach jedem Schreiben wird neu
+  /// geladen — der Server ist die Wahrheit, nicht der Bildschirm.
+  TileKontext get _einkaufKontext => TileKontext(
+        umschalten: (id, erledigt) async {
+          final posten = _daten.shoppingItems
+              .cast<ShoppingListItem>()
+              .where((i) => i.id == id)
+              .firstOrNull;
+          if (posten == null) return;
+          await ShoppingListService.upsert(posten.copyWith(isBought: erledigt));
+          await _datenLaden();
+        },
+        hinzufuegen: (text) async {
+          // Der Einkaufsposten haengt an einer Zutat. Gibt es sie noch
+          // nicht, wird sie angelegt – auf einem Kuechengeraet will
+          // niemand erst einen Stammdatensatz pflegen.
+          final name = text.trim();
+          final vorhanden = _daten.ingredientMap.values
+              .cast<Ingredient>()
+              .where((z) => z.name.toLowerCase() == name.toLowerCase())
+              .firstOrNull;
+          final zutat = vorhanden ??
+              await zutaten.IngredientService.create(
+                  Ingredient(id: '', name: name));
+          await ShoppingListService.upsert(ShoppingListItem(
+            id: '',
+            ingredientId: zutat.id,
+            unitId: zutat.defaultUnitId ?? '',
+            amount: 1,
+          ));
+          await _datenLaden();
+        },
+      );
 
   Future<void> _kalenderWaehlen() async {
     final wunsch = await zeigeKalenderAuswahl(
@@ -380,52 +398,50 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
             onEdit: () => _kachelBearbeiten(k),
             onDelete: () => _kachelLoeschen(k),
             onGeaendert: _datenLaden,
+            kontext: TileCatalog.byKey(k.source)?.shape == TileShape.checklist
+                ? _einkaufKontext
+                : TileKontext.leer,
             // Haengt an der Wand: nichts fuehrt weg, und was bleibt, ist
             // gross genug fuer den Daumen im Vorbeigehen.
             kuechenmodus: true,
           ),
         );
 
-    // Kalenderansichten bekommen die volle Breite und viel Hoehe. In eine
-    // Rasterspalte gequetscht ist ein Wochenraster unlesbar – sieben Spalten
-    // und ein Dutzend Stunden brauchen Platz, sonst ist es genau die
-    // "kleine Karte", die niemand haben wollte.
-    final gross = sichtbar.where(_brauchtDieBreite).toList();
-    final rest = sichtbar.where((k) => !_brauchtDieBreite(k)).toList();
-
     return RefreshIndicator(
       onRefresh: _laden,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // Zwei Spalten statt drei: lieber grosse Kacheln als viele. Auf
-          // einem Geraet an der Wand zaehlt Lesbarkeit mehr als Dichte.
-          final spalten = constraints.maxWidth >= 1100 ? 3 : 2;
-
+          final spalten = spaltenFuer(constraints.maxWidth);
           final unten = randUnten(widget.bearbeiten);
-          final grosseHoehe = hoeheGrosseKachel(
-            verfuegbar: constraints.maxHeight,
-            bearbeiten: widget.bearbeiten,
-            alleinAufDerSeite: rest.isEmpty,
-          );
+          final reihen = inReihen(sichtbar, spalten);
+          const abstand = 16.0;
 
           return ListView(
-            padding: EdgeInsets.fromLTRB(20, randOben, 20, unten),
+            padding: EdgeInsets.fromLTRB(16, randOben, 16, unten),
             children: [
-              for (final k in gross)
+              for (final reihe in reihen)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: SizedBox(height: grosseHoehe, child: karte(k)),
-                ),
-              if (rest.isNotEmpty)
-                GridView.count(
-                  // Im ListView: eigene Hoehe statt eigenem Scrollen.
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: spalten,
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                  childAspectRatio: 1.35,
-                  children: [for (final k in rest) karte(k)],
+                  padding: const EdgeInsets.only(bottom: abstand),
+                  child: SizedBox(
+                    // Die hoechste Kachel gibt der Reihe ihr Mass – sonst
+                    // haengen die anderen in der Luft.
+                    height: reihe
+                        .map((k) => hoeheFuer(hoeheVon(k),
+                            constraints.maxHeight - randOben - unten))
+                        .reduce((a, b) => a > b ? a : b),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < reihe.length; i++) ...[
+                          if (i > 0) const SizedBox(width: abstand),
+                          Expanded(
+                            flex: breiteVon(reihe[i], spalten),
+                            child: karte(reihe[i]),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
             ],
           );
@@ -433,14 +449,6 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
       ),
     );
   }
-
-  /// Braucht diese Kachel die ganze Breite?
-  ///
-  /// Entschieden an der Darstellung, nicht an der Quelle: ein Raster —
-  /// Wochenansicht, Monatsansicht, Kanban-Board — lebt von seiner Fläche.
-  /// Wer eine neue Rasterdarstellung ergänzt, bekommt das hier geschenkt.
-  static bool _brauchtDieBreite(CustomTile k) =>
-      TileViews.byKey(k.view)?.fuelltFlaeche == true;
 
   Widget _leer() => ListView(
         children: [

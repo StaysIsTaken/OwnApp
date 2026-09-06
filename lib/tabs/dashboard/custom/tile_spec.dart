@@ -20,6 +20,32 @@ class CustomTile {
   static const String zoneKopf = 'kopf';
   static const String zoneRaster = 'raster';
 
+  /// Wie breit die Kachel ist, in Spalten des Rasters (1–4).
+  ///
+  /// Damit lassen sich Kacheln nebeneinander stellen: eine schmale
+  /// Einkaufsliste über die volle Höhe, daneben eine zweite, und wenn
+  /// rechts noch Platz ist, etwas Breiteres. Bisher entschied allein die
+  /// Darstellung, ob eine Kachel eine Spalte oder die ganze Seite bekam —
+  /// dazwischen ging nichts.
+  ///
+  /// **0 heißt automatisch**: ein Raster (Wochenansicht, Board, Liste zum
+  /// Abhaken) nimmt sich alles, alles andere eine Spalte. Das ist der
+  /// Zustand von Kacheln, die vor dieser Einstellung angelegt wurden — sie
+  /// sehen weiter aus wie bisher, statt auf eine Vorgabe zu fallen, die
+  /// jemand erst wieder geradeziehen müsste.
+  final int breite;
+
+  /// Wie hoch, in Stufen (1 = flach, 4 = volle Seite). 0 = automatisch.
+  final int hoehe;
+
+  static const int automatisch = 0;
+
+  bool get breiteAutomatisch => breite == automatisch;
+  bool get hoeheAutomatisch => hoehe == automatisch;
+
+  static const int maxBreite = 4;
+  static const int maxHoehe = 4;
+
   const CustomTile({
     required this.id,
     required this.source,
@@ -28,6 +54,8 @@ class CustomTile {
     this.params = const {},
     this.filters = const [],
     this.zone = zoneRaster,
+    this.breite = automatisch,
+    this.hoehe = automatisch,
   });
 
   bool get imKopf => zone == zoneKopf;
@@ -37,6 +65,8 @@ class CustomTile {
     Map<String, dynamic>? params,
     List<FilterRule>? filters,
     String? zone,
+    int? breite,
+    int? hoehe,
   }) =>
       CustomTile(
         id: id,
@@ -46,6 +76,8 @@ class CustomTile {
         params: params ?? this.params,
         filters: filters ?? this.filters,
         zone: zone ?? this.zone,
+        breite: breite ?? this.breite,
+        hoehe: hoehe ?? this.hoehe,
       );
 
   Map<String, dynamic> toJson() => {
@@ -56,6 +88,8 @@ class CustomTile {
         'params': params,
         'filters': filters.map((f) => f.toJson()).toList(),
         'zone': zone,
+        'breite': breite,
+        'hoehe': hoehe,
       };
 
   factory CustomTile.fromJson(Map<String, dynamic> j) {
@@ -76,8 +110,20 @@ class CustomTile {
       // Ohne Angabe im Raster: so bleiben Kacheln aus der Zeit vor den
       // Kopfbloecken dort, wo sie waren.
       zone: j['zone']?.toString() == zoneKopf ? zoneKopf : zoneRaster,
+      // Beschnitten statt geglaubt: eine Kachel aus einer neueren Version
+      // koennte 9 Spalten wollen, die es hier nicht gibt.
+      breite: _stufe(j['breite'], maxBreite),
+      hoehe: _stufe(j['hoehe'], maxHoehe),
     );
   }
+}
+
+/// Eine Stufe aus gespeichertem JSON. Fehlt sie oder ist sie Unsinn, gilt
+/// „automatisch" – dann entscheidet die Darstellung.
+int _stufe(dynamic roh, int max) {
+  final n = roh is num ? roh.toInt() : int.tryParse('$roh');
+  if (n == null) return CustomTile.automatisch;
+  return n.clamp(CustomTile.automatisch, max);
 }
 
 /// Die Schlüssel für [TileSource.extra] — Daten, die einen eigenen Aufruf
