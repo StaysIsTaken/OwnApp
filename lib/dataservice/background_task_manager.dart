@@ -56,10 +56,9 @@ class BackgroundTaskManager {
     if (kIsWeb) return; // Workmanager not supported on web
     if (!_supportedPlatform) return;
 
-    await Workmanager().initialize(
-      backgroundCallbackDispatcher,
-      isInDebugMode: false,
-    );
+    // `isInDebugMode` gibt es nicht mehr – Fehlersuche laeuft jetzt ueber
+    // die WorkmanagerDebug-Handler.
+    await Workmanager().initialize(backgroundCallbackDispatcher);
 
     // Daily background sync ─ checks pantry expiry / low stock and reschedules
     // any task notifications that may have been added on another device.
@@ -68,7 +67,12 @@ class BackgroundTaskManager {
       taskPeriodicSync,
       taskPeriodicSync,
       frequency: const Duration(hours: 6),
-      existingWorkPolicy: ExistingWorkPolicy.replace,
+      // `update` statt `replace`: es aendert die laufende Anmeldung, statt
+      // sie abzubrechen und neu anzulegen, und behaelt dabei den
+      // Zeitplan. `replace` ist abgekuendigt, und `keep` haette den
+      // Haken, dass eine einmal registrierte kurze Frequenz bestehen
+      // bliebe – auch wenn hier spaeter sechs Stunden stehen.
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
       constraints: Constraints(networkType: NetworkType.connected),
       initialDelay: const Duration(minutes: 1),
     );
