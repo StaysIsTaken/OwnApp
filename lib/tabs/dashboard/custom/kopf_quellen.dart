@@ -185,6 +185,17 @@ class KopfQuellen {
       },
     ),
 
+    // ── Braucht keine Daten ──────────────────────────────────────────────
+    TileSource(
+      key: 'uhr',
+      label: 'Uhr und Timer',
+      group: 'Eigenes',
+      shape: TileShape.ohne,
+      // Keine Parameter, keine Filter, keine Route: eine Uhr weiß, wie
+      // spät es ist. Was sie zeigt, wählt man an ihr selbst.
+      build: (d, p, f) => const TileData.ohne(),
+    ),
+
     // ── Von draußen, über die eigene API ─────────────────────────────────
     TileSource(
       key: 'kopf.nachrichten',

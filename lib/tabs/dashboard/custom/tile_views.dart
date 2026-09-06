@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_charts.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_board_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_checklist_view.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_clock_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_month_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_week_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
@@ -154,6 +155,21 @@ class TileViews {
       minBreite: 420,
       minHoehe: 300,
       build: (ctx, d, _) => TileMonthView(data: d),
+    ),
+    TileView(
+      key: 'clock',
+      label: 'Uhr',
+      icon: Icons.schedule_rounded,
+      accepts: const {TileShape.ohne},
+      // Braucht die Flaeche fuer grosse Ziffern und zeichnet sich immer –
+      // eine Uhr ist nie leer.
+      fuelltFlaeche: true,
+      minBreite: 260,
+      minHoehe: 220,
+      build: (ctx, d, _) => LayoutBuilder(
+        builder: (_, c) =>
+            TileClockView(gross: byKey('clock')!.istGross(c.maxHeight)),
+      ),
     ),
     TileView(
       key: 'checklist',

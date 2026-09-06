@@ -39,6 +39,14 @@ enum TileShape {
   /// Einkaufsliste in der Küche ist genau das der Sinn: man hakt ab,
   /// während man einräumt.
   checklist,
+
+  /// Braucht überhaupt keine Daten.
+  ///
+  /// Eine Uhr weiß, wie spät es ist — dafür muss ihr niemand etwas
+  /// laden, filtern oder einstellen. Sie steht trotzdem im selben
+  /// Baukasten, damit man sie wie jede andere Kachel hinlegen und
+  /// verschieben kann.
+  ohne,
 }
 
 /// Ein Eintrag zum Abhaken.
@@ -122,6 +130,21 @@ class TileData {
         body = null,
         footnote = null,
         schedule = const [],
+        emptyHint = '';
+
+  const TileData.ohne()
+      : shape = TileShape.ohne,
+        haken = const [],
+        anker = null,
+        spalten = const [],
+        schedule = const [],
+        value = null,
+        target = null,
+        unit = null,
+        items = const [],
+        points = const {},
+        body = null,
+        footnote = null,
         emptyHint = '';
 
   const TileData.checklist(this.haken,
@@ -229,6 +252,9 @@ class TileData {
         return schedule.isEmpty;
       case TileShape.checklist:
         return haken.isEmpty;
+      case TileShape.ohne:
+        // Eine Uhr ist nie leer.
+        return false;
       case TileShape.board:
         // Leer heisst: keine einzige Karte. Leere Spalten sind kein leeres
         // Board – "nichts in Arbeit" ist eine Auskunft.
