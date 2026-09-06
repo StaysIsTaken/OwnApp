@@ -172,6 +172,37 @@ lib/
 └── assets/                            # Bilder und Symbole
 ```
 
+## 📱 Aufs eigene iPhone bringen
+
+```bash
+./deploy/aufs-handy.sh
+```
+
+iPhone anschließen, entsperren, Kommando ausführen — es baut, signiert und
+installiert. `--ziehen` holt vorher den neuesten Stand, `--starten` öffnet
+die App danach gleich.
+
+**Warum das wöchentlich nötig ist:** Das Entwicklerkonto ist ein
+kostenloses. Apple gibt dafür Bereitstellungsprofile mit **sieben Tagen**
+Laufzeit — danach startet die App nicht mehr, ohne dass sich am Programm
+etwas geändert hätte. Ein bezahltes Konto (99 €/Jahr) macht daraus ein
+Jahr; solange es das nicht gibt, ist dieses Kommando die Wöchentlichkeit.
+
+**Warum kein Server-Job:** Zum Signieren braucht Xcode das angeschlossene
+Gerät, weil dessen Kennung im Profil steht. Ein Job, der es allein
+versucht, scheitert in sechs von sieben Fällen. Der Mac kann nur daran
+erinnern:
+
+```bash
+./deploy/woechentliche-erinnerung.sh ein
+```
+
+Meldet sich sonntags um 18 Uhr. `aus` entfernt sie wieder.
+
+Der Weg über AltStore/SideStore (Workflow *iOS-ipa-build*) bleibt daneben
+bestehen — dort signiert das Telefon selbst, dafür muss man die App über
+AltStore aktualisieren statt über das Kabel.
+
 ## 🛠️ Technologie-Stack
 
 ### Frontend
