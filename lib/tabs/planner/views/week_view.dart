@@ -683,6 +683,7 @@ class _WeekViewState extends State<WeekView> {
         notifyMinBefore: result.notifyMinBefore,
         color: result.color,
         participantIds: result.participantIds,
+        calendarId: result.calendarId,
       );
     }
   }

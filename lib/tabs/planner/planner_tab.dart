@@ -105,6 +105,7 @@ class _PlannerTabState extends State<PlannerTab>
               notifyMinBefore: result.notifyMinBefore,
               color: result.color,
               participantIds: result.participantIds,
+              calendarId: result.calendarId,
             );
           }
         },
