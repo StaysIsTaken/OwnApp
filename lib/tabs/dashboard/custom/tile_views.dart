@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_charts.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_board_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_month_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_week_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
@@ -81,6 +82,18 @@ class TileViews {
       accepts: const {TileShape.schedule},
       fuelltFlaeche: true,
       build: (ctx, d) => TileMonthView(data: d),
+    ),
+    TileView(
+      key: 'board',
+      label: 'Kanban-Board',
+      icon: Icons.view_kanban_outlined,
+      accepts: const {TileShape.board},
+      // Wie die Kalender: ein Raster, das die Flaeche braucht und auch
+      // ohne Karten etwas aussagt – leere Spalten heissen "nichts offen".
+      fuelltFlaeche: true,
+      build: (ctx, d) => LayoutBuilder(
+        builder: (_, c) => TileBoardView(data: d, gross: c.maxHeight >= 420),
+      ),
     ),
     TileView(
       key: 'bars',

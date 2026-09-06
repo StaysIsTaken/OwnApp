@@ -25,6 +25,19 @@ enum TileShape {
   /// Termine mit Anfang und Ende. Anders als `list` behalten sie ihre
   /// Lage in der Zeit — nur damit lässt sich ein Wochenraster zeichnen.
   schedule,
+
+  /// Einträge in benannten Spalten. Anders als `distribution`, die nur
+  /// zählt, bleiben hier die Einträge selbst erhalten — nur damit lässt
+  /// sich ein Board zeichnen, auf dem man liest, was ansteht.
+  board,
+}
+
+/// Eine Spalte eines Boards.
+class TileBoardSpalte {
+  final String titel;
+  final List<TileListItem> eintraege;
+
+  const TileBoardSpalte(this.titel, this.eintraege);
 }
 
 /// Ergebnis einer Quelle.
@@ -51,6 +64,9 @@ class TileData {
   /// schedule
   final List<TileScheduleItem> schedule;
 
+  /// board
+  final List<TileBoardSpalte> spalten;
+
   /// Auf welchen Zeitraum sich die Termine beziehen – der Montag der Woche,
   /// der Erste des Monats.
   ///
@@ -65,6 +81,7 @@ class TileData {
 
   const TileData.scalar(this.value, {this.target, this.unit})
       : anker = null,
+        spalten = const [],
         shape = TileShape.scalar,
         items = const [],
         points = const {},
@@ -73,9 +90,22 @@ class TileData {
         schedule = const [],
         emptyHint = '';
 
+  const TileData.board(this.spalten, {this.emptyHint = 'Nichts zu tun'})
+      : shape = TileShape.board,
+        anker = null,
+        schedule = const [],
+        value = null,
+        target = null,
+        unit = null,
+        items = const [],
+        points = const {},
+        body = null,
+        footnote = null;
+
   const TileData.schedule(this.schedule,
       {this.anker, this.emptyHint = 'Nichts geplant'})
       : shape = TileShape.schedule,
+        spalten = const [],
         value = null,
         target = null,
         unit = null,
@@ -86,6 +116,7 @@ class TileData {
 
   const TileData.text(this.body, {this.footnote, this.emptyHint = 'Noch nichts'})
       : anker = null,
+        spalten = const [],
         shape = TileShape.text,
         schedule = const [],
         value = null,
@@ -96,6 +127,7 @@ class TileData {
 
   const TileData.list(this.items, {this.emptyHint = 'Nichts vorhanden'})
       : anker = null,
+        spalten = const [],
         shape = TileShape.list,
         body = null,
         footnote = null,
@@ -107,6 +139,7 @@ class TileData {
 
   const TileData.series(this.points, {this.unit, this.emptyHint = 'Keine Daten'})
       : anker = null,
+        spalten = const [],
         shape = TileShape.series,
         body = null,
         footnote = null,
@@ -118,6 +151,7 @@ class TileData {
   const TileData.distribution(this.points,
       {this.unit, this.emptyHint = 'Keine Daten'})
       : anker = null,
+        spalten = const [],
         shape = TileShape.distribution,
         body = null,
         footnote = null,
@@ -139,6 +173,10 @@ class TileData {
         return body == null || body!.trim().isEmpty;
       case TileShape.schedule:
         return schedule.isEmpty;
+      case TileShape.board:
+        // Leer heisst: keine einzige Karte. Leere Spalten sind kein leeres
+        // Board – "nichts in Arbeit" ist eine Auskunft.
+        return spalten.every((s) => s.eintraege.isEmpty);
     }
   }
 }

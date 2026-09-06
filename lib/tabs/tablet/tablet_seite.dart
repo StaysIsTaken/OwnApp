@@ -24,7 +24,7 @@ import 'package:productivity/dataservice/time_entry_service.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/tabs/dashboard/custom/custom_tile_card.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
-import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_editor.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/tabs/dashboard/dashboard_prefs.dart';
@@ -44,16 +44,16 @@ const double randOben = 20;
 /// unterhalb des Kalenders.
 double randUnten(bool bearbeiten) => bearbeiten ? 110 : 20;
 
-/// Wie hoch eine Kalenderkachel wird.
+/// Wie hoch eine Kachel wird, die die ganze Breite braucht —
+/// Wochenansicht, Monatsansicht, Kanban-Board.
 ///
-/// Allein auf der Seite bekommt sie alles, was übrig ist — ein
-/// Wochenraster lebt von seiner Höhe. Teilt sie sich die Seite mit
-/// anderen Kacheln, nimmt sie knapp zwei Drittel und lässt den Rest
-/// darunter Platz.
+/// Allein auf der Seite bekommt sie alles, was übrig ist: ein Raster lebt
+/// von seiner Höhe. Teilt sie sich die Seite mit anderen Kacheln, nimmt sie
+/// knapp zwei Drittel und lässt den Rest darunter Platz.
 ///
 /// Als eigene Funktion, weil die Seite selbst nicht prüfbar ist: sie lädt
 /// beim Aufbau vom Server. Die Rechnung ist es.
-double hoeheKalenderkachel({
+double hoeheGrosseKachel({
   required double verfuegbar,
   required bool bearbeiten,
   required bool alleinAufDerSeite,
@@ -390,8 +390,8 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
     // Rasterspalte gequetscht ist ein Wochenraster unlesbar – sieben Spalten
     // und ein Dutzend Stunden brauchen Platz, sonst ist es genau die
     // "kleine Karte", die niemand haben wollte.
-    final kalender = sichtbar.where(_istKalender).toList();
-    final rest = sichtbar.where((k) => !_istKalender(k)).toList();
+    final gross = sichtbar.where(_brauchtDieBreite).toList();
+    final rest = sichtbar.where((k) => !_brauchtDieBreite(k)).toList();
 
     return RefreshIndicator(
       onRefresh: _laden,
@@ -402,7 +402,7 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           final spalten = constraints.maxWidth >= 1100 ? 3 : 2;
 
           final unten = randUnten(widget.bearbeiten);
-          final kalenderHoehe = hoeheKalenderkachel(
+          final grosseHoehe = hoeheGrosseKachel(
             verfuegbar: constraints.maxHeight,
             bearbeiten: widget.bearbeiten,
             alleinAufDerSeite: rest.isEmpty,
@@ -411,10 +411,10 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           return ListView(
             padding: EdgeInsets.fromLTRB(20, randOben, 20, unten),
             children: [
-              for (final k in kalender)
+              for (final k in gross)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
-                  child: SizedBox(height: kalenderHoehe, child: karte(k)),
+                  child: SizedBox(height: grosseHoehe, child: karte(k)),
                 ),
               if (rest.isNotEmpty)
                 GridView.count(
@@ -434,9 +434,13 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
     );
   }
 
-  /// Zeigt diese Kachel einen Kalender – also ein Wochen- oder Monatsraster?
-  static bool _istKalender(CustomTile k) =>
-      TileCatalog.byKey(k.source)?.shape == TileShape.schedule;
+  /// Braucht diese Kachel die ganze Breite?
+  ///
+  /// Entschieden an der Darstellung, nicht an der Quelle: ein Raster —
+  /// Wochenansicht, Monatsansicht, Kanban-Board — lebt von seiner Fläche.
+  /// Wer eine neue Rasterdarstellung ergänzt, bekommt das hier geschenkt.
+  static bool _brauchtDieBreite(CustomTile k) =>
+      TileViews.byKey(k.view)?.fuelltFlaeche == true;
 
   Widget _leer() => ListView(
         children: [
