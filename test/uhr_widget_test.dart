@@ -7,6 +7,7 @@ import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_clock_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
+import 'package:productivity/dataservice/timer_ton.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
 Future<void> zeichne(WidgetTester tester, {double hoehe = 500}) async {
@@ -22,6 +23,66 @@ Future<void> zeichne(WidgetTester tester, {double hoehe = 500}) async {
 }
 
 void main() {
+  setUp(() {
+    // Kein Ton im Test – gezaehlt wird trotzdem, und darum geht es.
+    TimerTon.stumm = true;
+    TimerTon.gespielt = 0;
+  });
+
+  group('Der Ton beim Ablaufen', () {
+    Future<void> timerStarten(WidgetTester tester, String vorgabe) async {
+      await zeichne(tester);
+      await tester.tap(find.text('Timer'));
+      await tester.pump();
+      await tester.tap(find.text(vorgabe));
+      await tester.pump();
+      await tester.tap(find.text('Start'));
+      await tester.pump();
+    }
+
+    testWidgets('klingelt, wenn er abgelaufen ist', (tester) async {
+      await timerStarten(tester, '1 min');
+      expect(TimerTon.gespielt, 0);
+      await tester.pump(const Duration(seconds: 60));
+      expect(TimerTon.gespielt, 1);
+    });
+
+    testWidgets('klingelt genau einmal, nicht bei jedem Takt danach',
+        (tester) async {
+      // Sonst laeutet es im Sekundentakt weiter, bis jemand hinsieht.
+      await timerStarten(tester, '1 min');
+      await tester.pump(const Duration(seconds: 60));
+      await tester.pump(const Duration(seconds: 10));
+      expect(TimerTon.gespielt, 1);
+    });
+
+    testWidgets('klingelt nicht, solange er laeuft', (tester) async {
+      await timerStarten(tester, '3 min');
+      await tester.pump(const Duration(seconds: 30));
+      expect(TimerTon.gespielt, 0);
+    });
+
+    testWidgets('klingelt nicht, wenn man ihn vorher anhaelt', (tester) async {
+      await timerStarten(tester, '1 min');
+      await tester.pump(const Duration(seconds: 30));
+      await tester.tap(find.text('Pause'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 60));
+      expect(TimerTon.gespielt, 0);
+    });
+
+    testWidgets('ein zweiter Durchlauf klingelt wieder', (tester) async {
+      await timerStarten(tester, '1 min');
+      await tester.pump(const Duration(seconds: 60));
+      expect(TimerTon.gespielt, 1);
+
+      await tester.tap(find.text('Start'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 60));
+      expect(TimerTon.gespielt, 2);
+    });
+  });
+
   group('Zeit als Text', () {
     test('immer zweistellig', () {
       expect(zeitText(DateTime(2026, 9, 5, 7, 4, 3)), '07:04:03');
