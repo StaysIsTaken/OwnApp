@@ -42,12 +42,54 @@ class _TileWeekViewState extends State<TileWeekView> {
   /// ein — geblättert wird zum Nachsehen.
   int _versatz = 0;
 
+  final ScrollController _rolle = ScrollController();
+
+  /// Ob schon einmal zur passenden Stelle gesprungen wurde.
+  ///
+  /// Nur beim ersten Zeichnen: wer danach scrollt, will dort bleiben. Ein
+  /// Raster, das alle sechzig Sekunden zur Uhrzeit zurueckspringt, waere
+  /// unbenutzbar.
+  bool _gesprungen = false;
+
+  @override
+  void dispose() {
+    _rolle.dispose();
+    super.dispose();
+  }
+
   @override
   void didUpdateWidget(TileWeekView alt) {
     super.didUpdateWidget(alt);
     if (alt.data.anker != widget.data.anker || alt.woche != widget.woche) {
       _versatz = 0;
     }
+  }
+
+  /// Springt so, dass die aktuelle Stunde im Blick ist.
+  ///
+  /// Eine Wochenansicht, die um Mitternacht anfaengt, ist auf einem
+  /// Kuechengeraet nutzlos -- man sieht sechs leere Stunden und muss erst
+  /// scrollen. Also faengt sie dort an, wo der Tag gerade steht.
+  ///
+  /// Eine Stunde Vorlauf, damit auch der eben vergangene Termin noch zu
+  /// sehen ist; sonst klebt "jetzt" am oberen Rand.
+  void _springeZurUhrzeit(double stundenHoehe, int vonStunde, DateTime start) {
+    if (_gesprungen) return;
+    _gesprungen = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_rolle.hasClients) return;
+      final jetzt = DateTime.now();
+
+      // Zeigt die Ansicht eine andere Woche, sagt "jetzt" nichts ueber
+      // sie aus -- dann lieber beim Vormittag anfangen als bei Mitternacht.
+      final ende = start.add(const Duration(days: 7));
+      final inDieserWoche = !jetzt.isBefore(start) && jetzt.isBefore(ende);
+      final stunde = inDieserWoche ? jetzt.hour + jetzt.minute / 60.0 : 8.0;
+
+      final ziel = (stunde - vonStunde - 1) * stundenHoehe;
+      _rolle.jumpTo(ziel.clamp(0.0, _rolle.position.maxScrollExtent));
+    });
   }
 
   /// Kalenderwoche nach ISO — dieselbe Rechnung wie im Planner.
@@ -143,6 +185,12 @@ class _TileWeekViewState extends State<TileWeekView> {
         final rasterHoehe =
             grossflaechig ? stundenHoehe * anzahlStunden : sichtbareHoehe;
 
+        // Nur in der grossen Ansicht: die kleine zeigt ohnehin nur den
+        // Bereich, in dem Termine liegen, und scrollt gar nicht.
+        if (grossflaechig) {
+          _springeZurUhrzeit(stundenHoehe, von, start);
+        }
+
         final ende = start.add(const Duration(days: 6));
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,14 +202,22 @@ class _TileWeekViewState extends State<TileWeekView> {
               gross: grossflaechig,
               onZurueck: () => setState(() => _versatz--),
               onVor: () => setState(() => _versatz++),
-              onHeute:
-                  _versatz == 0 ? null : () => setState(() => _versatz = 0),
+              onHeute: _versatz == 0
+                  ? null
+                  : () => setState(() {
+                        _versatz = 0;
+                        // „Heute" heisst auch: wieder auf die jetzige
+                        // Stunde. Sonst landet man in der richtigen Woche
+                        // an der Stelle, an der man in der falschen war.
+                        _gesprungen = false;
+                      }),
             ),
             _kopf(context, start, zeitBreite, tagBreite, grossflaechig),
             if (ganztags.isNotEmpty)
               _ganztagsStreifen(context, start, ganztags, zeitBreite, tagBreite),
             Expanded(
               child: SingleChildScrollView(
+                controller: grossflaechig ? _rolle : null,
                 child: SizedBox(
                   height: rasterHoehe,
                   child: Stack(

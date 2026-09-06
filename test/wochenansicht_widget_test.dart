@@ -45,6 +45,8 @@ DateTime montagDieserWoche() {
 }
 
 void main() {
+  _springtZurUhrzeit();
+
   _blaettern();
 
   group('Grosse Flaeche – wie im Planner', () {
@@ -248,6 +250,118 @@ void _blaettern() {
       await zeichne(tester, const TileData.schedule([]),
           breite: 1000, hoehe: 700);
       expect(find.textContaining('KW '), findsOneWidget);
+    });
+  });
+}
+
+// Nachtrag: die Ansicht faengt dort an, wo der Tag gerade steht.
+void _springtZurUhrzeit() {
+  const stundenHoehe = 56.0; // wie in der Ansicht
+
+  group('Sprung zur Uhrzeit', () {
+    double abstand(WidgetTester tester) {
+      final sv = tester.widget<SingleChildScrollView>(
+          find.byType(SingleChildScrollView));
+      return sv.controller?.offset ?? -1;
+    }
+
+    double grenze(WidgetTester tester) {
+      final sv = tester.widget<SingleChildScrollView>(
+          find.byType(SingleChildScrollView));
+      return sv.controller!.position.maxScrollExtent;
+    }
+
+    testWidgets('eine andere Woche faengt beim Vormittag an', (tester) async {
+      // Der zeitunabhaengige Fall: "jetzt" sagt ueber eine andere Woche
+      // nichts aus, also acht Uhr. Mit einer Stunde Vorlauf ergibt das
+      // genau (8 - 1) * 56 Pixel -- egal, wann der Test laeuft.
+      final andereWoche = montagDieserWoche().add(const Duration(days: 21));
+      await zeichne(tester, TileData.schedule(const [], anker: andereWoche),
+          breite: 1000, hoehe: 700);
+      await tester.pumpAndSettle();
+
+      expect(abstand(tester), closeTo((8 - 1) * stundenHoehe, 1));
+    });
+
+    testWidgets('die laufende Woche faengt bei der jetzigen Stunde an',
+        (tester) async {
+      // Eine Wochenansicht, die um Mitternacht anfaengt, ist auf einem
+      // Kuechengeraet nutzlos -- man sieht sechs leere Stunden.
+      final montag = montagDieserWoche();
+      await zeichne(tester, TileData.schedule(const [], anker: montag),
+          breite: 1000, hoehe: 700);
+      await tester.pumpAndSettle();
+
+      final jetzt = DateTime.now();
+      // Begrenzt, weil man abends nicht weiter scrollen kann als bis zum
+      // Ende des Tages -- das ist gewollt und keine Ausnahme.
+      final erwartet = ((jetzt.hour + jetzt.minute / 60.0 - 1) * stundenHoehe)
+          .clamp(0.0, grenze(tester));
+      expect(abstand(tester), closeTo(erwartet, 1));
+    });
+
+    testWidgets('beim Blaettern bleibt die Stunde stehen', (tester) async {
+      // Wer eine Stunde ansieht, will sie ueber die Wochen hinweg
+      // vergleichen -- kein Sprung bei jedem Klick.
+      final montag = montagDieserWoche();
+      await zeichne(tester, TileData.schedule(const [], anker: montag),
+          breite: 1000, hoehe: 700);
+      await tester.pumpAndSettle();
+      final vorher = abstand(tester);
+
+      await tester.tap(find.byTooltip('Weiter'));
+      await tester.pumpAndSettle();
+      expect(abstand(tester), vorher);
+    });
+
+    testWidgets('"Heute" springt wieder auf die jetzige Stunde',
+        (tester) async {
+      final montag = montagDieserWoche();
+      await zeichne(tester, TileData.schedule(const [], anker: montag),
+          breite: 1000, hoehe: 700);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Weiter'));
+      await tester.pumpAndSettle();
+      final sv = tester.widget<SingleChildScrollView>(
+          find.byType(SingleChildScrollView));
+      sv.controller!.jumpTo(0);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Heute'));
+      await tester.pumpAndSettle();
+
+      final jetzt = DateTime.now();
+      final erwartet = ((jetzt.hour + jetzt.minute / 60.0 - 1) * stundenHoehe)
+          .clamp(0.0, grenze(tester));
+      expect(abstand(tester), closeTo(erwartet, 1));
+    });
+
+    testWidgets('wer selbst scrollt, bleibt dort', (tester) async {
+      // Ein Raster, das alle sechzig Sekunden zurueckspringt, waere
+      // unbenutzbar.
+      final montag = montagDieserWoche();
+      await zeichne(tester, TileData.schedule(const [], anker: montag),
+          breite: 1000, hoehe: 700);
+      await tester.pumpAndSettle();
+
+      final sv = tester.widget<SingleChildScrollView>(
+          find.byType(SingleChildScrollView));
+      sv.controller!.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(abstand(tester), 0);
+    });
+
+    testWidgets('die kleine Kachel scrollt gar nicht', (tester) async {
+      // Sie zeigt ohnehin nur den Bereich, in dem Termine liegen.
+      await zeichne(tester, const TileData.schedule([]),
+          breite: 400, hoehe: 220);
+      await tester.pumpAndSettle();
+      final sv = tester.widget<SingleChildScrollView>(
+          find.byType(SingleChildScrollView));
+      expect(sv.controller, isNull);
     });
   });
 }
