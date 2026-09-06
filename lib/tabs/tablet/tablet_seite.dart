@@ -34,6 +34,37 @@ import 'package:productivity/tabs/tablet/kalender_leiste.dart';
 import 'package:productivity/widgets/dashboard/reorderable_tile.dart';
 import 'package:provider/provider.dart';
 
+const double randOben = 20;
+
+/// Platz unten am Inhalt.
+///
+/// Beim Einrichten schweben dort die Knöpfe über der Seite und würden die
+/// letzte Zeile verdecken. Im Normalbetrieb gibt es sie nicht mehr — der
+/// reservierte Streifen blieb als toter schwarzer Rand stehen, genau
+/// unterhalb des Kalenders.
+double randUnten(bool bearbeiten) => bearbeiten ? 110 : 20;
+
+/// Wie hoch eine Kalenderkachel wird.
+///
+/// Allein auf der Seite bekommt sie alles, was übrig ist — ein
+/// Wochenraster lebt von seiner Höhe. Teilt sie sich die Seite mit
+/// anderen Kacheln, nimmt sie knapp zwei Drittel und lässt den Rest
+/// darunter Platz.
+///
+/// Als eigene Funktion, weil die Seite selbst nicht prüfbar ist: sie lädt
+/// beim Aufbau vom Server. Die Rechnung ist es.
+double hoeheKalenderkachel({
+  required double verfuegbar,
+  required bool bearbeiten,
+  required bool alleinAufDerSeite,
+}) {
+  if (!alleinAufDerSeite) {
+    return (verfuegbar * 0.62).clamp(360.0, 720.0);
+  }
+  return (verfuegbar - randOben - randUnten(bearbeiten))
+      .clamp(360.0, double.infinity);
+}
+
 /// Der Inhalt einer Küchen-Seite: Kacheln, die der Nutzer selbst
 /// zusammenstellt.
 ///
@@ -370,13 +401,15 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           // einem Geraet an der Wand zaehlt Lesbarkeit mehr als Dichte.
           final spalten = constraints.maxWidth >= 1100 ? 3 : 2;
 
-          // Liegt nichts anderes auf der Seite, fuellt der Kalender sie ganz.
-          final kalenderHoehe = rest.isEmpty
-              ? (constraints.maxHeight - 130).clamp(360.0, double.infinity)
-              : (constraints.maxHeight * 0.62).clamp(360.0, 720.0);
+          final unten = randUnten(widget.bearbeiten);
+          final kalenderHoehe = hoeheKalenderkachel(
+            verfuegbar: constraints.maxHeight,
+            bearbeiten: widget.bearbeiten,
+            alleinAufDerSeite: rest.isEmpty,
+          );
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
+            padding: EdgeInsets.fromLTRB(20, randOben, 20, unten),
             children: [
               for (final k in kalender)
                 Padding(
