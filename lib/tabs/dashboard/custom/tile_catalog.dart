@@ -120,14 +120,14 @@ class TileCatalog {
         final heute = DateTime.now().add(Duration(days: versatz * 7));
         final montag = _tagesbeginn(
             heute.subtract(Duration(days: heute.weekday - 1)));
-        final sonntagEnde = montag.add(const Duration(days: 7));
 
+        // Bewusst NICHT auf diese Woche eingegrenzt: die Ansicht kann
+        // blaettern, und was sie nicht bekommen hat, kann sie nicht
+        // zeigen. Sie schneidet selbst auf den sichtbaren Zeitraum zu.
         final termine = <TileScheduleItem>[];
         for (final e in applyFilters(
             d.plannerEntries.cast<PlannerEntry>(), f, FilterFields.termine)) {
           if (e.parentId != null) continue;
-          if (e.scheduledAt.isBefore(montag)) continue;
-          if (!e.scheduledAt.isBefore(sonntagEnde)) continue;
           termine.add(TileScheduleItem(
             id: e.id,
             title: e.title,
@@ -158,14 +158,12 @@ class TileCatalog {
         final versatz = _int(p, 'months', 0);
         final heute = DateTime.now();
         final erster = DateTime(heute.year, heute.month + versatz);
-        final naechster = DateTime(erster.year, erster.month + 1);
 
+        // Wie bei der Woche: die Ansicht blaettert und schneidet selbst zu.
         final termine = <TileScheduleItem>[];
         for (final e in applyFilters(
             d.plannerEntries.cast<PlannerEntry>(), f, FilterFields.termine)) {
           if (e.parentId != null) continue;
-          if (e.scheduledAt.isBefore(erster)) continue;
-          if (!e.scheduledAt.isBefore(naechster)) continue;
           termine.add(TileScheduleItem(
             id: e.id,
             title: e.title,

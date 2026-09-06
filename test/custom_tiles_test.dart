@@ -497,7 +497,7 @@ void _wochenansicht() {
   }
 
   group('Wochenansicht', () {
-    test('nimmt nur die gewählte Woche', () {
+    test('die Quelle liefert alles, die Ansicht schneidet zu', () {
       final montag = montagDieserWoche();
       final d = DashboardData(plannerEntries: [
         termin('Diese Woche', montag.add(const Duration(days: 2, hours: 10))),
@@ -507,10 +507,13 @@ void _wochenansicht() {
 
       final r = TileCatalog.byKey('planner.week')!.build(d, {}, const []);
       expect(r.shape, TileShape.schedule);
-      expect(r.schedule.map((e) => e.title), ['Diese Woche']);
+      // Alle drei – zugeschnitten wird beim Zeichnen. Dass dort wirklich
+      // nur die gewaehlte Woche steht, prueft wochenansicht_widget_test.
+      expect(r.schedule, hasLength(3));
+      expect(r.anker, montagDieserWoche());
     });
 
-    test('der Versatz verschiebt die Woche', () {
+    test('der Versatz verschiebt den Ausgangspunkt', () {
       final montag = montagDieserWoche();
       final d = DashboardData(plannerEntries: [
         termin('Diese', montag.add(const Duration(days: 1, hours: 9))),
@@ -518,10 +521,11 @@ void _wochenansicht() {
       ]);
       final quelle = TileCatalog.byKey('planner.week')!;
 
-      expect(quelle.build(d, {'weeks': 0}, const []).schedule.single.title,
-          'Diese');
-      expect(quelle.build(d, {'weeks': 1}, const []).schedule.single.title,
-          'Nächste');
+      // Der Ausgangspunkt wandert, der Bestand bleibt derselbe.
+      expect(quelle.build(d, {'weeks': 0}, const []).anker, montag);
+      expect(quelle.build(d, {'weeks': 1}, const []).anker,
+          montag.add(const Duration(days: 7)));
+      expect(quelle.build(d, {'weeks': 1}, const []).schedule, hasLength(2));
     });
 
     test('rückwärts geht auch', () {
@@ -745,17 +749,23 @@ void _monatsansicht() {
   group('Monatsansicht', () {
     final heute = DateTime.now();
 
-    test('sie nimmt nur den gewaehlten Monat', () {
+    test('die Quelle liefert alles, nicht nur den gewaehlten Monat', () {
+      // Seit die Ansicht blaettern kann, muss sie mehr bekommen als den
+      // Ausgangsmonat – was sie nicht hat, kann sie nicht zeigen.
+      // Zugeschnitten wird beim Zeichnen, nicht hier.
       final drin = DateTime(heute.year, heute.month, 15, 10);
       final naechster = DateTime(heute.year, heute.month + 1, 15, 10);
       final d = bauen([termin('Drin', drin), termin('Danach', naechster)]);
-      expect(d.schedule.map((e) => e.title), ['Drin']);
+      expect(d.schedule.map((e) => e.title), ['Drin', 'Danach']);
     });
 
-    test('der Versatz verschiebt den Monat', () {
-      final naechster = DateTime(heute.year, heute.month + 1, 15, 10);
-      final d = bauen([termin('Danach', naechster)], versatz: 1);
-      expect(d.schedule.map((e) => e.title), ['Danach']);
+    test('der Anker verschiebt sich mit dem Versatz', () {
+      // Der Ausgangspunkt bleibt einstellbar – er sagt der Ansicht, wo
+      // sie aufmachen soll.
+      final d = bauen(const [], versatz: 1);
+      final erwartet = DateTime(heute.year, heute.month + 1);
+      expect(d.anker!.year, erwartet.year);
+      expect(d.anker!.month, erwartet.month);
     });
 
     test('der Anker sagt, welcher Monat gemeint ist', () {

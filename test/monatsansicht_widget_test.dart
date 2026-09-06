@@ -35,6 +35,80 @@ TileScheduleItem termin(String titel, DateTime start) => TileScheduleItem(
     );
 
 void main() {
+  final ersterDiesenMonatOben =
+      DateTime(DateTime.now().year, DateTime.now().month);
+
+  group('Blaettern', () {
+    TileScheduleItem am(int tag, DateTime monat, String titel) =>
+        TileScheduleItem(
+          id: tag,
+          title: titel,
+          start: DateTime(monat.year, monat.month, tag, 9),
+          end: DateTime(monat.year, monat.month, tag, 10),
+        );
+
+    testWidgets('nur der gezeigte Monat steht im Raster', (tester) async {
+      // Die Quelle liefert alles – hier faellt der Rest weg.
+      final naechster = DateTime(
+          ersterDiesenMonatOben.year, ersterDiesenMonatOben.month + 1);
+      await zeichne(
+        tester,
+        TileData.schedule([
+          am(10, ersterDiesenMonatOben, 'Dieser Monat'),
+          am(10, naechster, 'Naechster Monat'),
+        ], anker: ersterDiesenMonatOben),
+      );
+      expect(find.textContaining('Dieser Monat'), findsOneWidget);
+      expect(find.textContaining('Naechster Monat'), findsNothing);
+    });
+
+    testWidgets('vorwaerts zeigt den naechsten', (tester) async {
+      final naechster = DateTime(
+          ersterDiesenMonatOben.year, ersterDiesenMonatOben.month + 1);
+      await zeichne(
+        tester,
+        TileData.schedule([
+          am(10, ersterDiesenMonatOben, 'Dieser Monat'),
+          am(10, naechster, 'Naechster Monat'),
+        ], anker: ersterDiesenMonatOben),
+      );
+
+      await tester.tap(find.byTooltip('Weiter'));
+      await tester.pump();
+      expect(find.textContaining('Naechster Monat'), findsOneWidget);
+      expect(find.textContaining('Dieser Monat'), findsNothing);
+    });
+
+    testWidgets('der Monatsname wandert mit', (tester) async {
+      await zeichne(tester,
+          TileData.schedule(const [], anker: ersterDiesenMonatOben));
+      final vorher = ersterDiesenMonatOben.month;
+
+      await tester.tap(find.byTooltip('Weiter'));
+      await tester.pump();
+
+      const namen = [
+        'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+        'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+      ];
+      expect(find.textContaining(namen[vorher % 12]), findsOneWidget);
+    });
+
+    testWidgets('"Heute" fuehrt zurueck', (tester) async {
+      await zeichne(tester,
+          TileData.schedule(const [], anker: ersterDiesenMonatOben));
+      expect(find.text('Heute'), findsNothing);
+
+      await tester.tap(find.byTooltip('Zurück'));
+      await tester.pump();
+      expect(find.text('Heute'), findsOneWidget);
+
+      await tester.tap(find.text('Heute'));
+      await tester.pump();
+      expect(find.text('Heute'), findsNothing);
+    });
+  });
+
   final ersterDiesenMonat = DateTime(DateTime.now().year, DateTime.now().month);
 
   testWidgets('Monatsname und Jahr stehen im Kopf', (tester) async {

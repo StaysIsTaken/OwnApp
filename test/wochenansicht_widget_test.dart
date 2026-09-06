@@ -45,6 +45,8 @@ DateTime montagDieserWoche() {
 }
 
 void main() {
+  _blaettern();
+
   group('Grosse Flaeche – wie im Planner', () {
     testWidgets('zeigt den ganzen Tag mit Uhrzeiten', (tester) async {
       final montag = montagDieserWoche();
@@ -144,6 +146,108 @@ void main() {
       );
       // tester.takeException() meldet einen Ueberlauf als Fehler.
       expect(tester.takeException(), isNull);
+    });
+  });
+}
+
+// Nachtrag: die Ansicht schneidet zu und laesst sich blaettern. Beides ist
+// von der Quelle hierher gewandert, seit es die Blaetterknoepfe gibt.
+void _blaettern() {
+  group('Zuschnitt und Blaettern', () {
+    testWidgets('nur die gezeigte Woche steht im Raster', (tester) async {
+      // Die Quelle liefert alles – hier faellt der Rest weg.
+      final montag = montagDieserWoche();
+      await zeichne(
+        tester,
+        TileData.schedule([
+          termin('Diese Woche', montag.add(const Duration(days: 2, hours: 10))),
+          termin('Naechste Woche',
+              montag.add(const Duration(days: 9, hours: 10))),
+          termin('Letzte Woche', montag.subtract(const Duration(days: 3))),
+        ], anker: montag),
+        breite: 1000,
+        hoehe: 700,
+      );
+
+      expect(find.text('Diese Woche'), findsOneWidget);
+      expect(find.text('Naechste Woche'), findsNothing);
+      expect(find.text('Letzte Woche'), findsNothing);
+    });
+
+    testWidgets('vorwaerts zeigt die naechste Woche', (tester) async {
+      final montag = montagDieserWoche();
+      await zeichne(
+        tester,
+        TileData.schedule([
+          termin('Diese Woche', montag.add(const Duration(days: 2, hours: 10))),
+          termin('Naechste Woche',
+              montag.add(const Duration(days: 9, hours: 10))),
+        ], anker: montag),
+        breite: 1000,
+        hoehe: 700,
+      );
+
+      await tester.tap(find.byTooltip('Weiter'));
+      await tester.pump();
+
+      expect(find.text('Naechste Woche'), findsOneWidget);
+      expect(find.text('Diese Woche'), findsNothing);
+    });
+
+    testWidgets('rueckwaerts zeigt die vorige', (tester) async {
+      final montag = montagDieserWoche();
+      await zeichne(
+        tester,
+        TileData.schedule([
+          termin('Letzte Woche', montag.subtract(const Duration(days: 3))),
+        ], anker: montag),
+        breite: 1000,
+        hoehe: 700,
+      );
+
+      await tester.tap(find.byTooltip('Zurück'));
+      await tester.pump();
+      expect(find.text('Letzte Woche'), findsOneWidget);
+    });
+
+    testWidgets('"Heute" erscheint erst, wenn man weg ist', (tester) async {
+      // Ein Knopf, der nichts tut, ist im Weg.
+      await zeichne(tester, const TileData.schedule([]),
+          breite: 1000, hoehe: 700);
+      expect(find.text('Heute'), findsNothing);
+
+      await tester.tap(find.byTooltip('Weiter'));
+      await tester.pump();
+      expect(find.text('Heute'), findsOneWidget);
+    });
+
+    testWidgets('"Heute" fuehrt zurueck', (tester) async {
+      final montag = montagDieserWoche();
+      await zeichne(
+        tester,
+        TileData.schedule(
+            [termin('Diese Woche', montag.add(const Duration(days: 2, hours: 10)))],
+            anker: montag),
+        breite: 1000,
+        hoehe: 700,
+      );
+
+      await tester.tap(find.byTooltip('Weiter'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Weiter'));
+      await tester.pump();
+      expect(find.text('Diese Woche'), findsNothing);
+
+      await tester.tap(find.text('Heute'));
+      await tester.pump();
+      expect(find.text('Diese Woche'), findsOneWidget);
+      expect(find.text('Heute'), findsNothing);
+    });
+
+    testWidgets('die Kalenderwoche steht dabei', (tester) async {
+      await zeichne(tester, const TileData.schedule([]),
+          breite: 1000, hoehe: 700);
+      expect(find.textContaining('KW '), findsOneWidget);
     });
   });
 }

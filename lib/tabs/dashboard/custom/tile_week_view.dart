@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/tabs/dashboard/custom/kalender_blaettern.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
@@ -13,7 +14,7 @@ import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 /// der Zeitbereich richtet sich nach den Terminen (ein leerer Vormittag
 /// verschenkt sonst die halbe Kachel), und ganztägige Termine stehen als
 /// Streifen über dem Raster statt darin.
-class TileWeekView extends StatelessWidget {
+class TileWeekView extends StatefulWidget {
   final TileData data;
 
   /// Tag, dessen Woche gezeigt wird. Ohne Angabe die laufende.
@@ -29,10 +30,42 @@ class TileWeekView extends StatelessWidget {
     this.kontext = TileKontext.leer,
   });
 
+  @override
+  State<TileWeekView> createState() => _TileWeekViewState();
+}
+
+class _TileWeekViewState extends State<TileWeekView> {
+  /// Wie viele Wochen vom Ausgangspunkt weg geblättert wurde.
+  ///
+  /// Nur im Widget: die Kachel steht morgen wieder auf ihrer eingestellten
+  /// Woche. Wer dauerhaft die nächste sehen will, stellt sie im Editor
+  /// ein — geblättert wird zum Nachsehen.
+  int _versatz = 0;
+
+  @override
+  void didUpdateWidget(TileWeekView alt) {
+    super.didUpdateWidget(alt);
+    if (alt.data.anker != widget.data.anker || alt.woche != widget.woche) {
+      _versatz = 0;
+    }
+  }
+
+  /// Kalenderwoche nach ISO — dieselbe Rechnung wie im Planner.
+  int _kw(DateTime d) {
+    final tagImJahr =
+        DateTime(d.year, d.month, d.day).difference(DateTime(d.year, 1, 1)).inDays;
+    return ((tagImJahr - d.weekday + 10) / 7).floor();
+  }
+
+  static const List<String> _monateKurz = [
+    'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
+  ];
+
   /// Legt einen Termin unter einen Fingerdruck – oder laesst ihn, wie er
   /// ist, wenn es nichts zu oeffnen gibt.
   Widget _antippbar(TileScheduleItem e, Widget kind) {
-    final f = kontext.terminOeffnen;
+    final f = widget.kontext.terminOeffnen;
     if (f == null || e.id == 0) return kind;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -43,23 +76,26 @@ class TileWeekView extends StatelessWidget {
 
   static const List<String> _tage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
-  DateTime get _wochenstart {
+  DateTime get _ausgangspunkt {
     // Reihenfolge mit Absicht: was ausdruecklich uebergeben wurde, dann was
     // die Quelle ausgewaehlt hat, erst zuletzt heute.
-    final d = woche ?? data.anker ?? DateTime.now();
+    final d = widget.woche ?? widget.data.anker ?? DateTime.now();
     final montag = d.subtract(Duration(days: d.weekday - 1));
     // Auf Mitternacht normalisieren, sonst fallen Termine vom Montagmorgen
     // aus dem Wochenfilter.
     return DateTime(montag.year, montag.month, montag.day);
   }
 
+  DateTime get _wochenstart =>
+      _ausgangspunkt.add(Duration(days: _versatz * 7));
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final start = _wochenstart;
 
-    final ganztags = data.schedule.where((e) => e.allDay).toList();
-    final imRaster = data.schedule.where((e) => !e.allDay).toList();
+    final ganztags = widget.data.schedule.where((e) => e.allDay).toList();
+    final imRaster = widget.data.schedule.where((e) => !e.allDay).toList();
 
     // Zeitbereich aus den Terminen statt 0–24 Uhr: in einer Kachel ist
     // Platz knapp, und ein leerer Vormittag verschenkt die halbe Fläche.
@@ -92,7 +128,11 @@ class TileWeekView extends StatelessWidget {
         final tagBreite = (constraints.maxWidth - zeitBreite) / 7;
 
         final kopfHoehe = grossflaechig ? _kopfHoeheGross : _kopfHoehe;
+        // Die Blaetterleiste sitzt darueber und nimmt Platz weg – ohne das
+        // liefe das Raster unten aus der Kachel heraus.
+        final blaetterHoehe = grossflaechig ? 48.0 : 34.0;
         final sichtbareHoehe = (constraints.maxHeight -
+                blaetterHoehe -
                 kopfHoehe -
                 (ganztags.isEmpty ? 0 : _ganztagsHoehe))
             .clamp(80.0, double.infinity);
@@ -103,9 +143,20 @@ class TileWeekView extends StatelessWidget {
         final rasterHoehe =
             grossflaechig ? stundenHoehe * anzahlStunden : sichtbareHoehe;
 
+        final ende = start.add(const Duration(days: 6));
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            KalenderBlaettern(
+              zeitraum: '${start.day}. ${_monateKurz[start.month - 1]} – '
+                  '${ende.day}. ${_monateKurz[ende.month - 1]}',
+              unterzeile: 'KW ${_kw(start)}',
+              gross: grossflaechig,
+              onZurueck: () => setState(() => _versatz--),
+              onVor: () => setState(() => _versatz++),
+              onHeute:
+                  _versatz == 0 ? null : () => setState(() => _versatz = 0),
+            ),
             _kopf(context, start, zeitBreite, tagBreite, grossflaechig),
             if (ganztags.isNotEmpty)
               _ganztagsStreifen(context, start, ganztags, zeitBreite, tagBreite),
