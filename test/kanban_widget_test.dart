@@ -23,7 +23,9 @@ TileData bauen(List<Task> aufgaben, {int limit = 5}) =>
         .build(DashboardData(tasks: aufgaben), {'limit': limit}, const []);
 
 Future<void> zeichne(WidgetTester tester, TileData daten,
-    {double breite = 1200, double hoehe = 600}) async {
+    {double breite = 1200,
+    double hoehe = 600,
+    TileKontext kontext = TileKontext.leer}) async {
   tester.view.physicalSize = Size(breite + 100, hoehe + 100);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
@@ -33,7 +35,7 @@ Future<void> zeichne(WidgetTester tester, TileData daten,
         child: SizedBox(
           width: breite,
           height: hoehe,
-          child: TileBoardView(data: daten),
+          child: TileBoardView(data: daten, kontext: kontext),
         ),
       ),
     ),
@@ -64,15 +66,15 @@ void main() {
         aufgabe('laeuft', 'in_progress'),
         aufgabe('fertig', 'done'),
       ]);
-      expect(d.spalten[0].eintraege.single.title, 'offen');
-      expect(d.spalten[1].eintraege.single.title, 'laeuft');
-      expect(d.spalten[2].eintraege.single.title, 'fertig');
+      expect(d.spalten[0].eintraege.single.titel, 'offen');
+      expect(d.spalten[1].eintraege.single.titel, 'laeuft');
+      expect(d.spalten[2].eintraege.single.titel, 'fertig');
     });
 
     test('ein unbekannter Zustand faellt nicht unter den Tisch', () {
       // Sonst verschwindet die Aufgabe spurlos vom Board.
       final d = bauen([aufgabe('seltsam', 'irgendwas')]);
-      expect(d.spalten[0].eintraege.single.title, 'seltsam');
+      expect(d.spalten[0].eintraege.single.titel, 'seltsam');
     });
 
     test('Faellige stehen oben', () {
@@ -80,7 +82,7 @@ void main() {
         aufgabe('ohne Datum', 'todo'),
         aufgabe('bald', 'todo', faellig: DateTime(2026, 9, 10)),
       ]);
-      expect(d.spalten[0].eintraege.first.title, 'bald');
+      expect(d.spalten[0].eintraege.first.titel, 'bald');
     });
 
     test('die Grenze gilt je Spalte', () {
@@ -93,6 +95,16 @@ void main() {
 
     test('ohne Aufgaben gilt das Board als leer', () {
       expect(bauen(const []).isEmpty, isTrue);
+    });
+  });
+
+  group('Die Spalte kennt ihren Schluessel', () {
+    test('Datenbankwert, nicht Beschriftung', () {
+      // "Offen" steht auf dem Bildschirm, `todo` in der Datenbank. Nur mit
+      // dem Schluessel laesst sich eine Karte hierher verschieben.
+      final d = bauen([aufgabe('a', 'todo')]);
+      expect(d.spalten.map((s) => s.schluessel),
+          ['todo', 'in_progress', 'done']);
     });
   });
 
@@ -115,6 +127,66 @@ void main() {
   });
 
   group('Gezeichnet', () {
+    testWidgets('ohne Rueckkanal laesst sich nichts ziehen', (tester) async {
+      // Im Dashboard am Rechner zeigt das Board nur.
+      await zeichne(tester, bauen([aufgabe('a', 'todo')]));
+      expect(find.byType(Draggable<TileCheckItem>), findsNothing);
+      expect(find.byType(LongPressDraggable<TileCheckItem>), findsNothing);
+    });
+
+    testWidgets('mit Rueckkanal sind die Karten ziehbar', (tester) async {
+      await zeichne(tester, bauen([aufgabe('a', 'todo')]),
+          kontext: TileKontext(verschieben: (_, _) async {}));
+      final ziehbar = find.byWidgetPredicate((w) =>
+          w is Draggable<TileCheckItem> ||
+          w is LongPressDraggable<TileCheckItem>);
+      expect(ziehbar, findsOneWidget);
+    });
+
+    testWidgets('eine Karte in eine andere Spalte ziehen meldet die Spalte',
+        (tester) async {
+      final gemeldet = <String, String>{};
+      await zeichne(
+        tester,
+        bauen([aufgabe('Muell', 'todo')]),
+        kontext: TileKontext(
+            verschieben: (id, spalte) async => gemeldet[id] = spalte),
+      );
+
+      // Von der Karte auf die dritte Spalte ("Erledigt").
+      final karte = find.text('Muell');
+      final ziel = find.text('Erledigt');
+      final griff = await tester.startGesture(tester.getCenter(karte));
+      // Langer Druck, damit auch die Tablet-Variante ausloest.
+      await tester.pump(const Duration(seconds: 1));
+      await griff.moveTo(tester.getCenter(ziel) + const Offset(0, 60));
+      await tester.pump();
+      await griff.up();
+      await tester.pump();
+
+      expect(gemeldet, {'Muell': 'done'});
+    });
+
+    testWidgets('in die eigene Spalte zu ziehen meldet nichts', (tester) async {
+      // Kein Fehler, aber auch keine Aenderung.
+      var gerufen = false;
+      await zeichne(
+        tester,
+        bauen([aufgabe('Muell', 'todo')]),
+        kontext: TileKontext(verschieben: (_, _) async => gerufen = true),
+      );
+
+      final karte = find.text('Muell');
+      final griff = await tester.startGesture(tester.getCenter(karte));
+      await tester.pump(const Duration(seconds: 1));
+      await griff.moveTo(tester.getCenter(find.text('Offen')) + const Offset(0, 60));
+      await tester.pump();
+      await griff.up();
+      await tester.pump();
+
+      expect(gerufen, isFalse);
+    });
+
     testWidgets('alle drei Spalten stehen nebeneinander', (tester) async {
       await zeichne(tester, bauen([aufgabe('a', 'todo')]));
       expect(find.text('Offen'), findsOneWidget);

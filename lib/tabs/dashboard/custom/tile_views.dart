@@ -19,11 +19,22 @@ class TileKontext {
   /// Etwas Neues auf die Liste setzen.
   final Future<void> Function(String text)? hinzufuegen;
 
-  const TileKontext({this.umschalten, this.hinzufuegen});
+  /// Einen Eintrag in eine andere Spalte schieben (Board).
+  ///
+  /// `spalte` ist der Schlüssel der Zielspalte, nicht ihre Beschriftung —
+  /// „Offen" steht auf dem Bildschirm, `todo` in der Datenbank.
+  final Future<void> Function(String id, String spalte)? verschieben;
+
+  const TileKontext({
+    this.umschalten,
+    this.hinzufuegen,
+    this.verschieben,
+  });
 
   static const leer = TileKontext();
 
-  bool get schreibt => umschalten != null || hinzufuegen != null;
+  bool get schreibt =>
+      umschalten != null || hinzufuegen != null || verschieben != null;
 }
 
 /// Eine Darstellungsart im Katalog.
@@ -172,9 +183,9 @@ class TileViews {
       // Drei Spalten nebeneinander, sonst wird geschoben.
       minBreite: 540,
       minHoehe: 280,
-      build: (ctx, d, _) => LayoutBuilder(
+      build: (ctx, d, k) => LayoutBuilder(
         builder: (_, c) => TileBoardView(
-            data: d, gross: byKey('board')!.istGross(c.maxHeight)),
+            data: d, kontext: k, gross: byKey('board')!.istGross(c.maxHeight)),
       ),
     ),
     TileView(

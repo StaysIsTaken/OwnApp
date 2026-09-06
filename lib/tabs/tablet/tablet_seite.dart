@@ -234,6 +234,28 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
         },
       );
 
+  /// Was die Board-Kachel zurueckschreiben darf.
+  ///
+  /// Eine Aufgabe auf „erledigt" zu schieben ist das, wofuer ein Board da
+  /// ist — ohne das waere es eine Tabelle mit Rahmen.
+  TileKontext get _boardKontext => TileKontext(
+        verschieben: (id, spalte) async {
+          final aufgabe = _daten.tasks
+              .cast<Task>()
+              .where((t) => t.id == id)
+              .firstOrNull;
+          if (aufgabe == null) return;
+          await TaskService.update(aufgabe.copyWith(
+            kanbanState: spalte,
+            // Der Haken und die Spalte sind zwei Sichten auf dasselbe:
+            // laeuft das auseinander, zeigt die Aufgabenliste etwas
+            // anderes als das Board.
+            completed: spalte == 'done',
+          ));
+          await _datenLaden();
+        },
+      );
+
   Future<void> _kalenderWaehlen() async {
     final wunsch = await zeigeKalenderAuswahl(
       context,
@@ -400,9 +422,11 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
             onEdit: () => _kachelBearbeiten(k),
             onDelete: () => _kachelLoeschen(k),
             onGeaendert: _datenLaden,
-            kontext: TileCatalog.byKey(k.source)?.shape == TileShape.checklist
-                ? _einkaufKontext
-                : TileKontext.leer,
+            kontext: switch (TileCatalog.byKey(k.source)?.shape) {
+              TileShape.checklist => _einkaufKontext,
+              TileShape.board => _boardKontext,
+              _ => TileKontext.leer,
+            },
             // Haengt an der Wand: nichts fuehrt weg, und was bleibt, ist
             // gross genug fuer den Daumen im Vorbeigehen.
             kuechenmodus: true,
