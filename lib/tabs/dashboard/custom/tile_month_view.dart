@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
 /// Monatsraster als Kachel.
 ///
@@ -19,7 +20,15 @@ class TileMonthView extends StatelessWidget {
   /// Tag, dessen Monat gezeigt wird. Ohne Angabe der laufende.
   final DateTime? monat;
 
-  const TileMonthView({super.key, required this.data, this.monat});
+  /// Antippen oeffnet den Termin, wenn der Rueckkanal es anbietet.
+  final TileKontext kontext;
+
+  const TileMonthView({
+    super.key,
+    required this.data,
+    this.monat,
+    this.kontext = TileKontext.leer,
+  });
 
   static const List<String> _wochentage = [
     'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So',
@@ -216,6 +225,17 @@ class TileMonthView extends StatelessWidget {
   }
 
   Widget _streifen(BuildContext context, TileScheduleItem e) {
+    final f = kontext.terminOeffnen;
+    final streifen = _streifenInhalt(context, e);
+    if (f == null || e.id == 0) return streifen;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => f(e.id),
+      child: streifen,
+    );
+  }
+
+  Widget _streifenInhalt(BuildContext context, TileScheduleItem e) {
     return Container(
       height: 11,
       margin: const EdgeInsets.only(bottom: 2),

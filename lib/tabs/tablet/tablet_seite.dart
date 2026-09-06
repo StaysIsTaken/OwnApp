@@ -27,6 +27,7 @@ import 'package:productivity/tabs/dashboard/custom/custom_tile_card.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
+import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_editor.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/tabs/dashboard/dashboard_prefs.dart';
@@ -256,6 +257,64 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
         },
       );
 
+  /// Was die Kalenderkacheln zurueckschreiben duerfen.
+  ///
+  /// Antippen oeffnet den Termin — auf der Kachel, nicht in der App. Wer
+  /// sieht, dass der Zahnarzt falsch steht, soll ihn dort richten, wo er
+  /// ihn sieht. Dafuer derselbe Dialog wie im Planner: ein zweites
+  /// Formular waere eine zweite Stelle, die auseinanderlaeuft.
+  TileKontext get _kalenderKontext => TileKontext(
+        terminOeffnen: (id) async {
+          final termin = _daten.plannerEntries
+              .cast<PlannerEntry>()
+              .where((e) => e.id == id)
+              .firstOrNull;
+          if (termin == null || !mounted) return;
+
+          await showDialog<void>(
+            context: context,
+            builder: (_) => PlannerEditDialog(
+              entry: termin,
+              onDelete: (bereich) async {
+                try {
+                  if (termin.recurrenceId != null) {
+                    await PlannerService.deleteSeries(
+                        termin.id, bereich ?? 'single');
+                  } else {
+                    await PlannerService.delete(termin.id);
+                  }
+                  await _datenLaden();
+                } catch (e) {
+                  _melde(ApiFehler.text(e));
+                }
+              },
+              onSubmit: (ergebnis, _) async {
+                try {
+                  await PlannerService.update(
+                    termin.id,
+                    title: ergebnis.title,
+                    description: ergebnis.description,
+                    typeId: ergebnis.typeId,
+                    scheduledAt: ergebnis.scheduledAt,
+                    endsAt: ergebnis.endsAt,
+                    notifyMinBefore: ergebnis.notifyMinBefore,
+                    color: ergebnis.color,
+                  );
+                  await _datenLaden();
+                } catch (e) {
+                  _melde(ApiFehler.text(e));
+                }
+              },
+            ),
+          );
+        },
+      );
+
+  void _melde(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   Future<void> _kalenderWaehlen() async {
     final wunsch = await zeigeKalenderAuswahl(
       context,
@@ -425,6 +484,7 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
             kontext: switch (TileCatalog.byKey(k.source)?.shape) {
               TileShape.checklist => _einkaufKontext,
               TileShape.board => _boardKontext,
+              TileShape.schedule => _kalenderKontext,
               _ => TileKontext.leer,
             },
             // Haengt an der Wand: nichts fuehrt weg, und was bleibt, ist

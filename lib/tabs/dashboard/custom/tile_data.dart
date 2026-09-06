@@ -276,6 +276,10 @@ class TileListItem {
 /// Eigene Klasse statt [TileListItem]: für ein Wochenraster braucht es
 /// Anfang und Ende als echte Zeitpunkte, nicht als Text.
 class TileScheduleItem {
+  /// Kennung des Termins. Ohne sie liesse sich der Termin zwar zeichnen,
+  /// aber nicht antippen — man haette ein Bild statt eines Kalenders.
+  final int id;
+
   final String title;
   final DateTime start;
   final DateTime end;
@@ -290,6 +294,7 @@ class TileScheduleItem {
   final bool allDay;
 
   const TileScheduleItem({
+    this.id = 0,
     required this.title,
     required this.start,
     required this.end,

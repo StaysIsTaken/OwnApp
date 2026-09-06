@@ -129,6 +129,7 @@ class TileCatalog {
           if (e.scheduledAt.isBefore(montag)) continue;
           if (!e.scheduledAt.isBefore(sonntagEnde)) continue;
           termine.add(TileScheduleItem(
+            id: e.id,
             title: e.title,
             start: e.scheduledAt,
             end: e.endsAt,
@@ -166,6 +167,7 @@ class TileCatalog {
           if (e.scheduledAt.isBefore(erster)) continue;
           if (!e.scheduledAt.isBefore(naechster)) continue;
           termine.add(TileScheduleItem(
+            id: e.id,
             title: e.title,
             start: e.scheduledAt,
             end: e.endsAt,

@@ -19,7 +19,27 @@ class TileWeekView extends StatelessWidget {
   /// Tag, dessen Woche gezeigt wird. Ohne Angabe die laufende.
   final DateTime? woche;
 
-  const TileWeekView({super.key, required this.data, this.woche});
+  /// Antippen oeffnet den Termin, wenn der Rueckkanal es anbietet.
+  final TileKontext kontext;
+
+  const TileWeekView({
+    super.key,
+    required this.data,
+    this.woche,
+    this.kontext = TileKontext.leer,
+  });
+
+  /// Legt einen Termin unter einen Fingerdruck – oder laesst ihn, wie er
+  /// ist, wenn es nichts zu oeffnen gibt.
+  Widget _antippbar(TileScheduleItem e, Widget kind) {
+    final f = kontext.terminOeffnen;
+    if (f == null || e.id == 0) return kind;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => f(e.id),
+      child: kind,
+    );
+  }
 
   static const List<String> _tage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
@@ -201,19 +221,23 @@ class TileWeekView extends StatelessWidget {
                     e.start.day == tag.day);
                 if (heute.isEmpty) return const SizedBox();
                 final e = heute.first;
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 3),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: _farbe(context, e).withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    e.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 9, color: Colors.white),
+                return _antippbar(
+                  e,
+                  Container(
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 1, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: _farbe(context, e).withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      e.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 9, color: Colors.white),
+                    ),
                   ),
                 );
               }),
@@ -294,19 +318,22 @@ class TileWeekView extends StatelessWidget {
         left: zeitBreite + tagIndex * tagBreite + 1,
         width: tagBreite - 2,
         height: hoehe,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-          decoration: BoxDecoration(
-            color: _farbe(context, e).withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(4),
-            border: Border(
-                left: BorderSide(color: _farbe(context, e), width: 2.5)),
-          ),
-          child: Text(
-            e.title,
-            maxLines: hoehe > 28 ? 2 : 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 9, height: 1.15),
+        child: _antippbar(
+          e,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            decoration: BoxDecoration(
+              color: _farbe(context, e).withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(4),
+              border: Border(
+                  left: BorderSide(color: _farbe(context, e), width: 2.5)),
+            ),
+            child: Text(
+              e.title,
+              maxLines: hoehe > 28 ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 9, height: 1.15),
+            ),
           ),
         ),
       ),

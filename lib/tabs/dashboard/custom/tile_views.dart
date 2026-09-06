@@ -20,6 +20,14 @@ class TileKontext {
   /// Etwas Neues auf die Liste setzen.
   final Future<void> Function(String text)? hinzufuegen;
 
+  /// Einen Termin öffnen — ansehen und ändern.
+  ///
+  /// Kein Widerspruch zu „die Küchenansicht führt nirgendwohin": sie
+  /// öffnet einen Dialog auf der Kachel, sie springt nicht in die App.
+  /// Wer sieht, dass der Zahnarzt falsch steht, soll ihn dort richten,
+  /// wo er ihn sieht.
+  final Future<void> Function(int id)? terminOeffnen;
+
   /// Einen Eintrag in eine andere Spalte schieben (Board).
   ///
   /// `spalte` ist der Schlüssel der Zielspalte, nicht ihre Beschriftung —
@@ -30,12 +38,16 @@ class TileKontext {
     this.umschalten,
     this.hinzufuegen,
     this.verschieben,
+    this.terminOeffnen,
   });
 
   static const leer = TileKontext();
 
   bool get schreibt =>
-      umschalten != null || hinzufuegen != null || verschieben != null;
+      umschalten != null ||
+      hinzufuegen != null ||
+      verschieben != null ||
+      terminOeffnen != null;
 }
 
 /// Eine Darstellungsart im Katalog.
@@ -142,7 +154,7 @@ class TileViews {
       // ein Streifenmuster.
       minBreite: 460,
       minHoehe: 260,
-      build: (ctx, d, _) => TileWeekView(data: d),
+      build: (ctx, d, k) => TileWeekView(data: d, kontext: k),
     ),
     TileView(
       key: 'month',
@@ -154,7 +166,7 @@ class TileViews {
       // Knappe, nicht die Breite.
       minBreite: 420,
       minHoehe: 300,
-      build: (ctx, d, _) => TileMonthView(data: d),
+      build: (ctx, d, k) => TileMonthView(data: d, kontext: k),
     ),
     TileView(
       key: 'clock',
