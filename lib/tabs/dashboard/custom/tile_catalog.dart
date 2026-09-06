@@ -275,6 +275,59 @@ class TileCatalog {
       },
     ),
     TileSource(
+      key: 'tasks.board',
+      route: AppRoutes.tasks,
+      aktion: TileAktionen.aufgabe,
+      fields: FilterFields.aufgaben,
+      label: 'Aufgaben: Kanban-Board',
+      group: 'Aufgaben',
+      shape: TileShape.board,
+      params: const [_anzahl],
+      build: (d, p, f) {
+        // Feste Spalten in fester Reihenfolge – ein Board, dessen Spalten
+        // je nach Datenlage wandern, kann man nicht im Vorbeigehen lesen.
+        const spalten = {
+          'todo': 'Offen',
+          'in_progress': 'In Arbeit',
+          'done': 'Erledigt',
+        };
+        final nachSpalte = <String, List<TileListItem>>{
+          for (final k in spalten.keys) k: [],
+        };
+
+        final aufgaben = applyFilters(
+            d.tasks.cast<Task>(), f, FilterFields.aufgaben).toList()
+          ..sort((a, b) {
+            // Faellige zuerst, danach nach Titel – sonst haengt die
+            // Reihenfolge daran, wann etwas angelegt wurde.
+            final af = a.dueDate, bf = b.dueDate;
+            if (af != null && bf != null) return af.compareTo(bf);
+            if (af != null) return -1;
+            if (bf != null) return 1;
+            return a.title.compareTo(b.title);
+          });
+
+        for (final t in aufgaben) {
+          final ziel = nachSpalte[t.kanbanState];
+          // Ein unbekannter Zustand faellt nicht unter den Tisch: er
+          // gehoert zu den offenen, sonst verschwindet die Aufgabe.
+          (ziel ?? nachSpalte['todo']!).add(TileListItem(
+            t.title,
+            subtitle: t.dueDate == null ? null : 'bis ${_datum(t.dueDate!)}',
+          ));
+        }
+
+        final grenze = _int(p, 'limit', 5);
+        return TileData.board(
+          [
+            for (final e in spalten.entries)
+              TileBoardSpalte(e.value, nachSpalte[e.key]!.take(grenze).toList()),
+          ],
+          emptyHint: 'Keine Aufgaben',
+        );
+      },
+    ),
+    TileSource(
       key: 'tasks.by_state',
       route: AppRoutes.tasks,
       fields: FilterFields.aufgaben,
