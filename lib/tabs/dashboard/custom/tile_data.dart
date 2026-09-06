@@ -58,10 +58,16 @@ class TileCheckItem {
 
 /// Eine Spalte eines Boards.
 class TileBoardSpalte {
+  /// Was auf dem Bildschirm steht.
   final String titel;
-  final List<TileListItem> eintraege;
 
-  const TileBoardSpalte(this.titel, this.eintraege);
+  /// Was in der Datenbank steht — `todo`, nicht „Offen". Nur damit lässt
+  /// sich eine Karte hierher verschieben.
+  final String schluessel;
+
+  final List<TileCheckItem> eintraege;
+
+  const TileBoardSpalte(this.titel, this.eintraege, {this.schluessel = ''});
 }
 
 /// Ergebnis einer Quelle.

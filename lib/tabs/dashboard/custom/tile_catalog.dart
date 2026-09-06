@@ -292,7 +292,7 @@ class TileCatalog {
           'in_progress': 'In Arbeit',
           'done': 'Erledigt',
         };
-        final nachSpalte = <String, List<TileListItem>>{
+        final nachSpalte = <String, List<TileCheckItem>>{
           for (final k in spalten.keys) k: [],
         };
 
@@ -312,9 +312,14 @@ class TileCatalog {
           final ziel = nachSpalte[t.kanbanState];
           // Ein unbekannter Zustand faellt nicht unter den Tisch: er
           // gehoert zu den offenen, sonst verschwindet die Aufgabe.
-          (ziel ?? nachSpalte['todo']!).add(TileListItem(
-            t.title,
-            subtitle: t.dueDate == null ? null : 'bis ${_datum(t.dueDate!)}',
+          (ziel ?? nachSpalte['todo']!).add(TileCheckItem(
+            // Die Kennung muss mit: ohne sie liesse sich die Karte nicht
+            // in eine andere Spalte schieben.
+            id: t.id,
+            titel: t.title,
+            untertitel:
+                t.dueDate == null ? null : 'bis ${_datum(t.dueDate!)}',
+            erledigt: t.kanbanState == 'done',
           ));
         }
 
@@ -322,7 +327,8 @@ class TileCatalog {
         return TileData.board(
           [
             for (final e in spalten.entries)
-              TileBoardSpalte(e.value, nachSpalte[e.key]!.take(grenze).toList()),
+              TileBoardSpalte(e.value, nachSpalte[e.key]!.take(grenze).toList(),
+                  schluessel: e.key),
           ],
           emptyHint: 'Keine Aufgaben',
         );
