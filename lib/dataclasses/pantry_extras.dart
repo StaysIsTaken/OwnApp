@@ -54,7 +54,11 @@ class ShoppingListItem {
   Map<String, dynamic> toJson() => {
     if (id.isNotEmpty) 'id': id,
     'ingredientId': ingredientId,
-    'unitId': unitId,
+    // Leer heisst "keine Einheit", nicht "die Einheit mit leerem Namen".
+    // Der Fremdschluessel lehnt einen leeren String ab, und der Server
+    // stuerzt daran ab – im Browser kommt das als CORS-Fehler an, weil
+    // ein abgestuerzter Server keine CORS-Kopfzeilen mehr setzt.
+    if (unitId.isNotEmpty) 'unitId': unitId,
     'amount': amount,
     'isBought': isBought,
     'note': note,

@@ -43,6 +43,8 @@ Future<void> zeichne(WidgetTester tester, TileData daten,
 }
 
 void main() {
+  _nutzlast();
+
   final zutaten = {'z1': const Ingredient(id: 'z1', name: 'Milch')};
 
   group('Was die Quelle liefert', () {
@@ -154,6 +156,34 @@ void main() {
       await zeichne(tester,
           const TileData.checklist([], emptyHint: 'Die Liste ist leer'));
       expect(find.text('Die Liste ist leer'), findsOneWidget);
+    });
+  });
+}
+
+// Nachtrag: der leere String war der eigentliche Fehler.
+void _nutzlast() {
+  group('Was zum Server geht', () {
+    test('ohne Einheit wird das Feld weggelassen', () {
+      // Ein leerer String ist keine Kennung. Der Fremdschluessel lehnt ihn
+      // ab, der Server stuerzt ab – und weil ein abgestuerzter Server keine
+      // CORS-Kopfzeilen mehr setzt, meldet der Browser einen CORS-Fehler
+      // statt des echten Grundes.
+      const p = ShoppingListItem(
+          id: '', ingredientId: 'z1', unitId: '', amount: 1);
+      expect(p.toJson().containsKey('unitId'), isFalse);
+    });
+
+    test('mit Einheit steht sie drin', () {
+      const p = ShoppingListItem(
+          id: '', ingredientId: 'z1', unitId: 'u1', amount: 1);
+      expect(p.toJson()['unitId'], 'u1');
+    });
+
+    test('eine neue Zeile schickt keine id mit', () {
+      // Die vergibt der Server.
+      const p = ShoppingListItem(
+          id: '', ingredientId: 'z1', unitId: 'u1', amount: 1);
+      expect(p.toJson().containsKey('id'), isFalse);
     });
   });
 }

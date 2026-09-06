@@ -225,6 +225,8 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           await ShoppingListService.upsert(ShoppingListItem(
             id: '',
             ingredientId: zutat.id,
+            // Ohne Standardeinheit bleibt sie leer – "Milch" auf einem
+            // Einkaufszettel braucht keine.
             unitId: zutat.defaultUnitId ?? '',
             amount: 1,
           ));
