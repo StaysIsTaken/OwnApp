@@ -27,6 +27,12 @@ class _TabletDashboardState extends State<TabletDashboard> {
   bool _laedt = true;
   String? _fehler;
 
+  /// Einrichten an oder aus. Gehört hierher und nicht auf die Seite: der
+  /// Schalter sitzt in der Kopfzeile, und der Modus bleibt beim
+  /// Seitenwechsel erhalten — wer mehrere Seiten einrichtet, will nicht
+  /// jedes Mal neu einschalten.
+  bool _bearbeiten = false;
+
   @override
   void initState() {
     super.initState();
@@ -173,11 +179,18 @@ class _TabletDashboardState extends State<TabletDashboard> {
               onUmbenennen: () => _seiteUmbenennen(seite),
               onLoeschen: () => _seiteLoeschen(seite),
               onVerlassen: _verlassen,
+              bearbeiten: _bearbeiten,
+              onBearbeiten: () =>
+                  setState(() => _bearbeiten = !_bearbeiten),
             ),
             Expanded(
               // Key je Seite: sonst behielte die neue Seite den Zustand der
               // alten und zeigte kurz deren Kacheln.
-              child: TabletSeitenInhalt(key: ValueKey(seite.key), seite: seite),
+              child: TabletSeitenInhalt(
+                key: ValueKey(seite.key),
+                seite: seite,
+                bearbeiten: _bearbeiten,
+              ),
             ),
           ],
         ),
@@ -195,6 +208,8 @@ class _Kopfzeile extends StatelessWidget {
   final VoidCallback onUmbenennen;
   final VoidCallback onLoeschen;
   final VoidCallback onVerlassen;
+  final bool bearbeiten;
+  final VoidCallback onBearbeiten;
 
   const _Kopfzeile({
     required this.seiten,
@@ -204,6 +219,8 @@ class _Kopfzeile extends StatelessWidget {
     required this.onUmbenennen,
     required this.onLoeschen,
     required this.onVerlassen,
+    required this.bearbeiten,
+    required this.onBearbeiten,
   });
 
   @override
@@ -242,18 +259,44 @@ class _Kopfzeile extends StatelessWidget {
               ),
             ),
           ),
+          // Beim Einrichten bleibt der Zustand sichtbar: ein Haken in der
+          // Leiste sagt, dass gerade gezogen und geaendert werden kann.
+          if (bearbeiten)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: TextButton.icon(
+                onPressed: onBearbeiten,
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Fertig', style: TextStyle(fontSize: 16)),
+              ),
+            ),
           PopupMenuButton<String>(
             iconSize: 28,
             onSelected: (wahl) => switch (wahl) {
+              'einrichten' => onBearbeiten(),
               'umbenennen' => onUmbenennen(),
               'loeschen' => onLoeschen(),
               _ => onVerlassen(),
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'umbenennen', child: Text('Seite umbenennen')),
-              PopupMenuItem(value: 'loeschen', child: Text('Seite löschen')),
-              PopupMenuDivider(),
-              PopupMenuItem(value: 'verlassen', child: Text('Küchenmodus verlassen')),
+            itemBuilder: (_) => [
+              // Der Stift sass frueher als schwebender Knopf unten rechts.
+              // Auf einem Geraet, das nur zeigen soll, ist ein Knopf im Bild
+              // eine Einladung, ihn versehentlich zu treffen – hier stoert
+              // er niemanden und ist trotzdem zu finden.
+              PopupMenuItem(
+                value: 'einrichten',
+                child: Text(bearbeiten
+                    ? 'Einrichten beenden'
+                    : 'Seite einrichten'),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                  value: 'umbenennen', child: Text('Seite umbenennen')),
+              const PopupMenuItem(
+                  value: 'loeschen', child: Text('Seite löschen')),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                  value: 'verlassen', child: Text('Küchenmodus verlassen')),
             ],
           ),
         ],
