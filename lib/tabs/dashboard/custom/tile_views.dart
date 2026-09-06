@@ -16,12 +16,28 @@ class TileView {
   final Set<TileShape> accepts;
   final Widget Function(BuildContext context, TileData data) build;
 
+  /// Diese Darstellung ist ein Raster, kein Textbaustein.
+  ///
+  /// Daraus folgt zweierlei, und beides hing vorher schief:
+  ///
+  /// * Sie **nimmt die ganze Fläche** der Kachel. Ein Wochenraster, das
+  ///   sich auf seine Mindesthöhe zusammenzieht, ist unbrauchbar.
+  /// * Sie **zeichnet sich auch ohne Daten**. Eine leere Woche ist immer
+  ///   noch eine Woche — man sieht, dass nichts ansteht, und das ist die
+  ///   Auskunft. Vorher stand dort nur der Satz „Diese Woche ist nichts
+  ///   geplant" auf einer sonst leeren Seite.
+  ///
+  /// Ein Balkendiagramm ohne Werte ist dagegen eine leere Fläche; da ist
+  /// der Hinweis mehr wert als das Bild.
+  final bool fuelltFlaeche;
+
   const TileView({
     required this.key,
     required this.label,
     required this.icon,
     required this.accepts,
     required this.build,
+    this.fuelltFlaeche = false,
   });
 }
 
@@ -55,6 +71,7 @@ class TileViews {
       label: 'Wochenansicht',
       icon: Icons.calendar_view_week_rounded,
       accepts: const {TileShape.schedule},
+      fuelltFlaeche: true,
       build: (ctx, d) => TileWeekView(data: d),
     ),
     TileView(
@@ -62,6 +79,7 @@ class TileViews {
       label: 'Monatsansicht',
       icon: Icons.calendar_month_rounded,
       accepts: const {TileShape.schedule},
+      fuelltFlaeche: true,
       build: (ctx, d) => TileMonthView(data: d),
     ),
     TileView(

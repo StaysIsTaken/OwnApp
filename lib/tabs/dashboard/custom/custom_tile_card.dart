@@ -22,6 +22,15 @@ class CustomTileCard extends StatelessWidget {
   /// Ein abgebrochener Dialog löst nichts aus.
   final VoidCallback? onGeaendert;
 
+  /// Reine Anzeige — kein Antippen, das irgendwohin fuehrt.
+  ///
+  /// Die Kuechenansicht ist eine eigene kleine App: sie haengt an der Wand
+  /// und zeigt. Wer im Vorbeigehen die Kachel streift, soll nicht in der
+  /// grossen App landen und dort stehenbleiben, bis jemand zurueckfindet.
+  /// Die kleinen Aktionen („+ Termin") bleiben — die legen etwas an,
+  /// statt wegzufuehren.
+  final bool nurAnzeige;
+
   const CustomTileCard({
     super.key,
     required this.tile,
@@ -30,6 +39,7 @@ class CustomTileCard extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onGeaendert,
+    this.nurAnzeige = false,
   });
 
   @override
@@ -77,12 +87,17 @@ class CustomTileCard extends StatelessWidget {
               if (angelegt) onGeaendert?.call();
             }
           : null,
-      // Im Bearbeitungsmodus nicht navigieren – dort wird gezogen.
-      onTap: (!arranging && source.route != null)
+      // Im Bearbeitungsmodus nicht navigieren – dort wird gezogen. In der
+      // reinen Anzeige ebenfalls nicht: dort fuehrt nichts weg.
+      onTap: (!arranging && !nurAnzeige && source.route != null)
           ? () => Navigator.pushNamed(context, source.route!)
           : null,
       filterCount: tile.filters.length,
-      child: ergebnis.isEmpty
+      // Darstellungen, die sich auch ohne Daten lohnen, bekommen ihre
+      // Flaeche – ein leeres Wochenraster sagt mehr als der Satz, dass es
+      // leer ist.
+      fuellt: view.fuelltFlaeche,
+      child: (ergebnis.isEmpty && !view.fuelltFlaeche)
           ? Text(
               ergebnis.emptyHint,
               style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
@@ -103,6 +118,9 @@ class _Rahmen extends StatelessWidget {
   final TileAktion? aktion;
   final VoidCallback? onAktion;
 
+  /// Der Inhalt nimmt die ganze Karte statt nur seiner Mindesthöhe.
+  final bool fuellt;
+
   const _Rahmen({
     required this.titel,
     required this.child,
@@ -113,6 +131,7 @@ class _Rahmen extends StatelessWidget {
     this.filterCount = 0,
     this.aktion,
     this.onAktion,
+    this.fuellt = false,
   });
 
   @override
@@ -128,7 +147,7 @@ class _Rahmen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: fuellt ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -184,7 +203,7 @@ class _Rahmen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            child,
+            if (fuellt) Expanded(child: child) else child,
           ],
         ),
       ),

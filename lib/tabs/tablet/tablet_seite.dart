@@ -348,6 +348,10 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
             onEdit: () => _kachelBearbeiten(k),
             onDelete: () => _kachelLoeschen(k),
             onGeaendert: _datenLaden,
+            // Die Kuechenansicht zeigt, sie fuehrt nicht weg. Wer im
+            // Vorbeigehen die Kachel streift, soll nicht in der grossen App
+            // landen und dort stehenbleiben.
+            nurAnzeige: true,
           ),
         );
 
