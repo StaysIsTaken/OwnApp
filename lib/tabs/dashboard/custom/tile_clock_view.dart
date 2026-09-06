@@ -70,6 +70,25 @@ class _TileClockViewState extends State<TileClockView> {
   bool get _abgelaufen => _rest <= Duration.zero && !_laeuft && _hatGelaufen;
   bool _hatGelaufen = false;
 
+  /// Die Vorgaben bleiben — sie decken den haeufigen Fall in einem Tipp ab.
+  static const _vorgaben = [1, 3, 5, 10, 15, 30];
+
+  /// Entspricht die eingestellte Dauer genau einer Vorgabe?
+  ///
+  /// Davon haengt nur ab, welcher Knopf hervorgehoben ist — aber ohne das
+  /// saehe „7:23 eingestellt" aus wie „nichts eingestellt".
+  bool get _istVorgabe =>
+      _gestellt.inSeconds % 60 == 0 &&
+      _vorgaben.contains(_gestellt.inMinutes);
+
+  Future<void> _eigeneZeit() async {
+    final gewaehlt = await showDialog<Duration>(
+      context: context,
+      builder: (_) => _EigeneZeit(vorgabe: _gestellt),
+    );
+    if (gewaehlt != null && gewaehlt > Duration.zero) _stellen(gewaehlt);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -233,19 +252,25 @@ class _TileClockViewState extends State<TileClockView> {
                     color: colors.error)),
           ),
         const SizedBox(height: 12),
-        // Vorgaben statt eines Zahlenfelds: in der Kueche stellt man drei,
-        // fuenf oder zehn Minuten, nicht 7:23.
+        // Vorgaben fuer den haeufigen Fall: in der Kueche stellt man drei,
+        // fuenf oder zehn Minuten. Wer 7:23 braucht, tippt auf „Eigene".
         Wrap(
           spacing: 8,
           runSpacing: 8,
           alignment: WrapAlignment.center,
           children: [
-            for (final minuten in const [1, 3, 5, 10, 15, 30])
+            for (final minuten in _vorgaben)
               ChoiceChip(
                 label: Text('$minuten min'),
-                selected: !_laeuft && _gestellt.inMinutes == minuten,
+                selected: !_laeuft && _istVorgabe && _gestellt.inMinutes == minuten,
                 onSelected: (_) => _stellen(Duration(minutes: minuten)),
               ),
+            ChoiceChip(
+              avatar: const Icon(Icons.tune_rounded, size: 18),
+              label: Text(_istVorgabe ? 'Eigene' : dauerText(_gestellt)),
+              selected: !_laeuft && !_istVorgabe,
+              onSelected: (_) => _eigeneZeit(),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -266,6 +291,149 @@ class _TileClockViewState extends State<TileClockView> {
               label: const Text('Zurück'),
             ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+
+/// Minuten und Sekunden von Hand stellen.
+///
+/// Zwei Reihen mit grossen Plus- und Minusknoepfen statt eines Tastenfelds:
+/// das hier wird mit dem Daumen bedient, oft mit mehligen Fingern. Die
+/// Minuten springen in Fuenferschritten, wenn man den grossen Knopf nimmt —
+/// von 5 auf 45 in acht Tipps statt in vierzig.
+class _EigeneZeit extends StatefulWidget {
+  final Duration vorgabe;
+
+  const _EigeneZeit({required this.vorgabe});
+
+  @override
+  State<_EigeneZeit> createState() => _EigeneZeitState();
+}
+
+class _EigeneZeitState extends State<_EigeneZeit> {
+  late int _minuten = widget.vorgabe.inMinutes.clamp(0, 599);
+  late int _sekunden = widget.vorgabe.inSeconds.remainder(60);
+
+  Duration get _dauer => Duration(minutes: _minuten, seconds: _sekunden);
+
+  void _aendern({int minuten = 0, int sekunden = 0}) {
+    setState(() {
+      // Ueber die Sekundengrenze hinaus wird umgerechnet statt gedeckelt:
+      // wer bei 55 Sekunden zweimal auf +10 tippt, meint 1:15 und nicht
+      // "geht nicht".
+      final gesamt = (_minuten * 60 + _sekunden + minuten * 60 + sekunden)
+          .clamp(0, 599 * 60 + 59);
+      _minuten = gesamt ~/ 60;
+      _sekunden = gesamt % 60;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      title: const Text('Eigene Zeit'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              dauerText(_dauer),
+              style: TextStyle(
+                fontSize: 56,
+                fontWeight: FontWeight.w300,
+                fontFeatures: const [FontFeature.tabularFigures()],
+                color: colors.primary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _Reihe(
+              titel: 'Minuten',
+              wert: _minuten,
+              onWeniger: () => _aendern(minuten: -1),
+              onMehr: () => _aendern(minuten: 1),
+              onVielWeniger: () => _aendern(minuten: -5),
+              onVielMehr: () => _aendern(minuten: 5),
+            ),
+            const SizedBox(height: 12),
+            _Reihe(
+              titel: 'Sekunden',
+              wert: _sekunden,
+              onWeniger: () => _aendern(sekunden: -1),
+              onMehr: () => _aendern(sekunden: 1),
+              onVielWeniger: () => _aendern(sekunden: -10),
+              onVielMehr: () => _aendern(sekunden: 10),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Abbrechen')),
+        FilledButton(
+          // Null Sekunden sind keine Zeit, die man stellen will.
+          onPressed: _dauer > Duration.zero
+              ? () => Navigator.pop(context, _dauer)
+              : null,
+          child: const Text('Übernehmen'),
+        ),
+      ],
+    );
+  }
+}
+
+class _Reihe extends StatelessWidget {
+  final String titel;
+  final int wert;
+  final VoidCallback onWeniger;
+  final VoidCallback onMehr;
+  final VoidCallback onVielWeniger;
+  final VoidCallback onVielMehr;
+
+  const _Reihe({
+    required this.titel,
+    required this.wert,
+    required this.onWeniger,
+    required this.onMehr,
+    required this.onVielWeniger,
+    required this.onVielMehr,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+
+    return Row(
+      children: [
+        SizedBox(width: 90, child: Text(titel, style: text.bodyLarge)),
+        IconButton.filledTonal(
+          onPressed: onVielWeniger,
+          icon: const Icon(Icons.keyboard_double_arrow_left_rounded),
+          tooltip: 'Deutlich weniger',
+        ),
+        IconButton(
+            onPressed: onWeniger, icon: const Icon(Icons.remove_rounded)),
+        SizedBox(
+          width: 52,
+          child: Text(
+            wert.toString().padLeft(2, '0'),
+            textAlign: TextAlign.center,
+            style: text.headlineSmall?.copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+        IconButton(onPressed: onMehr, icon: const Icon(Icons.add_rounded)),
+        IconButton.filledTonal(
+          onPressed: onVielMehr,
+          icon: const Icon(Icons.keyboard_double_arrow_right_rounded),
+          tooltip: 'Deutlich mehr',
         ),
       ],
     );

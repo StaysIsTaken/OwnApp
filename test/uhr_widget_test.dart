@@ -10,6 +10,13 @@ import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/dataservice/timer_ton.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
+/// Nur im Dialog suchen. Dieselbe Zeit steht oft auch in der Kachel
+/// dahinter – ohne Eingrenzung findet man zwei und weiss nicht, welche.
+Finder imDialog(String text) => find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text(text),
+    );
+
 Future<void> zeichne(WidgetTester tester, {double hoehe = 500}) async {
   tester.view.physicalSize = Size(700, hoehe + 100);
   tester.view.devicePixelRatio = 1.0;
@@ -145,6 +152,128 @@ void main() {
       final d = TileCatalog.byKey('uhr')!
           .build(const DashboardData(), const {}, const []);
       expect(d.isEmpty, isFalse);
+    });
+  });
+
+  group('Eigene Zeit', () {
+    Future<void> zumTimer(WidgetTester tester) async {
+      await zeichne(tester, hoehe: 620);
+      await tester.tap(find.text('Timer'));
+      await tester.pump();
+    }
+
+    testWidgets('die Vorgaben bleiben', (tester) async {
+      // Sie decken den haeufigen Fall in einem Tipp ab.
+      await zumTimer(tester);
+      for (final v in ['1 min', '3 min', '5 min', '10 min', '15 min', '30 min']) {
+        expect(find.text(v), findsOneWidget, reason: v);
+      }
+    });
+
+    testWidgets('daneben steht "Eigene"', (tester) async {
+      await zumTimer(tester);
+      expect(find.text('Eigene'), findsOneWidget);
+    });
+
+    testWidgets('Minuten und Sekunden lassen sich stellen', (tester) async {
+      await zumTimer(tester);
+      await tester.tap(find.text('Eigene'));
+      await tester.pumpAndSettle();
+
+      // Vorgabe ist 5 Minuten, also 05:00 im Dialog. Auf den Dialog
+      // eingegrenzt: dieselbe Zahl steht auch in der Kachel dahinter.
+      expect(imDialog('05:00'), findsOneWidget);
+
+      // Zweimal plus bei den Sekunden.
+      final plus = find.byIcon(Icons.add_rounded);
+      await tester.tap(plus.last);
+      await tester.pump();
+      await tester.tap(plus.last);
+      await tester.pump();
+      expect(imDialog('05:02'), findsOneWidget);
+
+      await tester.tap(find.text('Übernehmen'));
+      await tester.pumpAndSettle();
+
+      // Zweimal, und beides gehoert so: gross als Restzeit, und auf dem
+      // Knopf, damit man sieht, was eingestellt ist.
+      expect(find.text('05:02'), findsNWidgets(2));
+    });
+
+    testWidgets('ueber die Sekundengrenze wird umgerechnet', (tester) async {
+      // Wer bei 55 Sekunden zweimal auf +10 tippt, meint 1:15 – nicht
+      // "geht nicht".
+      await zumTimer(tester);
+      await tester.tap(find.text('Eigene'));
+      await tester.pumpAndSettle();
+
+      // Von 05:00 sechsmal +10 Sekunden = 06:00.
+      final vielMehr = find.byIcon(Icons.keyboard_double_arrow_right_rounded);
+      for (var i = 0; i < 6; i++) {
+        await tester.tap(vielMehr.last);
+        await tester.pump();
+      }
+      expect(imDialog('06:00'), findsOneWidget);
+    });
+
+    testWidgets('unter null geht es nicht', (tester) async {
+      await zumTimer(tester);
+      await tester.tap(find.text('1 min'));
+      await tester.pump();
+      await tester.tap(find.text('Eigene'));
+      await tester.pumpAndSettle();
+
+      final vielWeniger = find.byIcon(Icons.keyboard_double_arrow_left_rounded);
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(vielWeniger.first);
+        await tester.pump();
+      }
+      expect(imDialog('00:00'), findsOneWidget);
+    });
+
+    testWidgets('null laesst sich nicht uebernehmen', (tester) async {
+      // Null Sekunden sind keine Zeit, die man stellen will.
+      await zumTimer(tester);
+      await tester.tap(find.text('Eigene'));
+      await tester.pumpAndSettle();
+
+      final vielWeniger = find.byIcon(Icons.keyboard_double_arrow_left_rounded);
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(vielWeniger.first);
+        await tester.pump();
+      }
+      expect(imDialog('00:00'), findsOneWidget);
+
+      final knopf = tester.widget<FilledButton>(
+          find.widgetWithText(FilledButton, 'Übernehmen'));
+      expect(knopf.onPressed, isNull);
+    });
+
+    testWidgets('Abbrechen aendert nichts', (tester) async {
+      await zumTimer(tester);
+      await tester.tap(find.text('Eigene'));
+      await tester.pumpAndSettle();
+      final plus = find.byIcon(Icons.add_rounded);
+      await tester.tap(plus.last);
+      await tester.pump();
+      await tester.tap(find.text('Abbrechen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('05:00'), findsOneWidget);
+    });
+
+    testWidgets('eine eigene Zeit steht auf dem Knopf', (tester) async {
+      // Sonst saehe "7:23 eingestellt" aus wie "nichts eingestellt".
+      await zumTimer(tester);
+      await tester.tap(find.text('Eigene'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_rounded).last);
+      await tester.pump();
+      await tester.tap(find.text('Übernehmen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Eigene'), findsNothing);
+      expect(find.text('05:01'), findsAtLeast(1));
     });
   });
 
