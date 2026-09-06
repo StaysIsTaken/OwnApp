@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:productivity/dataservice/timer_ton.dart';
 
 /// Was die Uhr gerade tut.
 enum Uhrfunktion { uhr, timer }
@@ -87,6 +88,9 @@ class _TileClockViewState extends State<TileClockView> {
           _rest = Duration.zero;
           _laeuft = false;
           _hatGelaufen = true;
+          // Genau einmal, beim Übergang auf null. Im setState aufgerufen,
+          // aber selbst asynchron – der Ton hält die Anzeige nicht auf.
+          TimerTon.spielen();
         } else {
           _rest = neu;
         }
@@ -97,26 +101,38 @@ class _TileClockViewState extends State<TileClockView> {
   @override
   void dispose() {
     _takt?.cancel();
+    // Sonst klingelt es weiter, während man längst etwas anderes ansieht.
+    TimerTon.aufhoeren();
     super.dispose();
   }
 
-  void _stellen(Duration d) => setState(() {
-        _gestellt = d;
-        _rest = d;
-        _hatGelaufen = false;
-      });
+  void _stellen(Duration d) {
+    TimerTon.aufhoeren();
+    setState(() {
+      _gestellt = d;
+      _rest = d;
+      _hatGelaufen = false;
+    });
+  }
 
-  void _startStopp() => setState(() {
-        if (_rest <= Duration.zero) _rest = _gestellt;
-        _hatGelaufen = false;
-        _laeuft = !_laeuft;
-      });
+  void _startStopp() {
+    // Wer wieder startet, hat das Klingeln zur Kenntnis genommen.
+    TimerTon.aufhoeren();
+    setState(() {
+      if (_rest <= Duration.zero) _rest = _gestellt;
+      _hatGelaufen = false;
+      _laeuft = !_laeuft;
+    });
+  }
 
-  void _zuruecksetzen() => setState(() {
-        _laeuft = false;
-        _rest = _gestellt;
-        _hatGelaufen = false;
-      });
+  void _zuruecksetzen() {
+    TimerTon.aufhoeren();
+    setState(() {
+      _laeuft = false;
+      _rest = _gestellt;
+      _hatGelaufen = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
