@@ -57,6 +57,32 @@ class TileView {
   /// der Hinweis mehr wert als das Bild.
   final bool fuelltFlaeche;
 
+  /// Unter dieser Breite ist die Darstellung unlesbar (in Pixeln).
+  ///
+  /// Die Darstellung weiß das am besten: ein Wochenraster braucht sieben
+  /// Spalten nebeneinander, eine große Zahl braucht fast nichts. Vorher
+  /// stand diese Kenntnis als geratene Schwelle mitten im Zeichencode,
+  /// dreimal dieselbe Zahl an drei Stellen.
+  ///
+  /// Die Seite nimmt das ernst: eine Kachel bekommt lieber mehr Spalten,
+  /// als unter ihr Mindestmaß gedrückt zu werden — und was dann nicht mehr
+  /// in die Reihe passt, rutscht in die nächste. So verschiebt die eine
+  /// Kachel die andere, statt beide unlesbar zu machen.
+  final double minBreite;
+
+  /// Unter dieser Höhe ebenso.
+  final double minHoehe;
+
+  /// Ab dem Wievielfachen des Mindestmaßes sich die Darstellung „groß"
+  /// zeichnen darf — größere Schrift, mehr Beschriftung, ganzer Tag.
+  ///
+  /// Als Verhältnis statt als feste Pixelzahl: eine Darstellung, die wenig
+  /// braucht, hat schon bei 300 Pixeln reichlich Platz; eine, die viel
+  /// braucht, erst bei 600.
+  static const double grossAb = 1.5;
+
+  bool istGross(double hoehe) => hoehe >= minHoehe * grossAb;
+
   const TileView({
     required this.key,
     required this.label,
@@ -64,6 +90,8 @@ class TileView {
     required this.accepts,
     required this.build,
     this.fuelltFlaeche = false,
+    this.minBreite = 200,
+    this.minHoehe = 140,
   });
 }
 
@@ -98,6 +126,10 @@ class TileViews {
       icon: Icons.calendar_view_week_rounded,
       accepts: const {TileShape.schedule},
       fuelltFlaeche: true,
+      // Sieben Tagesspalten nebeneinander, jede lesbar: darunter wird es
+      // ein Streifenmuster.
+      minBreite: 460,
+      minHoehe: 260,
       build: (ctx, d, _) => TileWeekView(data: d),
     ),
     TileView(
@@ -106,6 +138,10 @@ class TileViews {
       icon: Icons.calendar_month_rounded,
       accepts: const {TileShape.schedule},
       fuelltFlaeche: true,
+      // Sieben Spalten mal fuenf bis sechs Zeilen – die Hoehe ist hier das
+      // Knappe, nicht die Breite.
+      minBreite: 420,
+      minHoehe: 300,
       build: (ctx, d, _) => TileMonthView(data: d),
     ),
     TileView(
@@ -116,9 +152,13 @@ class TileViews {
       // Auch leer sinnvoll: das Eingabefeld gehoert dazu, sonst kann man
       // auf eine leere Liste nichts setzen.
       fuelltFlaeche: true,
+      // Schmal ist in Ordnung – ein Einkaufszettel ist eine Spalte. Hoehe
+      // braucht sie: Liste plus Eingabefeld.
+      minBreite: 240,
+      minHoehe: 260,
       build: (ctx, d, k) => LayoutBuilder(
-        builder: (_, c) =>
-            TileChecklistView(data: d, kontext: k, gross: c.maxHeight >= 420),
+        builder: (_, c) => TileChecklistView(
+            data: d, kontext: k, gross: byKey('checklist')!.istGross(c.maxHeight)),
       ),
     ),
     TileView(
@@ -129,8 +169,12 @@ class TileViews {
       // Wie die Kalender: ein Raster, das die Flaeche braucht und auch
       // ohne Karten etwas aussagt – leere Spalten heissen "nichts offen".
       fuelltFlaeche: true,
+      // Drei Spalten nebeneinander, sonst wird geschoben.
+      minBreite: 540,
+      minHoehe: 280,
       build: (ctx, d, _) => LayoutBuilder(
-        builder: (_, c) => TileBoardView(data: d, gross: c.maxHeight >= 420),
+        builder: (_, c) => TileBoardView(
+            data: d, gross: byKey('board')!.istGross(c.maxHeight)),
       ),
     ),
     TileView(

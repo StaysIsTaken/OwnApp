@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
+import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
 /// Wochenraster als Kachel.
 ///
@@ -123,7 +124,12 @@ class TileWeekView extends StatelessWidget {
   static const double _ganztagsHoehe = 26;
 
   /// Ab dieser Höhe zeigt die Kachel den ganzen Tag statt eines Ausschnitts.
-  static const double _grosseAnsichtAb = 420;
+  ///
+  /// Kein geratener Wert mehr: es ist das Mindestmaß dieser Darstellung
+  /// mal [TileView.grossAb]. Wer das Mindestmaß ändert, ändert das hier
+  /// mit — vorher standen beide Zahlen unabhängig voneinander im Code.
+  static double get _grosseAnsichtAb =>
+      TileViews.byKey('week')!.minHoehe * TileView.grossAb;
 
   /// Wie im Planner – dort sind es 64 Pixel je Stunde.
   static const double _stundenHoeheGross = 56;
