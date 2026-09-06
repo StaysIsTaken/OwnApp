@@ -22,14 +22,15 @@ class CustomTileCard extends StatelessWidget {
   /// Ein abgebrochener Dialog löst nichts aus.
   final VoidCallback? onGeaendert;
 
-  /// Reine Anzeige — kein Antippen, das irgendwohin fuehrt.
+  /// Diese Kachel haengt auf einem Kuechengeraet. Daraus folgt zweierlei:
   ///
-  /// Die Kuechenansicht ist eine eigene kleine App: sie haengt an der Wand
-  /// und zeigt. Wer im Vorbeigehen die Kachel streift, soll nicht in der
-  /// grossen App landen und dort stehenbleiben, bis jemand zurueckfindet.
-  /// Die kleinen Aktionen („+ Termin") bleiben — die legen etwas an,
-  /// statt wegzufuehren.
-  final bool nurAnzeige;
+  /// * **Nichts fuehrt weg.** Wer im Vorbeigehen die Kachel streift, soll
+  ///   nicht in der grossen App landen und dort stehenbleiben, bis jemand
+  ///   zurueckfindet.
+  /// * **Die Bedienung ist gross.** Was bleibt — der Knopf zum Anlegen —
+  ///   wird mit dem Daumen getroffen, oft im Vorbeigehen und nicht selten
+  ///   mit mehligen Fingern. Ein 20-Pixel-Symbol reicht dafuer nicht.
+  final bool kuechenmodus;
 
   const CustomTileCard({
     super.key,
@@ -39,7 +40,7 @@ class CustomTileCard extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onGeaendert,
-    this.nurAnzeige = false,
+    this.kuechenmodus = false,
   });
 
   @override
@@ -81,6 +82,7 @@ class CustomTileCard extends StatelessWidget {
       onEdit: onEdit,
       onDelete: onDelete,
       aktion: zeigeAktion ? aktion : null,
+      grosseBedienung: kuechenmodus,
       onAktion: zeigeAktion
           ? () async {
               final angelegt = await aktion.ausfuehren(context);
@@ -89,7 +91,7 @@ class CustomTileCard extends StatelessWidget {
           : null,
       // Im Bearbeitungsmodus nicht navigieren – dort wird gezogen. In der
       // reinen Anzeige ebenfalls nicht: dort fuehrt nichts weg.
-      onTap: (!arranging && !nurAnzeige && source.route != null)
+      onTap: (!arranging && !kuechenmodus && source.route != null)
           ? () => Navigator.pushNamed(context, source.route!)
           : null,
       filterCount: tile.filters.length,
@@ -121,6 +123,9 @@ class _Rahmen extends StatelessWidget {
   /// Der Inhalt nimmt die ganze Karte statt nur seiner Mindesthöhe.
   final bool fuellt;
 
+  /// Grosse Trefferflaeche statt eines Symbols – fuer das Geraet an der Wand.
+  final bool grosseBedienung;
+
   const _Rahmen({
     required this.titel,
     required this.child,
@@ -132,6 +137,7 @@ class _Rahmen extends StatelessWidget {
     this.aktion,
     this.onAktion,
     this.fuellt = false,
+    this.grosseBedienung = false,
   });
 
   @override
@@ -175,13 +181,26 @@ class _Rahmen extends StatelessWidget {
                 // Vor dem Pfeil: die Aktion ist das, was man hier tun kann,
                 // der Pfeil führt nur woandershin.
                 if (aktion != null && onAktion != null)
-                  IconButton(
-                    icon: Icon(aktion!.icon, size: 20),
-                    tooltip: '${aktion!.label} anlegen',
-                    visualDensity: VisualDensity.compact,
-                    color: colors.primary,
-                    onPressed: onAktion,
-                  ),
+                  grosseBedienung
+                      // An der Wand: beschriftet und gross genug, um im
+                      // Vorbeigehen getroffen zu werden.
+                      ? FilledButton.tonalIcon(
+                          onPressed: onAktion,
+                          icon: Icon(aktion!.icon, size: 26),
+                          label: Text(aktion!.label,
+                              style: const TextStyle(fontSize: 17)),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 16),
+                          ),
+                        )
+                      : IconButton(
+                          icon: Icon(aktion!.icon, size: 20),
+                          tooltip: '${aktion!.label} anlegen',
+                          visualDensity: VisualDensity.compact,
+                          color: colors.primary,
+                          onPressed: onAktion,
+                        ),
                 if (onTap != null && !arranging)
                   Icon(Icons.chevron_right_rounded,
                       size: 18, color: colors.outline),
