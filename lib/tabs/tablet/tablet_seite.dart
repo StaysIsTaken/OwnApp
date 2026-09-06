@@ -413,7 +413,8 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
         builder: (context, constraints) {
           final spalten = spaltenFuer(constraints.maxWidth);
           final unten = randUnten(widget.bearbeiten);
-          final reihen = inReihen(sichtbar, spalten);
+          final reihen = inReihen(sichtbar, spalten,
+              rasterBreite: constraints.maxWidth - 32);
           const abstand = 16.0;
 
           return ListView(
@@ -425,17 +426,16 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
                   child: SizedBox(
                     // Die hoechste Kachel gibt der Reihe ihr Mass – sonst
                     // haengen die anderen in der Luft.
-                    height: reihe
-                        .map((k) => hoeheFuer(hoeheVon(k),
-                            constraints.maxHeight - randOben - unten))
-                        .reduce((a, b) => a > b ? a : b),
+                    height: reihenHoehe(
+                        reihe, constraints.maxHeight - randOben - unten),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         for (var i = 0; i < reihe.length; i++) ...[
                           if (i > 0) const SizedBox(width: abstand),
                           Expanded(
-                            flex: breiteVon(reihe[i], spalten),
+                            flex: spaltenBedarf(reihe[i], spalten,
+                                constraints.maxWidth - 32),
                             child: karte(reihe[i]),
                           ),
                         ],

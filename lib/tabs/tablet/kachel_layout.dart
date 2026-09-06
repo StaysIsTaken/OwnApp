@@ -15,7 +15,8 @@ import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 ///
 /// Eigene Funktion, weil die Küchenseite selbst nicht prüfbar ist — sie
 /// lädt beim Aufbau vom Server. Diese Rechnung ist es.
-/// Wie breit diese Kachel tatsächlich ist.
+/// Wie breit diese Kachel gewünscht ist — ohne Rücksicht auf ihr
+/// Mindestmaß. Für die tatsächliche Breite siehe [spaltenBedarf].
 ///
 /// „Automatisch" heißt: ein Raster nimmt die ganze Reihe, alles andere
 /// eine Spalte. Die Entscheidung hängt an der Darstellung — wer eine neue
@@ -26,6 +27,39 @@ int breiteVon(CustomTile k, int spalten) {
   return TileViews.byKey(k.view)?.fuelltFlaeche == true ? spalten : 1;
 }
 
+/// Wie viele Spalten die Kachel wirklich bekommt.
+///
+/// Der gewünschten Breite steht das Mindestmaß der Darstellung gegenüber:
+/// eine Wochenansicht auf eine Spalte zu zwingen ergäbe ein Streifenmuster.
+/// Also bekommt sie so viele Spalten, wie ihr Mindestmaß verlangt — auch
+/// wenn jemand weniger eingestellt hat.
+///
+/// **Das ist der Hebel, über den eine Kachel ihre Nachbarn verschiebt:**
+/// nimmt die erste mehr Platz, als in die Reihe passt, rutscht die zweite
+/// in die nächste Zeile, statt dass beide unlesbar werden.
+int spaltenBedarf(CustomTile k, int spalten, double rasterBreite) {
+  final gewuenscht = breiteVon(k, spalten);
+  if (spalten < 1 || rasterBreite <= 0) return gewuenscht;
+
+  final proSpalte = rasterBreite / spalten;
+  final min = TileViews.byKey(k.view)?.minBreite ?? 0;
+  final noetig = (min / proSpalte).ceil().clamp(1, spalten);
+  return noetig > gewuenscht ? noetig : gewuenscht;
+}
+
+/// Die Höhe einer Reihe: die höchste Kachel gibt das Maß, und keine fällt
+/// unter ihr Mindestmaß.
+double reihenHoehe(List<CustomTile> reihe, double verfuegbar) {
+  var hoch = 0.0;
+  for (final k in reihe) {
+    final gewuenscht = hoeheFuer(hoeheVon(k), verfuegbar);
+    final min = TileViews.byKey(k.view)?.minHoehe ?? 0;
+    final h = gewuenscht > min ? gewuenscht : min;
+    if (h > hoch) hoch = h;
+  }
+  return hoch;
+}
+
 /// Wie hoch, in Stufen. „Automatisch" heißt für ein Raster: volle Seite.
 int hoeheVon(CustomTile k) {
   if (!k.hoeheAutomatisch) return k.hoehe.clamp(1, CustomTile.maxHoehe);
@@ -34,7 +68,11 @@ int hoeheVon(CustomTile k) {
       : 2;
 }
 
-List<List<CustomTile>> inReihen(List<CustomTile> kacheln, int spalten) {
+List<List<CustomTile>> inReihen(
+  List<CustomTile> kacheln,
+  int spalten, {
+  double rasterBreite = 0,
+}) {
   if (spalten < 1) return [for (final k in kacheln) [k]];
 
   final reihen = <List<CustomTile>>[];
@@ -44,7 +82,7 @@ List<List<CustomTile>> inReihen(List<CustomTile> kacheln, int spalten) {
   for (final k in kacheln) {
     // Breiter als das Raster gibt es nicht: sonst entstuende eine Reihe,
     // die ueber den Rand hinausragt.
-    final breite = breiteVon(k, spalten);
+    final breite = spaltenBedarf(k, spalten, rasterBreite);
     if (belegt + breite > spalten && laufende.isNotEmpty) {
       reihen.add(laufende);
       laufende = <CustomTile>[];
