@@ -26,6 +26,8 @@ const Map<String, String> rechtJeRoute = {
   '/pantry': 'pantry:read',
   '/storage-locations': 'pantry:write',
   '/shopping-list': 'shopping:read',
+  '/einkauf': 'shopping:read',
+  '/preise': 'prices:read',
   '/meal-plan': 'mealplan:read',
   '/notes': 'notes:read',
   '/journal': 'journal:read',

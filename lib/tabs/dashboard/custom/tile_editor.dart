@@ -5,6 +5,8 @@ import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_filter.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
+import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/einkauf_service.dart';
 
 /// Anlegen und Bearbeiten einer eigenen Kachel.
 ///
@@ -314,9 +316,11 @@ class _TileEditorState extends State<_TileEditor> {
               for (final p in _quelle!.params)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
-                  child: p.art == ParamArt.zahl
-                      ? _zahlZeile(p)
-                      : _eingabeZeile(p),
+                  child: switch (p.art) {
+                    ParamArt.zahl => _zahlZeile(p),
+                    ParamArt.einkaufsliste => _listenwahl(p),
+                    _ => _eingabeZeile(p),
+                  },
                 ),
             ],
           ),
@@ -502,6 +506,51 @@ class _TileEditorState extends State<_TileEditor> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Auswahl einer Einkaufsliste.
+  ///
+  /// Holt die Listen vom Server – niemand kennt die Kennung seiner Liste
+  /// auswendig, und eine Zahl einzutippen wäre hier absurd.
+  Widget _listenwahl(TileParam p) {
+    final gewaehlt = (_werte[p.key] as num?)?.toInt() ?? 0;
+
+    return FutureBuilder<List<Einkaufsliste>>(
+      future: EinkaufService.listen(),
+      builder: (context, schnappschuss) {
+        if (schnappschuss.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final listen = schnappschuss.data ?? const <Einkaufsliste>[];
+        if (listen.isEmpty) {
+          return Text(
+            'Noch keine Einkaufsliste vorhanden. Erst eine anlegen — '
+            'dann steht sie hier zur Wahl.',
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
+          );
+        }
+        return DropdownButtonFormField<int>(
+          initialValue:
+              listen.any((l) => l.id == gewaehlt) ? gewaehlt : null,
+          decoration: InputDecoration(
+            labelText: p.label,
+            border: const OutlineInputBorder(),
+          ),
+          items: [
+            for (final l in listen)
+              DropdownMenuItem(
+                value: l.id,
+                child: Text('${l.name}  (${l.offen} offen)'),
+              ),
+          ],
+          onChanged: (v) => setState(() => _werte[p.key] = v),
+        );
+      },
     );
   }
 

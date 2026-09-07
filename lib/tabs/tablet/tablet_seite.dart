@@ -15,10 +15,11 @@ import 'package:productivity/dataservice/note_service.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/dataservice/rechte_zuordnung.dart';
-import 'package:productivity/dataservice/ingredient_service.dart' as zutaten;
 import 'package:productivity/dataservice/shopping_list_service.dart';
 import 'package:productivity/dataclasses/kalender.dart';
 import 'package:productivity/dataservice/calendar_service.dart';
+import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/einkauf_service.dart';
 import 'package:productivity/dataservice/feed_service.dart';
 import 'package:productivity/dataservice/task_service.dart';
 import 'package:productivity/dataservice/time_entry_service.dart';
@@ -140,6 +141,23 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
       hole('journal', JournalService.loadAll),
     ]);
 
+    // Einkaufslisten: nur die, die eine Kachel wirklich zeigt. Ein Tablet,
+    // das alle Listen des Haushalts laedt, um eine anzuzeigen, waere
+    // Verschwendung -- und bei zehn Listen merkt man es.
+    final gewuenschteListen = <int>{
+      for (final k in _kacheln)
+        if (TileCatalog.byKey(k.source)?.shape == TileShape.checklist)
+          if ((k.params['liste'] as num?)?.toInt() case final id?
+              when id > 0)
+            id,
+    };
+    final einkauf = <int, List<Einkaufsposition>>{};
+    for (final id in gewuenschteListen) {
+      final positionen =
+          await _stillHolen(() => EinkaufService.positionen(id));
+      if (positionen != null) einkauf[id] = positionen;
+    }
+
     // Farben der Kalender – damit die Wochenansicht ihre Termine danach
     // faerben kann statt alle gleich.
     final kalender = await _stillHolen(
@@ -164,6 +182,7 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
         kalenderFarben: {
           for (final k in kalender ?? const <Kalender>[]) k.id: k.color,
         },
+        einkauf: einkauf,
         tasks: ergebnisse[0] as List<Task>,
         timeEntries: ergebnisse[1] as List<TimeEntry>,
         plannerEntries: ergebnisse[2] as List<PlannerEntry>,
@@ -201,39 +220,24 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
   ///
   /// Die einzige Kachel, die etwas aendert. Nach jedem Schreiben wird neu
   /// geladen — der Server ist die Wahrheit, nicht der Bildschirm.
-  TileKontext get _einkaufKontext => TileKontext(
-        umschalten: (id, erledigt) async {
-          final posten = _daten.shoppingItems
-              .cast<ShoppingListItem>()
-              .where((i) => i.id == id)
-              .firstOrNull;
-          if (posten == null) return;
-          await ShoppingListService.upsert(posten.copyWith(isBought: erledigt));
-          await _datenLaden();
-        },
-        hinzufuegen: (text) async {
-          // Der Einkaufsposten haengt an einer Zutat. Gibt es sie noch
-          // nicht, wird sie angelegt – auf einem Kuechengeraet will
-          // niemand erst einen Stammdatensatz pflegen.
-          final name = text.trim();
-          final vorhanden = _daten.ingredientMap.values
-              .cast<Ingredient>()
-              .where((z) => z.name.toLowerCase() == name.toLowerCase())
-              .firstOrNull;
-          final zutat = vorhanden ??
-              await zutaten.IngredientService.create(
-                  Ingredient(id: '', name: name));
-          await ShoppingListService.upsert(ShoppingListItem(
-            id: '',
-            ingredientId: zutat.id,
-            // Ohne Standardeinheit bleibt sie leer – "Milch" auf einem
-            // Einkaufszettel braucht keine.
-            unitId: zutat.defaultUnitId ?? '',
-            amount: 1,
-          ));
-          await _datenLaden();
-        },
-      );
+  TileKontext _einkaufKontext(CustomTile kachel) {
+    final listId = (kachel.params['liste'] as num?)?.toInt() ?? 0;
+    if (listId == 0) return TileKontext.leer;
+
+    return TileKontext(
+      umschalten: (id, erledigt) async {
+        await EinkaufService.positionAendern(int.parse(id),
+            erledigt: erledigt);
+        await _datenLaden();
+      },
+      hinzufuegen: (text) async {
+        // Ein Name genuegt. Keine Zutat, keine Einheit, kein
+        // Stammdatensatz -- das war der Kern der Kritik am alten System.
+        await EinkaufService.positionAnlegen(listId, name: text.trim());
+        await _datenLaden();
+      },
+    );
+  }
 
   /// Was die Board-Kachel zurueckschreiben darf.
   ///
@@ -482,7 +486,7 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
             onDelete: () => _kachelLoeschen(k),
             onGeaendert: _datenLaden,
             kontext: switch (TileCatalog.byKey(k.source)?.shape) {
-              TileShape.checklist => _einkaufKontext,
+              TileShape.checklist => _einkaufKontext(k),
               TileShape.board => _boardKontext,
               TileShape.schedule => _kalenderKontext,
               _ => TileKontext.leer,

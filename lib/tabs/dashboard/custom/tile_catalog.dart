@@ -3,7 +3,7 @@ import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/time_entry.dart';
 import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
-import 'package:productivity/dataclasses/ingredient.dart';
+import 'package:productivity/dataclasses/einkauf.dart';
 import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/main.dart';
@@ -43,6 +43,10 @@ class TileCatalog {
     max: 12,
     standard: 0,
   );
+
+  /// Welche Einkaufsliste die Kachel zeigt.
+  static const _welcheListe =
+      TileParam.einkaufsliste(key: 'liste', label: 'Welche Liste?');
 
   static const _anzahl = TileParam(
     key: 'limit', label: 'Wie viele anzeigen', min: 1, max: 20, standard: 5,
@@ -487,28 +491,34 @@ class TileCatalog {
       ),
     ),
     TileSource(
-      key: 'shopping.checklist',
-      route: AppRoutes.shoppingList,
-      fields: FilterFields.einkauf,
+      key: 'einkauf.liste',
+      route: AppRoutes.einkauf,
       label: 'Einkaufsliste zum Abhaken',
       group: 'Einkauf',
       shape: TileShape.checklist,
+      params: const [_welcheListe],
       build: (d, p, f) {
-        final posten = applyFilters(
-            d.shoppingItems.cast<ShoppingListItem>(), f, FilterFields.einkauf);
+        final listId = _int(p, 'liste', 0);
+        // Ohne Auswahl bleibt die Kachel leer statt irgendeine Liste zu
+        // zeigen – auf einem Kuechengeraet ist "die falsche Liste" der
+        // schlechtere Fehler als "noch nichts eingestellt".
+        if (listId == 0) {
+          return const TileData.checklist([],
+              emptyHint: 'Noch keine Liste gewählt — auf den Stift tippen.');
+        }
+        final positionen =
+            (d.einkauf[listId] ?? const []).cast<Einkaufsposition>();
         return TileData.checklist(
           [
-            for (final i in posten)
+            for (final e in positionen)
               TileCheckItem(
-                id: i.id,
-                // Der Name der Zutat, nicht ihre Kennung – die steht auf
-                // keinem Einkaufszettel der Welt.
-                titel: (d.ingredientMap[i.ingredientId] as Ingredient?)?.name ??
-                    'Unbekannt',
-                untertitel: i.note?.trim().isNotEmpty == true
-                    ? i.note
-                    : (i.amount > 0 ? _zahl(i.amount) : null),
-                erledigt: i.isBought,
+                id: e.id.toString(),
+                titel: e.name,
+                untertitel: () {
+                  final b = e.beischrift(null);
+                  return b.isEmpty ? null : b;
+                }(),
+                erledigt: e.erledigt,
               ),
           ],
           emptyHint: 'Die Liste ist leer',
