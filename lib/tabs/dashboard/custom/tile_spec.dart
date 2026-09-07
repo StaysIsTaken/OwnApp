@@ -170,7 +170,7 @@ class TileAktion {
 /// Bisher waren alle Einstellungen Zahlen mit Plus/Minus. Für eigene
 /// Blöcke reicht das nicht: ein Text will getippt, ein Datum gewählt
 /// werden. Die Oberfläche entscheidet daran, welches Feld sie zeigt.
-enum ParamArt { zahl, text, mehrzeilig, datum }
+enum ParamArt { zahl, text, mehrzeilig, datum, einkaufsliste }
 
 /// Ein einstellbarer Wert einer Quelle (z.B. „letzte N Tage").
 class TileParam {
@@ -213,6 +213,17 @@ class TileParam {
         min = 0,
         max = 0,
         standard = 0;
+
+  /// Welche Einkaufsliste die Kachel zeigt.
+  ///
+  /// Eigene Art statt einer Zahl: die Auswahl muss die Listen erst vom
+  /// Server holen, und niemand kennt die Kennung seiner Liste auswendig.
+  const TileParam.einkaufsliste({required this.key, required this.label})
+      : art = ParamArt.einkaufsliste,
+        min = 0,
+        max = 0,
+        standard = 0,
+        platzhalter = null;
 
   const TileParam.datum({required this.key, required this.label})
       : art = ParamArt.datum,
@@ -298,6 +309,13 @@ class DashboardData {
   final List<dynamic> nachrichten;
   final String? witz;
 
+  /// Positionen der Einkaufslisten, nach Listenkennung.
+  ///
+  /// Nicht eine Liste, sondern alle sichtbaren: welche eine Kachel zeigt,
+  /// steht in ihren Parametern, und zwei Kacheln können verschiedene
+  /// zeigen, ohne zweimal zu laden.
+  final Map<int, List<dynamic>> einkauf;
+
   /// Kalender-ID → Farbe. Damit faerbt eine Wochenansicht ihre Termine nach
   /// dem Kalender, aus dem sie stammen — sonst sieht man zwar alle
   /// ausgewählten, kann sie aber nicht auseinanderhalten.
@@ -316,5 +334,6 @@ class DashboardData {
     this.nachrichten = const [],
     this.witz,
     this.kalenderFarben = const {},
+    this.einkauf = const {},
   });
 }

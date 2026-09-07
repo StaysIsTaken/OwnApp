@@ -12,6 +12,8 @@ import 'package:productivity/tabs/settings.dart';
 import 'package:productivity/tabs/recipes/recipes_page.dart';
 import 'package:productivity/tabs/pantry/pantry_page.dart';
 import 'package:productivity/tabs/pantry/shopping_list_page.dart';
+import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
+import 'package:productivity/tabs/einkauf/preise_page.dart';
 import 'package:productivity/tabs/pantry/meal_plan_page.dart';
 import 'package:productivity/tabs/pantry/manage_storage_locations_page.dart';
 import 'package:productivity/tabs/chat/chat_page.dart';
@@ -149,6 +151,8 @@ class AppRoutes {
   // New Modules
   static const String pantry = '/pantry';
   static const String shoppingList = '/shopping-list';
+  static const String einkauf = '/einkauf';
+  static const String preise = '/preise';
   static const String mealPlan = '/meal-plan';
   static const String chat = '/chat';
   static const String storageLocations = '/storage-locations';
@@ -182,6 +186,8 @@ class AppRoutes {
     // New Modules
     pantry: (_) => const PantryPage(),
     shoppingList: (_) => const ShoppingListPage(),
+    einkauf: (_) => const EinkaufslistenPage(),
+    preise: (_) => const PreisePage(),
     mealPlan: (_) => const MealPlanPage(),
     chat: (_) => const ChatPage(),
 

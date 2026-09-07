@@ -76,7 +76,22 @@ class _DrawerWidgetState extends State<DrawerWidget>
     NavItem(
       icon: Icons.shopping_cart_outlined,
       iconActive: Icons.shopping_cart_rounded,
-      label: 'Einkaufsliste',
+      label: 'Einkaufslisten',
+      route: AppRoutes.einkauf,
+    ),
+    NavItem(
+      icon: Icons.savings_outlined,
+      iconActive: Icons.savings_rounded,
+      label: 'Preise',
+      route: AppRoutes.preise,
+    ),
+    // Die alte Einzelliste. Bleibt vorerst erreichbar, weil
+    // Vorratsuebernahme und Essensplan noch daran haengen -- verschwindet,
+    // wenn beides umgestellt ist.
+    NavItem(
+      icon: Icons.receipt_long_outlined,
+      iconActive: Icons.receipt_long_rounded,
+      label: 'Einkaufsliste (alt)',
       route: AppRoutes.shoppingList,
     ),
     NavItem(

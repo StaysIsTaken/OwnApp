@@ -3,7 +3,9 @@
 // zurueckmeldet.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:productivity/dataclasses/ingredient.dart';
+import 'package:productivity/dataclasses/einkauf.dart';
+// Die alte Einkaufsliste lebt noch – Vorratsuebernahme und Essensplan
+// haengen daran. Ihre Nutzlast wird unten weiter geprueft.
 import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_checklist_view.dart';
@@ -11,17 +13,16 @@ import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
-ShoppingListItem posten(String id, String zutatId,
-        {bool gekauft = false, double menge = 1}) =>
-    ShoppingListItem(
-      id: id, ingredientId: zutatId, unitId: 'u',
-      amount: menge, isBought: gekauft,
+Einkaufsposition position(int id, String name,
+        {bool erledigt = false, double? menge}) =>
+    Einkaufsposition(
+      id: id, listId: 7, name: name, erledigt: erledigt, menge: menge,
     );
 
-TileData bauen(List<ShoppingListItem> posten, Map<String, Ingredient> zutaten) =>
-    TileCatalog.byKey('shopping.checklist')!.build(
-      DashboardData(shoppingItems: posten, ingredientMap: zutaten),
-      const {},
+TileData bauen(List<Einkaufsposition> positionen, {int liste = 7}) =>
+    TileCatalog.byKey('einkauf.liste')!.build(
+      DashboardData(einkauf: {7: positionen}),
+      {'liste': liste},
       const [],
     );
 
@@ -43,32 +44,60 @@ Future<void> zeichne(WidgetTester tester, TileData daten,
 }
 
 void main() {
-  _nutzlast();
-
-  final zutaten = {'z1': const Ingredient(id: 'z1', name: 'Milch')};
+  nutzlast();
 
   group('Was die Quelle liefert', () {
-    test('der Name der Zutat steht da, nicht ihre Kennung', () {
-      final d = bauen([posten('p1', 'z1')], zutaten);
-      expect(d.haken.single.titel, 'Milch');
+    test('der Name steht da, so wie er getippt wurde', () {
+      // Frueher stand hier die Zutat, und ohne Zutat ging gar nichts.
+      // Jetzt ist der Name die Position.
+      expect(bauen([position(1, 'Milch')]).haken.single.titel, 'Milch');
     });
 
-    test('eine unbekannte Zutat wird benannt statt verschwiegen', () {
-      final d = bauen([posten('p1', 'weg')], zutaten);
-      expect(d.haken.single.titel, 'Unbekannt');
+    test('eine Menge steht darunter', () {
+      final d = bauen([position(1, 'Milch', menge: 2)]);
+      expect(d.haken.single.untertitel, '2');
+    });
+
+    test('ohne Menge bleibt die Zeile leer', () {
+      // Sonst stuende unter jedem Posten eine leere Zeile.
+      expect(bauen([position(1, 'Milch')]).haken.single.untertitel, isNull);
     });
 
     test('der Zustand kommt mit', () {
-      final d = bauen([posten('p1', 'z1', gekauft: true)], zutaten);
+      final d = bauen([position(1, 'Brot', erledigt: true)]);
       expect(d.haken.single.erledigt, isTrue);
     });
 
     test('leere Liste meldet sich als leer', () {
-      expect(bauen(const [], zutaten).isEmpty, isTrue);
+      expect(bauen(const []).isEmpty, isTrue);
+    });
+
+    test('ohne gewaehlte Liste bleibt die Kachel leer', () {
+      // Auf einem Kuechengeraet ist "die falsche Liste" der schlechtere
+      // Fehler als "noch nichts eingestellt".
+      final d = TileCatalog.byKey('einkauf.liste')!.build(
+        DashboardData(einkauf: {7: [position(1, 'Milch')]}),
+        const {},
+        const [],
+      );
+      expect(d.isEmpty, isTrue);
+      expect(d.emptyHint, contains('keine Liste'));
+    });
+
+    test('eine andere Liste zeigt nichts von dieser', () {
+      final d = bauen([position(1, 'Milch')], liste: 99);
+      expect(d.haken, isEmpty);
     });
   });
 
   group('Im Baukasten', () {
+    test('die Quelle hat einen Parameter fuer die Liste', () {
+      // Ohne ihn koennte eine Kachel nicht sagen, welchen Zettel sie zeigt.
+      final quelle = TileCatalog.byKey('einkauf.liste')!;
+      expect(quelle.params.map((p) => p.key), contains('liste'));
+      expect(quelle.params.first.art, ParamArt.einkaufsliste);
+    });
+
     test('nur die Abhakliste nimmt diese Datenform', () {
       expect(TileViews.forShape(TileShape.checklist).map((v) => v.key),
           ['checklist']);
@@ -161,7 +190,7 @@ void main() {
 }
 
 // Nachtrag: der leere String war der eigentliche Fehler.
-void _nutzlast() {
+void nutzlast() {
   group('Was zum Server geht', () {
     test('ohne Einheit wird das Feld weggelassen', () {
       // Ein leerer String ist keine Kennung. Der Fremdschluessel lehnt ihn
