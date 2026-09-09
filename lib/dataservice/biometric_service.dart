@@ -31,7 +31,13 @@ class BiometricService {
       // und damit auf Geräte, die der Nutzer hier nie freigegeben hat.
       accessibility: KeychainAccessibility.first_unlock_this_device,
     ),
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    // flutter_secure_storage 11 hat `encryptedSharedPreferences` entfernt --
+    // die Jetpack-Crypto-Bibliothek dahinter wurde eingestellt. Die Vorgabe
+    // verschlüsselt jetzt mit AES-GCM und RSA-Schlüsselverpackung, und
+    // `migrateOnAlgorithmChange` steht dabei auf true: bereits hinterlegte
+    // Zugangsdaten werden beim ersten Lesen selbst übernommen. Niemand muss
+    // sich nach dem Update neu anmelden.
+    aOptions: AndroidOptions(),
   );
 
   static const _schluessel = 'biometrie_zugang';
@@ -74,14 +80,15 @@ class BiometricService {
   static Future<bool> pruefen(String grund) async {
     if (!plattformTauglich) return false;
     try {
+      // local_auth 3 hat AuthenticationOptions aufgeloest; die Einstellungen
+      // stehen jetzt direkt als Parameter, und stickyAuth heisst
+      // persistAcrossBackgrounding.
       return await _auth.authenticate(
         localizedReason: grund,
-        options: const AuthenticationOptions(
-          // Geräte-Code als Rückweg: sonst kommt niemand mehr hinein, dessen
-          // Gesichtserkennung gerade nicht mitspielt (Maske, Dunkelheit).
-          biometricOnly: false,
-          stickyAuth: true,
-        ),
+        // Geräte-Code als Rückweg: sonst kommt niemand mehr hinein, dessen
+        // Gesichtserkennung gerade nicht mitspielt (Maske, Dunkelheit).
+        biometricOnly: false,
+        persistAcrossBackgrounding: true,
       );
     } catch (_) {
       return false;

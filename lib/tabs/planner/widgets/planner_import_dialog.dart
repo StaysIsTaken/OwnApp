@@ -39,15 +39,16 @@ class _PlannerImportDialogState extends State<PlannerImportDialog> {
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    // file_picker 12: kein FilePicker.platform und kein FilePickerResult mehr.
+    // pickFile liefert direkt eine Datei oder null, und die Bytes holt man
+    // ueber readAsBytes statt ueber das inzwischen verworfene withData.
+    final file = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['ics'],
-      withData: true,
     );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
-    final bytes = file.bytes;
-    if (bytes == null) return;
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
     setState(() {
       _icsContent = utf8.decode(bytes, allowMalformed: true);
       _fileName = file.name;

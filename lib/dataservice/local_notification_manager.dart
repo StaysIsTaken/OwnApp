@@ -84,8 +84,9 @@ class LocalNotificationManager {
       iOS: iosSettings,
     );
 
+    // flutter_local_notifications 22 nimmt durchgaengig benannte Parameter.
     await _getPlugin().initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: _handleNotificationTap,
     );
 
@@ -191,7 +192,13 @@ class LocalNotificationManager {
     if (!await _isChannelAllowed(channelId)) return;
 
     final details = _buildNotificationDetails(channelId);
-    await _getPlugin().show(id, title, body, details, payload: payload);
+    await _getPlugin().show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: details,
+      payload: payload,
+    );
   }
 
   // ──── Schedule at specific Time ──────────────────────
@@ -212,29 +219,28 @@ class LocalNotificationManager {
     final tzWhen = tz.TZDateTime.from(when, tz.local);
 
     try {
+      // uiLocalNotificationDateInterpretation gibt es in Fassung 22 nicht
+      // mehr: eine TZDateTime traegt ihre Zone bereits mit sich, die Angabe
+      // war damit doppelt gemoppelt.
       await _getPlugin().zonedSchedule(
-        id,
-        title,
-        body,
-        tzWhen,
-        details,
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: tzWhen,
+        notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
         payload: payload,
       );
     } catch (e) {
       // Fallback to inexact scheduling if exact alarm not allowed
       try {
         await _getPlugin().zonedSchedule(
-          id,
-          title,
-          body,
-          tzWhen,
-          details,
+          id: id,
+          title: title,
+          body: body,
+          scheduledDate: tzWhen,
+          notificationDetails: details,
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
           payload: payload,
         );
       } catch (_) {
@@ -246,7 +252,7 @@ class LocalNotificationManager {
   // ──── Cancel ────────────────────────────────────────
   Future<void> cancel(int id) async {
     if (kIsWeb || !_initialized) return;
-    await _getPlugin().cancel(id);
+    await _getPlugin().cancel(id: id);
   }
 
   Future<void> cancelAll() async {
