@@ -44,3 +44,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Gradle-Ausgaben des Android-Moduls. Eine problems-report.html war
+# versehentlich eingecheckt und wurde bei jedem Build neu geschrieben.
+android/build/
+android/.gradle/

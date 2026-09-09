@@ -17,10 +17,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.productivity"
@@ -39,6 +35,16 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+}
+
+// Stand frueher als kotlinOptions-Block innerhalb von android { }. Kotlin 2.4
+// hat die alte Schreibweise nicht nur verworfen, sondern entfernt: der Build
+// bricht dort mit "Using 'jvmTarget: String' is an error" ab. Diese Form
+// entspricht der aktuellen Flutter-Vorlage.
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
