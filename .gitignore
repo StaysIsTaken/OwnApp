@@ -44,3 +44,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Sitzungsdateien des Kotlin-Compilers, entstehen bei jedem Gradle-Lauf.
+android/.kotlin/

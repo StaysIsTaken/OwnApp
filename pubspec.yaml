@@ -38,6 +38,13 @@ dependencies:
   fl_chart: ^0.69.0
   flutter_secure_storage: ^9.2.2
   audioplayers: ^6.8.1
+  # Sprachausgabe des Kuechen-Assistenten. Bewusst die Stimme des
+  # Betriebssystems und kein Server-Dienst: sie antwortet ohne Netzwerkweg.
+  flutter_tts: ^4.0.2
+  # Haelt den Bildschirm im Kuechenmodus an. Ein Dashboard, das nach zwei
+  # Minuten schwarz wird, ist keins.
+  wakelock_plus: ^1.2.5
+  porcupine_flutter: ^4.0.0
 
 dev_dependencies:
   flutter_test:

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/dashboard_page.dart';
@@ -5,15 +7,24 @@ import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/dataservice/dashboard_page_service.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/provider/permission_provider.dart';
+import 'package:productivity/provider/settings_provider.dart';
+import 'package:productivity/provider/sprach_provider.dart';
 import 'package:productivity/provider/tablet_provider.dart';
+import 'package:productivity/provider/tablet_seiten_provider.dart';
 import 'package:productivity/tabs/tablet/tablet_seite.dart';
+import 'package:productivity/widgets/sprach_leiste.dart';
 import 'package:provider/provider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Die Küchenansicht: mehrere Seiten, jede mit eigenen Kacheln.
 ///
 /// Bewusst ohne Menü und ohne die übrige App: ein Gerät, das in der Küche
 /// steht, soll eine Sache zeigen und sonst nichts. Zurück kommt man über
 /// den Schalter oben rechts.
+///
+/// Diese Klasse hält nur noch die beiden Provider, die es ausschließlich hier
+/// gibt: die Seiten und die Sprachbedienung. Beide sind bewusst nicht app-weit
+/// — auf dem Telefon gibt es weder Küchenseiten noch einen Grund zuzuhören.
 class TabletDashboard extends StatefulWidget {
   const TabletDashboard({super.key});
 
@@ -22,10 +33,65 @@ class TabletDashboard extends StatefulWidget {
 }
 
 class _TabletDashboardState extends State<TabletDashboard> {
-  List<DashboardSeite> _seiten = [];
-  int _aktuell = 0;
-  bool _laedt = true;
-  String? _fehler;
+  late final TabletSeitenProvider _seiten;
+  late final SprachProvider _sprache;
+
+  @override
+  void initState() {
+    super.initState();
+    _seiten = TabletSeitenProvider();
+    _sprache = SprachProvider(_seiten);
+    _seiten.laden();
+    // Ein Küchendisplay, das nach zwei Minuten schwarz wird, ist keins.
+    unawaited(_bildschirmWachHalten(true));
+  }
+
+  @override
+  void dispose() {
+    unawaited(_bildschirmWachHalten(false));
+    _sprache.dispose();
+    _seiten.dispose();
+    super.dispose();
+  }
+
+  /// Auf Plattformen ohne Unterstützung ist ein Fehlschlag kein Fehler — die
+  /// Ansicht funktioniert auch dann, der Bildschirm geht eben irgendwann aus.
+  Future<void> _bildschirmWachHalten(bool an) async {
+    try {
+      if (an) {
+        await WakelockPlus.enable();
+      } else {
+        await WakelockPlus.disable();
+      }
+    } catch (_) {
+      // absichtlich still
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: _seiten),
+        ChangeNotifierProvider.value(value: _sprache),
+      ],
+      child: const _Kuechenansicht(),
+    );
+  }
+}
+
+class _Kuechenansicht extends StatefulWidget {
+  const _Kuechenansicht();
+
+  @override
+  State<_Kuechenansicht> createState() => _KuechenansichtState();
+}
+
+class _KuechenansichtState extends State<_Kuechenansicht> {
+  /// Der Schlüssel, mit dem das Weckwort zuletzt eingeschaltet wurde. Damit
+  /// merkt [didChangeDependencies], ob sich an der Einstellung wirklich etwas
+  /// geändert hat — sonst würde Porcupine bei jedem Neuaufbau neu geladen.
+  String? _wakewordStand;
 
   /// Einrichten an oder aus. Gehört hierher und nicht auf die Seite: der
   /// Schalter sitzt in der Kopfzeile, und der Modus bleibt beim
@@ -34,35 +100,28 @@ class _TabletDashboardState extends State<TabletDashboard> {
   bool _bearbeiten = false;
 
   @override
-  void initState() {
-    super.initState();
-    _laden();
-  }
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Provider.of statt context.watch: watch ist laut Provider ausdrücklich
+    // auf build beschränkt, Provider.of hat die Einschränkung nicht und
+    // weckt didChangeDependencies bei jeder Änderung.
+    final settings = Provider.of<SettingsProvider>(context);
+    final soll = settings.wakewordMoeglich ? settings.wakewordKey.trim() : '';
+    if (soll == _wakewordStand) return;
+    _wakewordStand = soll;
 
-  Future<void> _laden() async {
-    setState(() {
-      _laedt = true;
-      _fehler = null;
-    });
-    try {
-      final seiten =
-          await DashboardPageService.laden(mode: DashboardSeite.modeTablet);
-      if (!mounted) return;
-      setState(() {
-        _seiten = seiten;
-        _aktuell = _aktuell.clamp(0, seiten.isEmpty ? 0 : seiten.length - 1);
-        _laedt = false;
-      });
-    } on DioException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _laedt = false;
-        _fehler = ApiFehler.text(e);
-      });
+    final sprache = context.read<SprachProvider>();
+    if (soll.isEmpty) {
+      unawaited(sprache.wakewordAusschalten());
+    } else {
+      unawaited(sprache.wakewordEinschalten(soll));
     }
   }
 
   Future<void> _seiteAnlegen() async {
+    // Den Provider VOR dem ersten await greifen: danach ist nicht sicher, ob
+    // dieses Widget noch im Baum hängt, und context.read würde werfen.
+    final seiten = context.read<TabletSeitenProvider>();
     final name = await showDialog<String>(
       context: context,
       builder: (_) => const _NameDialog(titel: 'Neue Seite'),
@@ -71,28 +130,31 @@ class _TabletDashboardState extends State<TabletDashboard> {
     try {
       await DashboardPageService.anlegen(
           name: name.trim(), mode: DashboardSeite.modeTablet);
-      await _laden();
-      if (mounted) setState(() => _aktuell = _seiten.length - 1);
+      await seiten.laden();
+      seiten.zurLetzten();
     } on DioException catch (e) {
       if (mounted) _melde(ApiFehler.text(e));
     }
   }
 
   Future<void> _seiteUmbenennen(DashboardSeite seite) async {
+    final seiten = context.read<TabletSeitenProvider>();
     final name = await showDialog<String>(
       context: context,
-      builder: (_) => _NameDialog(titel: 'Seite umbenennen', vorgabe: seite.name),
+      builder: (_) =>
+          _NameDialog(titel: 'Seite umbenennen', vorgabe: seite.name),
     );
     if (name == null || name.trim().isEmpty) return;
     try {
       await DashboardPageService.umbenennen(seite.id, name.trim());
-      await _laden();
+      await seiten.laden();
     } on DioException catch (e) {
       if (mounted) _melde(ApiFehler.text(e));
     }
   }
 
   Future<void> _seiteLoeschen(DashboardSeite seite) async {
+    final seiten = context.read<TabletSeitenProvider>();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -114,8 +176,8 @@ class _TabletDashboardState extends State<TabletDashboard> {
     if (ok != true) return;
     try {
       await DashboardPageService.loeschen(seite.id);
-      if (mounted) setState(() => _aktuell = 0);
-      await _laden();
+      seiten.zurErsten();
+      await seiten.laden();
     } on DioException catch (e) {
       if (mounted) _melde(ApiFehler.text(e));
     }
@@ -123,8 +185,7 @@ class _TabletDashboardState extends State<TabletDashboard> {
 
   void _melde(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(text)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   Future<void> _verlassen() async {
@@ -135,6 +196,7 @@ class _TabletDashboardState extends State<TabletDashboard> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final seiten = context.watch<TabletSeitenProvider>();
 
     // Wer das Recht verliert, während das Gerät läuft, soll nicht in einer
     // Ansicht festsitzen, die ihm nichts mehr zeigt.
@@ -146,13 +208,13 @@ class _TabletDashboardState extends State<TabletDashboard> {
       );
     }
 
-    if (_laedt) {
+    if (seiten.laedt) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (_fehler != null) {
-      return _Hinweis(text: _fehler!, knopf: 'Nochmal', onDruck: _laden);
+    if (seiten.fehler != null) {
+      return _Hinweis(text: seiten.fehler!, knopf: 'Nochmal', onDruck: seiten.laden);
     }
-    if (_seiten.isEmpty) {
+    if (seiten.seiten.isEmpty) {
       return _Hinweis(
         icon: Icons.tablet_mac_rounded,
         text: 'Noch keine Seite für die Küchenansicht.\n'
@@ -164,34 +226,40 @@ class _TabletDashboardState extends State<TabletDashboard> {
       );
     }
 
-    final seite = _seiten[_aktuell];
+    final seite = seiten.seite!;
 
     return Scaffold(
       backgroundColor: colors.surface,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _Kopfzeile(
-              seiten: _seiten,
-              aktuell: _aktuell,
-              onWechsel: (i) => setState(() => _aktuell = i),
-              onNeu: _seiteAnlegen,
-              onUmbenennen: () => _seiteUmbenennen(seite),
-              onLoeschen: () => _seiteLoeschen(seite),
-              onVerlassen: _verlassen,
-              bearbeiten: _bearbeiten,
-              onBearbeiten: () =>
-                  setState(() => _bearbeiten = !_bearbeiten),
+            Column(
+              children: [
+                _Kopfzeile(
+                  seiten: seiten.seiten,
+                  aktuell: seiten.aktuell,
+                  onWechsel: seiten.wechsleZu,
+                  onNeu: _seiteAnlegen,
+                  onUmbenennen: () => _seiteUmbenennen(seite),
+                  onLoeschen: () => _seiteLoeschen(seite),
+                  onVerlassen: _verlassen,
+                  bearbeiten: _bearbeiten,
+                  onBearbeiten: () => setState(() => _bearbeiten = !_bearbeiten),
+                ),
+                Expanded(
+                  // Key je Seite: sonst behielte die neue Seite den Zustand der
+                  // alten und zeigte kurz deren Kacheln. Der Stand kommt dazu,
+                  // damit ein per Sprache eingetragener Termin sofort auf der
+                  // Kachel daneben steht.
+                  child: TabletSeitenInhalt(
+                    key: ValueKey('${seite.key}-${seiten.stand}'),
+                    seite: seite,
+                    bearbeiten: _bearbeiten,
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              // Key je Seite: sonst behielte die neue Seite den Zustand der
-              // alten und zeigte kurz deren Kacheln.
-              child: TabletSeitenInhalt(
-                key: ValueKey(seite.key),
-                seite: seite,
-                bearbeiten: _bearbeiten,
-              ),
-            ),
+            const SprachLeiste(),
           ],
         ),
       ),
