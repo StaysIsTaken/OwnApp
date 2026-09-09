@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # Die App aufs Android-Tablet bringen.
 #
-#   ./deploy/aufs-tablet.sh                  # bauen und per Kabel/adb installieren
-#   ./deploy/aufs-tablet.sh --funk 192.168.1.42:5555
-#                                            # vorher drahtlos verbinden
-#   ./deploy/aufs-tablet.sh --anbieten       # bauen und zum Herunterladen anbieten
-#   ./deploy/aufs-tablet.sh --ziehen         # vorher den neuesten Stand holen
+# Laeuft auf macOS, Linux und Windows (Git Bash). Android-Entwicklung geht auf
+# allen dreien, das Kuechentablet haengt aber nicht immer am selben Rechner --
+# deshalb sucht das Skript seine Werkzeuge, statt sie an einer Stelle zu
+# erwarten.
 #
 # Drei Wege, weil ein Tablet an der Kuechenwand selten am Kabel haengt:
 #
@@ -17,8 +16,31 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-ANDROID_HOME="${ANDROID_HOME:-/opt/homebrew/share/android-commandlinetools}"
-ADB="$ANDROID_HOME/platform-tools/adb"
+hilfe() {
+  cat <<'ENDE'
+Die App aufs Android-Tablet bringen.
+
+  ./deploy/aufs-tablet.sh                  bauen und per Kabel/adb installieren
+  ./deploy/aufs-tablet.sh --funk 192.168.1.42:5555
+                                           vorher drahtlos verbinden
+  ./deploy/aufs-tablet.sh --anbieten       bauen und zum Herunterladen anbieten
+  ./deploy/aufs-tablet.sh --ziehen         vorher den neuesten Stand holen
+ENDE
+}
+
+fehler() { echo "✗ $*" >&2; exit 1; }
+schritt() { echo ""; echo "→ $*"; }
+
+# ── Welches System? ─────────────────────────────────────────────────────
+# Die Unterschiede sind klein, aber jeder einzelne bringt das Skript sonst
+# zum Stehen: die .exe-Endung, der Ort des SDK, das Ermitteln der eigenen
+# Adresse.
+case "$(uname -s)" in
+  Darwin*)              SYSTEM=mac ;;
+  Linux*)               SYSTEM=linux ;;
+  MINGW*|MSYS*|CYGWIN*) SYSTEM=windows ;;
+  *)                    SYSTEM=unbekannt ;;
+esac
 
 ZIEHEN=0
 ANBIETEN=0
@@ -27,17 +49,80 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --ziehen) ZIEHEN=1 ;;
     --anbieten) ANBIETEN=1 ;;
-    --funk) shift; FUNKZIEL="${1:-}"; [ -n "$FUNKZIEL" ] || { echo "--funk braucht eine Adresse, z.B. 192.168.1.42:5555" >&2; exit 1; } ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
-    *) echo "Unbekannte Angabe: $1" >&2; exit 1 ;;
+    --funk) shift; FUNKZIEL="${1:-}"; [ -n "$FUNKZIEL" ] || fehler "--funk braucht eine Adresse, z.B. 192.168.1.42:5555" ;;
+    -h|--help) hilfe; exit 0 ;;
+    *) echo "Unbekannte Angabe: $1" >&2; hilfe >&2; exit 1 ;;
   esac
   shift
 done
 
-fehler() { echo "✗ $*" >&2; exit 1; }
-schritt() { echo ""; echo "→ $*"; }
+# ── Werkzeuge suchen ────────────────────────────────────────────────────
 
-command -v flutter >/dev/null || fehler "flutter ist nicht im Pfad."
+# Windows-Pfade aus der Umgebung (C:\Users\...) sind fuer bash unbrauchbar,
+# solange die Trennzeichen falsch herum stehen.
+entwirren() { printf '%s' "${1//\\//}"; }
+
+adb_finden() {
+  # Im Pfad zuerst: wer adb dort hat, hat sich dabei etwas gedacht.
+  if command -v adb >/dev/null 2>&1; then command -v adb; return; fi
+
+  local orte="" ort datei lokal
+  [ -n "${ANDROID_HOME:-}" ]     && orte="$orte $(entwirren "$ANDROID_HOME")"
+  [ -n "${ANDROID_SDK_ROOT:-}" ] && orte="$orte $(entwirren "$ANDROID_SDK_ROOT")"
+  case "$SYSTEM" in
+    mac)   orte="$orte /opt/homebrew/share/android-commandlinetools $HOME/Library/Android/sdk" ;;
+    linux) orte="$orte $HOME/Android/Sdk /usr/lib/android-sdk" ;;
+    windows)
+      lokal=$(entwirren "${LOCALAPPDATA:-}")
+      [ -n "$lokal" ] && orte="$orte $lokal/Android/Sdk"
+      orte="$orte /c/src/android-sdk"
+      ;;
+  esac
+
+  for ort in $orte; do
+    for datei in "$ort/platform-tools/adb" "$ort/platform-tools/adb.exe"; do
+      [ -x "$datei" ] && { printf '%s' "$datei"; return; }
+    done
+  done
+}
+
+# http.server braucht Python 3. Unter Windows gibt es oft nur `python`, und
+# `python3` ist dort haeufig der Platzhalter aus dem Microsoft Store, der
+# beim Aufruf nur auf sich selbst verweist -- deshalb wird jeder Kandidat
+# einmal wirklich ausgefuehrt.
+python_finden() {
+  local p
+  for p in python3 python py; do
+    if command -v "$p" >/dev/null 2>&1 \
+       && "$p" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+      printf '%s' "$p"
+      return
+    fi
+  done
+}
+
+adresse_finden() {
+  local a=""
+  case "$SYSTEM" in
+    mac)
+      a=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)
+      ;;
+    linux)
+      a=$(hostname -I 2>/dev/null | awk '{print $1}')
+      [ -n "$a" ] || a=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}')
+      ;;
+    windows)
+      # Die Ausgabe ist uebersetzt ("IPv4 Address" / "IPv4-Adresse"), das
+      # Kuerzel IPv4 steht aber in jeder Sprache drin.
+      a=$(ipconfig 2>/dev/null | tr -d '\r' | awk -F: '/IPv4/ {gsub(/ /,"",$2); print $2; exit}')
+      ;;
+  esac
+  printf '%s' "$a"
+}
+
+command -v flutter >/dev/null 2>&1 || fehler "flutter ist nicht im Pfad.
+  macOS/Linux:  export PATH=\"\$PATH:/pfad/zu/flutter/bin\"
+  Windows:      C:\\pfad\\zu\\flutter\\bin in die PATH-Variable aufnehmen"
 
 if [ "$ZIEHEN" = "1" ]; then
   schritt "Neuesten Stand holen"
@@ -56,8 +141,12 @@ echo "  $APK ($GROESSE)"
 
 # ── Weg 3: zum Herunterladen anbieten ───────────────────────────────────
 if [ "$ANBIETEN" = "1" ]; then
-  ADRESSE=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "")
-  [ -n "$ADRESSE" ] || fehler "Keine Netzwerkadresse gefunden -- haengt der Mac im WLAN?"
+  PYTHON=$(python_finden)
+  [ -n "$PYTHON" ] || fehler "Python 3 nicht gefunden -- ohne das gibt es keinen kleinen Webserver.
+  Alternative: das Tablet per Kabel anschliessen und ohne --anbieten aufrufen."
+
+  ADRESSE=$(adresse_finden)
+  [ -n "$ADRESSE" ] || fehler "Keine Netzwerkadresse gefunden -- haengt der Rechner im WLAN?"
 
   ORDNER=$(mktemp -d)
   cp "$APK" "$ORDNER/ownapp.apk"
@@ -74,12 +163,14 @@ if [ "$ANBIETEN" = "1" ]; then
   cd "$ORDNER"
   # Nur an dieses Netz gebunden, nicht an alle Schnittstellen -- die Datei
   # soll im WLAN erreichbar sein und sonst nirgends.
-  exec python3 -m http.server 8000 --bind "$ADRESSE"
+  exec "$PYTHON" -m http.server 8000 --bind "$ADRESSE"
 fi
 
 # ── Weg 2: drahtlos verbinden ───────────────────────────────────────────
-[ -x "$ADB" ] || fehler "adb fehlt unter $ADB.
-  Entweder ANDROID_HOME setzen oder --anbieten nehmen, das braucht kein adb."
+ADB=$(adb_finden)
+[ -n "$ADB" ] || fehler "adb nicht gefunden.
+  Entweder ANDROID_HOME auf das SDK zeigen lassen, platform-tools in den
+  Pfad aufnehmen, oder --anbieten nehmen -- das braucht kein adb."
 
 if [ -n "$FUNKZIEL" ]; then
   schritt "Drahtlos verbinden mit $FUNKZIEL"
@@ -90,10 +181,12 @@ fi
 
 # ── Weg 1: Geraet suchen und installieren ───────────────────────────────
 schritt "Nach dem Tablet suchen"
-GERAET=$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1; exit}')
+# tr entfernt das \r, das adb unter Windows anhaengt -- ohne das steht es
+# mitten im Geraetenamen und jeder Vergleich geht schief.
+GERAET=$("$ADB" devices | tr -d '\r' | awk 'NR>1 && $2=="device" {print $1; exit}')
 
 if [ -z "$GERAET" ]; then
-  UNBERECHTIGT=$("$ADB" devices | awk 'NR>1 && $2=="unauthorized" {print $1; exit}')
+  UNBERECHTIGT=$("$ADB" devices | tr -d '\r' | awk 'NR>1 && $2=="unauthorized" {print $1; exit}')
   if [ -n "$UNBERECHTIGT" ]; then
     fehler "Das Tablet fragt noch. Auf dem Bildschirm \"USB-Debugging zulassen\" bestaetigen."
   fi
@@ -109,12 +202,16 @@ echo "  $MODELL ($GERAET)"
 schritt "Installieren"
 # -r ersetzt eine vorhandene Fassung und behaelt die Daten.
 if ! "$ADB" -s "$GERAET" install -r "$APK"; then
+  # Den Paketnamen aus dem Gradle-Stand lesen statt ihn hier zu wiederholen:
+  # eine falsche Angabe im Hinweis kostet mehr Zeit als gar keine.
+  PAKET=$(awk -F'"' '/applicationId/ {print $2; exit}' android/app/build.gradle.kts 2>/dev/null)
   echo ""
   fehler "Installation fehlgeschlagen.
   Steht dort etwas von SIGNATURE oder INSTALL_FAILED_UPDATE_INCOMPATIBLE,
   wurde die vorhandene App mit einem anderen Schluessel signiert. Dann
-  einmal deinstallieren und neu installieren:
-      $ADB -s $GERAET uninstall de.jpanft.homeapp"
+  einmal deinstallieren und neu installieren (das loescht die App-Daten
+  auf dem Geraet, der Server bleibt unberuehrt):
+      $ADB -s $GERAET uninstall ${PAKET:-<paketname>}"
 fi
 
 echo ""
