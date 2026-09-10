@@ -1,7 +1,10 @@
 import Flutter
 import UIKit
 import UserNotifications
-import workmanager
+// workmanager hat sich mit 0.10 aufgeteilt: der Apple-Teil steckt jetzt im
+// eigenen Paket workmanager_apple, und damit heisst auch das Swift-Modul so.
+// Mit dem alten Namen bricht Xcode ab: "Unable to resolve module dependency".
+import workmanager_apple
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -18,21 +21,26 @@ import workmanager
     }
 
     // ───────── Workmanager (Background Tasks) ─────────
-    // Register the same identifiers that we listed in Info.plist under
-    // BGTaskSchedulerPermittedIdentifiers. The workmanager plugin handles
-    // dispatching these to the Dart callbackDispatcher.
-    WorkmanagerPlugin.registerTask(
+    // Dieselben Bezeichner wie in der Info.plist unter
+    // BGTaskSchedulerPermittedIdentifiers. Das Plugin verteilt sie an den
+    // Dart-callbackDispatcher.
+    //
+    // Ein gemeinsames registerTask gibt es seit workmanager 0.10 nicht mehr;
+    // die Sorte der Aufgabe muss jetzt beim Anmelden benannt werden. Die
+    // Bezeichner sagen selbst, welche gemeint ist: App-Refresh wird zu einem
+    // BGAppRefreshTaskRequest, die Verarbeitungsaufgabe zu einem
+    // BGProcessingTaskRequest.
+    WorkmanagerPlugin.registerPeriodicTask(
       withIdentifier: "be.tramckrijte.workmanagerExample.iOSBackgroundAppRefresh"
     )
-    WorkmanagerPlugin.registerTask(
+    WorkmanagerPlugin.registerBGProcessingTask(
       withIdentifier: "be.tramckrijte.workmanagerExample.iOSBackgroundProcessingTask"
     )
 
-    // (Optional) Periodic background fetch – older iOS API, kept as fallback
-    // for iOS 12 and below. iOS 13+ uses the BGTaskScheduler above.
-    UIApplication.shared.setMinimumBackgroundFetchInterval(
-      TimeInterval(60 * 60 * 6) // 6 hours
-    )
+    // setMinimumBackgroundFetchInterval stand hier als Rueckfallebene fuer
+    // iOS 12 und aelter. Seit die Mindestversion auf 14 steht, ist das toter
+    // Code -- ab iOS 13 wird der Aufruf ohnehin ignoriert, und Xcode warnt
+    // inzwischen darueber. BGTaskScheduler oben macht die Arbeit.
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
