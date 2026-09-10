@@ -50,6 +50,21 @@ class PermissionProvider extends ChangeNotifier {
   /// der Startseite — ohne das Recht gäbe es dort nichts einzuschalten.
   bool get darfTablet => darf('tablet:use');
 
+  /// Darf den Assistenten benutzen (`/assistant/chat` im Backend).
+  bool get darfChat => darf('chat:use');
+
+  /// Darf die KI-Dienste benutzen — Spracherkennung (`/transcribe`) und
+  /// Modellabfragen hängen daran.
+  bool get darfKi => darf('ai:use');
+
+  /// Darf KI-Anbieter einrichten (Schlüssel, Modelle).
+  bool get darfKiEinrichten => darf('ai:configure');
+
+  /// Darf per Sprache bedienen. Zurufen braucht beides: erkennen lassen
+  /// (`ai:use`) und die erkannte Bitte ausführen (`chat:use`). Ein Knopf, der
+  /// nur die Hälfte kann, führt bloß in eine Fehlermeldung.
+  bool get darfSprache => darfKi && darfChat;
+
   Future<void> laden() async {
     try {
       final r = await ApiClient.dio.get('/users/me/permissions');

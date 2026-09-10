@@ -44,7 +44,12 @@ dependencies:
   # Haelt den Bildschirm im Kuechenmodus an. Ein Dashboard, das nach zwei
   # Minuten schwarz wird, ist keins.
   wakelock_plus: ^1.2.5
-  porcupine_flutter: ^4.0.0
+  # Weckworterkennung auf dem Geraet. Apache-2.0, ohne Konto und ohne
+  # Zugangsschluessel -- der Grund, warum hier nicht Porcupine steht: dessen
+  # AccessKey gibt es nur ueber eine Anmeldung, die eine Firmen-Adresse
+  # verlangt. Schluesselwoerter stehen bei sherpa als Text in
+  # assets/kws/keywords.txt und lassen sich jederzeit aendern.
+  sherpa_onnx: ^1.13.7
 
 dev_dependencies:
   flutter_test:
@@ -64,3 +69,8 @@ flutter:
   assets:
     # Der Ton, mit dem sich der Kuechen-Timer meldet.
     - assets/sounds/
+    # Weckwort-Modell (zipformer-KWS, int8, zusammen ~5 MB) und die
+    # Schluesselwortliste. Wird beim ersten Start in den Dokumentenordner
+    # kopiert, weil die ONNX-Laufzeit echte Dateipfade braucht und kein
+    # Flutter-Asset lesen kann.
+    - assets/kws/

@@ -88,9 +88,10 @@ class _Kuechenansicht extends StatefulWidget {
 }
 
 class _KuechenansichtState extends State<_Kuechenansicht> {
-  /// Der Schlüssel, mit dem das Weckwort zuletzt eingeschaltet wurde. Damit
-  /// merkt [didChangeDependencies], ob sich an der Einstellung wirklich etwas
-  /// geändert hat — sonst würde Porcupine bei jedem Neuaufbau neu geladen.
+  /// Womit das Weckwort zuletzt eingeschaltet wurde: Schalter und Schwelle,
+  /// zu einer Zeichenkette verschmolzen. Damit merkt
+  /// [didChangeDependencies], ob sich an der Einstellung wirklich etwas
+  /// geändert hat — sonst würde das Modell bei jedem Neuaufbau neu geladen.
   String? _wakewordStand;
 
   /// Einrichten an oder aus. Gehört hierher und nicht auf die Seite: der
@@ -106,15 +107,29 @@ class _KuechenansichtState extends State<_Kuechenansicht> {
     // auf build beschränkt, Provider.of hat die Einschränkung nicht und
     // weckt didChangeDependencies bei jeder Änderung.
     final settings = Provider.of<SettingsProvider>(context);
-    final soll = settings.wakewordMoeglich ? settings.wakewordKey.trim() : '';
+    // Ohne die Rechte fürs Erkennen und Ausführen wäre das Lauschen
+    // vergeudet: der Zuruf lief in ein 403. Dann bleibt die Küchenansicht
+    // eine reine Anzeige.
+    final darfSprache = Provider.of<PermissionProvider>(context).darfSprache;
+    final soll = settings.wakewordAn && darfSprache
+        ? 'an:${settings.wakewordSchwelle.toStringAsFixed(2)}'
+        : '';
     if (soll == _wakewordStand) return;
+    final vorher = _wakewordStand;
     _wakewordStand = soll;
 
     final sprache = context.read<SprachProvider>();
     if (soll.isEmpty) {
       unawaited(sprache.wakewordAusschalten());
     } else {
-      unawaited(sprache.wakewordEinschalten(soll));
+      // Bei geänderter Schwelle erst ausschalten: sie steckt in der
+      // Konfiguration des Erkenners, und die liest er nur beim Erzeugen.
+      unawaited(() async {
+        if (vorher != null && vorher.isNotEmpty) {
+          await sprache.wakewordAusschalten();
+        }
+        await sprache.wakewordEinschalten(schwelle: settings.wakewordSchwelle);
+      }());
     }
   }
 

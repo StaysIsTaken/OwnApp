@@ -9,14 +9,15 @@ class SettingsProvider extends ChangeNotifier {
   static const String _aiMaxTokensKey = 'ai_max_tokens';
   static const String _weatherCityKey = 'weather_city';
 
-  // Wakeword des Kuechenassistenten. Beides liegt am Geraet und nicht am
-  // Konto: gelauscht wird in der Kueche, nicht auf dem Telefon in der
-  // Hosentasche. Der AccessKey steht bewusst hier und nicht im
-  // flutter_secure_storage — dort liegt das Anmeldepasswort, waehrend dieser
-  // Schluessel eher der API-Adresse gleicht: eine Geraeteeinstellung, die man
-  // im Zweifel vorlesen kann.
-  static const String _wakewordKeyKey = 'wakeword_access_key';
+  // Wakeword des Kuechenassistenten. Liegt am Geraet und nicht am Konto:
+  // gelauscht wird in der Kueche, nicht auf dem Telefon in der Hosentasche.
+  //
+  // Die Schwelle ist einstellbar, weil sie sich nur vor Ort finden laesst.
+  // Wie empfindlich ein Weckwort sein darf, haengt am Raum, am Mikrofon und
+  // daran, ob nebenbei der Fernseher laeuft — das kann keine Vorgabe im Code
+  // wissen, und dafuer soll niemand die App neu bauen muessen.
   static const String _wakewordAnKey = 'wakeword_an';
+  static const String _wakewordSchwelleKey = 'wakeword_schwelle';
 
   bool _use24hFormat = true;
   bool _isDarkMode = true;
@@ -24,8 +25,8 @@ class SettingsProvider extends ChangeNotifier {
   double _aiTemperature = 0.7;
   int _aiMaxTokens = 500;
   String _weatherCity = '';
-  String _wakewordKey = '';
   bool _wakewordAn = true;
+  double _wakewordSchwelle = 0.25;
 
   bool get use24hFormat => _use24hFormat;
   bool get isDarkMode => _isDarkMode;
@@ -33,11 +34,15 @@ class SettingsProvider extends ChangeNotifier {
   double get aiTemperature => _aiTemperature;
   int get aiMaxTokens => _aiMaxTokens;
   String get weatherCity => _weatherCity;
-  String get wakewordKey => _wakewordKey;
   bool get wakewordAn => _wakewordAn;
 
-  /// Ohne Schlüssel gibt es kein Wakeword — der Schalter allein genügt nicht.
-  bool get wakewordMoeglich => _wakewordAn && _wakewordKey.trim().isNotEmpty;
+  /// `keywordsThreshold` des Erkenners. Klein heißt empfindlich.
+  double get wakewordSchwelle => _wakewordSchwelle;
+
+  /// Grenzen des Reglers. Über 0,5 spricht Jarvis praktisch nie an, unter
+  /// 0,05 dauernd — beides ist keine sinnvolle Einstellung mehr.
+  static const double schwelleMin = 0.05;
+  static const double schwelleMax = 0.50;
 
   SettingsProvider() {
     _loadSettings();
@@ -51,18 +56,20 @@ class SettingsProvider extends ChangeNotifier {
     _aiTemperature = prefs.getDouble(_aiTemperatureKey) ?? 0.7;
     _aiMaxTokens = prefs.getInt(_aiMaxTokensKey) ?? 500;
     _weatherCity = prefs.getString(_weatherCityKey) ?? '';
-    _wakewordKey = prefs.getString(_wakewordKeyKey) ?? '';
     _wakewordAn = prefs.getBool(_wakewordAnKey) ?? true;
+    _wakewordSchwelle =
+        prefs.getDouble(_wakewordSchwelleKey)?.clamp(schwelleMin, schwelleMax) ??
+            0.25;
     notifyListeners();
   }
 
-  Future<void> setWakewordKey(String value) async {
-    final v = value.trim();
-    if (_wakewordKey == v) return;
-    _wakewordKey = v;
+  Future<void> setWakewordSchwelle(double value) async {
+    final v = value.clamp(schwelleMin, schwelleMax);
+    if (_wakewordSchwelle == v) return;
+    _wakewordSchwelle = v;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_wakewordKeyKey, v);
+    await prefs.setDouble(_wakewordSchwelleKey, v);
   }
 
   Future<void> setWakewordAn(bool value) async {

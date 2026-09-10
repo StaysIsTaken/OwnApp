@@ -130,14 +130,27 @@ if [ "$ZIEHEN" = "1" ]; then
 fi
 
 # ── Bauen ───────────────────────────────────────────────────────────────
+#
+# Je Architektur ein eigenes APK statt eines gemeinsamen. Der Grund ist die
+# ONNX-Laufzeit hinter der Weckworterkennung: libonnxruntime.so wiegt je
+# Architektur 14 bis 24 MB, und ein gemeinsames Paket schleppt alle drei mit
+# -- rund 158 MB, von denen ein Geraet zwei Drittel nie anfasst. Einzeln sind
+# es etwa 65 MB.
 schritt "Bauen (dauert ein bis zwei Minuten)"
 flutter pub get >/dev/null
-flutter build apk --release
+flutter build apk --release --split-per-abi
 
-APK="build/app/outputs/flutter-apk/app-release.apk"
-[ -f "$APK" ] || fehler "Gebaut, aber $APK fehlt."
-GROESSE=$(du -h "$APK" | cut -f1)
-echo "  $APK ($GROESSE)"
+# Welche Architektur das Geraet braucht, verraet es selbst. Ohne adb (also bei
+# --anbieten) ist arm64 die richtige Annahme: alles, was in den letzten Jahren
+# gebaut wurde, laeuft darauf.
+apk_fuer() {
+  local abi="${1:-arm64-v8a}"
+  local kandidat="build/app/outputs/flutter-apk/app-$abi-release.apk"
+  [ -f "$kandidat" ] && { printf '%s' "$kandidat"; return; }
+  # Falls jemand die Aufteilung wieder herausnimmt, greift das gemeinsame.
+  local gemeinsam="build/app/outputs/flutter-apk/app-release.apk"
+  [ -f "$gemeinsam" ] && printf '%s' "$gemeinsam"
+}
 
 # ── Weg 3: zum Herunterladen anbieten ───────────────────────────────────
 if [ "$ANBIETEN" = "1" ]; then
@@ -147,6 +160,10 @@ if [ "$ANBIETEN" = "1" ]; then
 
   ADRESSE=$(adresse_finden)
   [ -n "$ADRESSE" ] || fehler "Keine Netzwerkadresse gefunden -- haengt der Rechner im WLAN?"
+
+  APK=$(apk_fuer arm64-v8a)
+  [ -n "$APK" ] || fehler "Gebaut, aber kein APK gefunden."
+  echo "  $APK ($(du -h "$APK" | cut -f1)) -- arm64, ohne adb nicht genauer bestimmbar"
 
   ORDNER=$(mktemp -d)
   cp "$APK" "$ORDNER/ownapp.apk"
@@ -197,7 +214,13 @@ if [ -z "$GERAET" ]; then
 fi
 
 MODELL=$("$ADB" -s "$GERAET" shell getprop ro.product.model 2>/dev/null | tr -d '\r' || echo "?")
-echo "  $MODELL ($GERAET)"
+ABI=$("$ADB" -s "$GERAET" shell getprop ro.product.cpu.abi 2>/dev/null | tr -d '\r' || echo "arm64-v8a")
+echo "  $MODELL ($GERAET, $ABI)"
+
+APK=$(apk_fuer "$ABI")
+[ -n "$APK" ] || fehler "Fuer $ABI wurde kein APK gebaut.
+  Vorhanden: $(ls build/app/outputs/flutter-apk/*.apk 2>/dev/null | xargs -n1 basename | tr '\n' ' ')"
+echo "  $APK ($(du -h "$APK" | cut -f1))"
 
 schritt "Installieren"
 # -r ersetzt eine vorhandene Fassung und behaelt die Daten.

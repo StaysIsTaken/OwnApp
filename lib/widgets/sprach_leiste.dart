@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/provider/sprach_provider.dart';
 
 /// Die Sprachbedienung der Küchenansicht: ein großer Knopf und eine Karte,
@@ -14,6 +15,13 @@ class SprachLeiste extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Zurufen braucht beides: erkennen lassen (`ai:use`) und die erkannte
+    // Bitte ausführen (`chat:use`). Fehlt eines, wäre der Knopf ein Weg in
+    // eine Fehlermeldung — dann zeigt die Küchenansicht eben nur.
+    if (!context.watch<PermissionProvider>().darfSprache) {
+      return const SizedBox.shrink();
+    }
+
     final sprache = context.watch<SprachProvider>();
     final zeigeKarte = sprache.aktiv ||
         sprache.antwort.isNotEmpty ||
@@ -69,8 +77,8 @@ class _Knopf extends StatelessWidget {
     };
 
     // Absichtlich groß: in der Küche trifft man mit nassen oder mehligen
-    // Fingern, und dieser Knopf ist der Ersatz fürs Wakeword, solange es
-    // noch nicht da ist.
+    // Fingern. Er bleibt auch neben dem Weckwort nützlich -- wer davor
+    // steht, drückt lieber, als zu rufen.
     return Tooltip(
       message: hinweis,
       child: Material(
@@ -117,8 +125,8 @@ class _Karte extends StatelessWidget {
     };
 
     // Fällt das Weckwort aus, muss das dranstehen. Sonst ruft man durch die
-    // Küche und hält ein stilles Gerät für kaputt, obwohl nur der Schlüssel
-    // abgelaufen ist.
+    // Küche und hält ein stilles Gerät für kaputt, obwohl nur das Modell
+    // fehlt oder das Mikrofon verweigert wurde.
     final wakewordFehler = sprache.wakewordFehler;
 
     return ConstrainedBox(

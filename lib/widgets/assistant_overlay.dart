@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:productivity/provider/chat_provider.dart';
 import 'package:productivity/tabs/assistant/assistant_page.dart';
@@ -43,11 +44,14 @@ class _AssistantFloatingState extends State<_AssistantFloating> {
   @override
   Widget build(BuildContext context) {
     final loggedIn = context.watch<UserProvider>().isLoggedIn;
+    // Ohne `chat:use` liefe jeder Griff zum Knopf in ein 403. Das Ausblenden
+    // ist Höflichkeit, keine Absicherung — geprüft wird im Backend.
+    final darfChat = context.watch<PermissionProvider>().darfChat;
     final size = MediaQuery.of(context).size;
 
     return Stack(
       children: [
-        if (loggedIn && !_open)
+        if (loggedIn && darfChat && !_open)
           Positioned(
             right: 16,
             bottom: 88, // über einem evtl. vorhandenen Seiten-FAB
@@ -58,7 +62,9 @@ class _AssistantFloatingState extends State<_AssistantFloating> {
               child: const Icon(Icons.smart_toy_outlined),
             ),
           ),
-        if (_open) ...[
+        // Auch das offene Fenster verschwindet, wenn das Recht wegfällt —
+        // eine Rolle kann sich ändern, während die App läuft.
+        if (_open && darfChat) ...[
           Positioned.fill(
             child: GestureDetector(
               onTap: () => setState(() => _open = false),

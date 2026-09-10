@@ -231,16 +231,19 @@ class SprachProvider extends ChangeNotifier {
 
   /// Schaltet das Lauschen auf „Jarvis" ein.
   ///
-  /// Fehler landen in [wakewordFehler] statt zu fliegen: ein abgelaufener
-  /// AccessKey darf die Küchenansicht nicht verhindern — man bedient sie dann
-  /// eben per Knopf, und der Grund steht daneben.
-  Future<void> wakewordEinschalten(String accessKey) async {
+  /// [schwelle] ist die Empfindlichkeit: kleiner heißt, dass Jarvis schon bei
+  /// undeutlicher Aussprache anspringt — und öfter beim Fernseher.
+  ///
+  /// Fehler landen in [wakewordFehler] statt zu fliegen: ein fehlendes Modell
+  /// oder ein verweigertes Mikrofon darf die Küchenansicht nicht verhindern —
+  /// man bedient sie dann eben per Knopf, und der Grund steht daneben.
+  Future<void> wakewordEinschalten({double schwelle = 0.25}) async {
     if (_wakewordAn && WakewordService.bereit) return;
     _wakewordAn = true;
     _wakewordFehler = null;
     try {
       await WakewordService.starten(
-        accessKey: accessKey,
+        schwelle: schwelle,
         beiWakeword: () {
           // Nur wecken, wenn gerade nichts läuft. Ein „Jarvis" mitten in der
           // Antwort soll nicht mitten hinein eine zweite Aufnahme starten.

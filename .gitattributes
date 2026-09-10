@@ -1,0 +1,7 @@
+# Weckwort-Modell. Die ONNX-Dateien sind binaer und duerfen nie umgeschrieben
+# werden, und die beiden Textdateien muessen LF behalten: sherpa liest sie
+# zeilenweise, und ein \r landet sonst im letzten Token jeder Zeile. Das steht
+# dann in keinem Vokabular, und das Weckwort trifft nie -- ohne dass irgendwo
+# ein Fehler erscheint.
+assets/kws/*.onnx -text
+assets/kws/*.txt  text eol=lf

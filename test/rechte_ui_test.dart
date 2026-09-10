@@ -79,6 +79,52 @@ void main() {
     });
   });
 
+  group('KI und Sprache', () {
+    test('die einzelnen Rechte haengen an ihrem Endpunkt', () {
+      final p = PermissionProvider();
+      p.uebernehmen({'ai:use'});
+      expect(p.darfKi, isTrue, reason: '/transcribe verlangt ai:use');
+      expect(p.darfChat, isFalse);
+      expect(p.darfKiEinrichten, isFalse);
+    });
+
+    test('Zurufen braucht BEIDE Rechte', () {
+      // Erkennen lassen (ai:use) und die erkannte Bitte ausfuehren
+      // (chat:use). Mit nur einem davon fuehrte der Knopf in ein 403 --
+      // deshalb ist er dann gar nicht da.
+      final nurKi = PermissionProvider()..uebernehmen({'ai:use'});
+      expect(nurKi.darfSprache, isFalse);
+
+      final nurChat = PermissionProvider()..uebernehmen({'chat:use'});
+      expect(nurChat.darfSprache, isFalse);
+
+      final beides = PermissionProvider()..uebernehmen({'ai:use', 'chat:use'});
+      expect(beides.darfSprache, isTrue);
+    });
+
+    test('der Stern schliesst auch die KI-Rechte ein', () {
+      final p = PermissionProvider()..uebernehmen({'*'});
+      expect(p.darfKi, isTrue);
+      expect(p.darfChat, isTrue);
+      expect(p.darfKiEinrichten, isTrue);
+      expect(p.darfSprache, isTrue);
+    });
+
+    test('ein Konto ohne KI-Rechte sieht nichts davon', () {
+      final p = PermissionProvider()..uebernehmen({'pantry:read'});
+      expect(p.darfKi, isFalse);
+      expect(p.darfChat, isFalse);
+      expect(p.darfKiEinrichten, isFalse);
+      expect(p.darfSprache, isFalse);
+    });
+
+    test('der Assistent im Menue haengt an chat:use', () {
+      // Die Zuordnung ist die eine Stelle dafuer -- wenn sie verrutscht,
+      // bleibt der Menuepunkt sichtbar und fuehrt ins Leere.
+      expect(rechtJeRoute['/assistant'], 'chat:use');
+    });
+  });
+
   group('Zuordnung Bereich → Recht', () {
     test('jede Kachel kennt ihre Datenquelle', () {
       expect(rechtJeKachel.keys.toSet(), quelleJeKachel.keys.toSet());

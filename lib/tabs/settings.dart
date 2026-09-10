@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/api_client.dart';
@@ -14,6 +15,7 @@ import 'package:productivity/dataservice/ai_settings_service.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/widgets/settings_tile.dart';
 
+import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -116,12 +118,10 @@ class _SettingsBodyState extends State<_SettingsBody> {
   bool _loadingActiveModels = false;
 
   final TextEditingController _weatherCityCtrl = TextEditingController();
-  final TextEditingController _wakewordCtrl = TextEditingController();
 
   @override
   void dispose() {
     _weatherCityCtrl.dispose();
-    _wakewordCtrl.dispose();
     super.dispose();
   }
 
@@ -136,8 +136,15 @@ class _SettingsBodyState extends State<_SettingsBody> {
   void initState() {
     super.initState();
     _loadNotifSettings();
-    _loadAIModels();
-    _loadProviders();
+    // Gesperrte Bereiche gar nicht erst abfragen: ohne `ai:use` antworten
+    // beide Endpunkte mit 403, und der Abschnitt wird ohnehin nicht gezeigt.
+    if (context.read<PermissionProvider>().darfKi) {
+      _loadAIModels();
+      _loadProviders();
+    } else {
+      _aiModelsLoading = false;
+      _providersLoading = false;
+    }
     _biometrieStandLaden();
   }
 
@@ -424,13 +431,11 @@ class _SettingsBodyState extends State<_SettingsBody> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final settings = Provider.of<SettingsProvider>(context);
+    final rechte = context.watch<PermissionProvider>();
 
     // Stadt-Feld einmalig befüllen, sobald die Prefs geladen sind.
     if (_weatherCityCtrl.text.isEmpty && settings.weatherCity.isNotEmpty) {
       _weatherCityCtrl.text = settings.weatherCity;
-    }
-    if (_wakewordCtrl.text.isEmpty && settings.wakewordKey.isNotEmpty) {
-      _wakewordCtrl.text = settings.wakewordKey;
     }
 
     return ListView(
@@ -616,6 +621,12 @@ class _SettingsBodyState extends State<_SettingsBody> {
           ],
         ],
 
+        // ── KI-Provider ──
+        // Nur fuer Konten mit `ai:use`. Ohne das Recht liefert schon das
+        // Laden der Anbieterliste ein 403, und der Abschnitt zeigte nichts
+        // als eine Fehlermeldung. Ausblenden ist Hoeflichkeit, keine
+        // Absicherung — geprueft wird im Backend.
+        if (rechte.darfKi) ...[
         const SizedBox(height: 16),
         _SectionTitle('KI-Provider'),
         Card(
@@ -830,6 +841,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
             ],
           ),
         ),
+        ],
 
         const SizedBox(height: 16),
         _SectionTitle('Wetter'),
@@ -875,8 +887,10 @@ class _SettingsBodyState extends State<_SettingsBody> {
         ),
 
         // ── Küchenassistent ──
-        // Nicht im Web: dort gibt es kein dauerhaft lauschendes Mikrofon.
-        if (!kIsWeb) ...[
+        // Nicht im Web: dort gibt es kein dauerhaft lauschendes Mikrofon. Und
+        // nur, wer per Sprache bedienen darf -- sonst waere der Schalter ohne
+        // Wirkung.
+        if (!kIsWeb && rechte.darfSprache) ...[
           const SizedBox(height: 16),
           _SectionTitle('Küchenassistent'),
           Card(
@@ -896,48 +910,62 @@ class _SettingsBodyState extends State<_SettingsBody> {
                   value: settings.wakewordAn,
                   onChanged: settings.setWakewordAn,
                 ),
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: _wakewordCtrl,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: settings.setWakewordKey,
-                        decoration: InputDecoration(
-                          labelText: 'Picovoice AccessKey',
-                          hintText: 'aus der Picovoice-Konsole',
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.check),
-                            tooltip: 'Speichern',
-                            onPressed: () {
-                              settings.setWakewordKey(_wakewordCtrl.text);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Schlüssel gespeichert ✅')),
-                              );
-                            },
-                          ),
+                if (settings.wakewordAn) ...[
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text('Empfindlichkeit',
+                                style: Theme.of(context).textTheme.bodyMedium),
+                            const Spacer(),
+                            Text(
+                              settings.wakewordSchwelle.toStringAsFixed(2),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures()
+                                      ],
+                                      color: colors.primary),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Ohne Schlüssel bleibt der Sprachknopf auf dem '
-                        'Dashboard – nur das Zurufen entfällt. Den Schlüssel '
-                        'gibt es kostenlos auf console.picovoice.ai; er gilt '
-                        'für dieses Gerät.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(color: colors.outline),
-                      ),
-                    ],
+                        Slider(
+                          // Umgedreht dargestellt: der Regler soll nach
+                          // rechts empfindlicher werden, der Wert dahinter
+                          // wird dabei kleiner.
+                          value: SettingsProvider.schwelleMax +
+                              SettingsProvider.schwelleMin -
+                              settings.wakewordSchwelle,
+                          min: SettingsProvider.schwelleMin,
+                          max: SettingsProvider.schwelleMax,
+                          divisions: 9,
+                          label: settings.wakewordSchwelle.toStringAsFixed(2),
+                          onChanged: (v) => settings.setWakewordSchwelle(
+                              SettingsProvider.schwelleMax +
+                                  SettingsProvider.schwelleMin -
+                                  v),
+                        ),
+                        Text(
+                          'Weiter rechts heißt: Jarvis springt schon bei '
+                          'undeutlicher Aussprache an – und öfter beim '
+                          'Fernseher. Das lässt sich nur in der eigenen Küche '
+                          'finden, deshalb steht der Regler hier und nicht '
+                          'im Programm.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(color: colors.outline),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

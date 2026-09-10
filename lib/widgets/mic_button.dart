@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/transcription_service.dart';
+import 'package:productivity/provider/permission_provider.dart';
+import 'package:provider/provider.dart';
 
 /// Mikrofon-Button: Tippen startet die Aufnahme, erneutes Tippen stoppt sie,
 /// lädt das Audio hoch und liefert den transkribierten Text über [onText].
@@ -84,6 +86,13 @@ class _MicButtonState extends State<MicButton> {
 
   @override
   Widget build(BuildContext context) {
+    // Die Prüfung sitzt hier und nicht an jeder Aufrufstelle: der Knopf weiß
+    // selbst, dass er `/transcribe` braucht, und `/transcribe` verlangt
+    // `ai:use`. Ohne das Recht führte jeder Druck in ein 403. Ausblenden ist
+    // Höflichkeit, keine Absicherung — geprüft wird im Backend.
+    if (!context.watch<PermissionProvider>().darfKi) {
+      return const SizedBox.shrink();
+    }
     if (_busy) {
       return const Padding(
         padding: EdgeInsets.all(12),
