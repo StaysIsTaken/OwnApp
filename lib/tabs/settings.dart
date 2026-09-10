@@ -116,10 +116,12 @@ class _SettingsBodyState extends State<_SettingsBody> {
   bool _loadingActiveModels = false;
 
   final TextEditingController _weatherCityCtrl = TextEditingController();
+  final TextEditingController _wakewordCtrl = TextEditingController();
 
   @override
   void dispose() {
     _weatherCityCtrl.dispose();
+    _wakewordCtrl.dispose();
     super.dispose();
   }
 
@@ -426,6 +428,9 @@ class _SettingsBodyState extends State<_SettingsBody> {
     // Stadt-Feld einmalig befüllen, sobald die Prefs geladen sind.
     if (_weatherCityCtrl.text.isEmpty && settings.weatherCity.isNotEmpty) {
       _weatherCityCtrl.text = settings.weatherCity;
+    }
+    if (_wakewordCtrl.text.isEmpty && settings.wakewordKey.isNotEmpty) {
+      _wakewordCtrl.text = settings.wakewordKey;
     }
 
     return ListView(
@@ -868,6 +873,75 @@ class _SettingsBodyState extends State<_SettingsBody> {
             ),
           ),
         ),
+
+        // ── Küchenassistent ──
+        // Nicht im Web: dort gibt es kein dauerhaft lauschendes Mikrofon.
+        if (!kIsWeb) ...[
+          const SizedBox(height: 16),
+          _SectionTitle('Küchenassistent'),
+          Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  secondary: Icon(Icons.record_voice_over_outlined,
+                      color: colors.primary),
+                  title: const Text('Auf „Jarvis" hören'),
+                  subtitle: const Text(
+                    'Nur in der Küchenansicht. Die Erkennung läuft auf dem '
+                    'Gerät – es wird nichts gesendet, solange das Weckwort '
+                    'nicht gefallen ist.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  value: settings.wakewordAn,
+                  onChanged: settings.setWakewordAn,
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _wakewordCtrl,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: settings.setWakewordKey,
+                        decoration: InputDecoration(
+                          labelText: 'Picovoice AccessKey',
+                          hintText: 'aus der Picovoice-Konsole',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.check),
+                            tooltip: 'Speichern',
+                            onPressed: () {
+                              settings.setWakewordKey(_wakewordCtrl.text);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Schlüssel gespeichert ✅')),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Ohne Schlüssel bleibt der Sprachknopf auf dem '
+                        'Dashboard – nur das Zurufen entfällt. Den Schlüssel '
+                        'gibt es kostenlos auf console.picovoice.ai; er gilt '
+                        'für dieses Gerät.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(color: colors.outline),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
 
         const SizedBox(height: 16),
         _SectionTitle('Sonstiges'),

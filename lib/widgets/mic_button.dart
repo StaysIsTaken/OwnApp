@@ -12,7 +12,16 @@ class MicButton extends StatefulWidget {
   /// Optionaler Sprachcode (z.B. 'de'); null = serverseitige Autoerkennung.
   final String? language;
 
-  const MicButton({super.key, required this.onText, this.language = 'de'});
+  /// Optionales Whisper-Modell (z.B. 'small'); null = Servervorgabe.
+  /// Für Diktate leer lassen, für kurze Sprachbefehle ein kleines wählen.
+  final String? model;
+
+  const MicButton({
+    super.key,
+    required this.onText,
+    this.language = 'de',
+    this.model,
+  });
 
   @override
   State<MicButton> createState() => _MicButtonState();
@@ -36,6 +45,7 @@ class _MicButtonState extends State<MicButton> {
         var gotAny = false;
         final text = await TranscriptionService.stopAndTranscribe(
           language: widget.language,
+          model: widget.model,
           onSegment: (segment) {
             gotAny = true;
             widget.onText(segment.trim());

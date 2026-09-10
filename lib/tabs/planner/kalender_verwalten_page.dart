@@ -469,21 +469,14 @@ class _ImportDialogState extends State<_ImportDialog> {
 
   /// Eine .ics-Datei vom Geraet waehlen.
   ///
-  /// `withData` ist wichtig: im Web gibt es keinen Pfad, den man
-  /// nachtraeglich oeffnen koennte — die Bytes muessen gleich mitkommen.
+  /// Die Bytes kommen ueber readAsBytes, nicht ueber einen Pfad: im Web gibt
+  /// es keinen, den man nachtraeglich oeffnen koennte.
   Future<void> _dateiWaehlen() async {
     try {
-      final wahl = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        withData: true,
-      );
-      final datei = wahl?.files.firstOrNull;
+      final datei = await FilePicker.pickFile(type: FileType.any);
       if (datei == null) return;
-      final bytes = datei.bytes;
-      if (bytes == null) {
-        setState(() => _fehler = 'Die Datei konnte nicht gelesen werden.');
-        return;
-      }
+      final bytes = await datei.readAsBytes();
+      if (!mounted) return;
       setState(() {
         // .ics ist Text; allowMalformed, damit ein krummes Zeichen in einer
         // Terminbeschreibung nicht den ganzen Import verhindert.

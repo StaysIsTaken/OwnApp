@@ -20,6 +20,13 @@ class TranscriptionService {
 
   static Future<bool> isRecording() => _recorder.isRecording();
 
+  /// Lautstärkeverlauf der laufenden Aufnahme, in dBFS (0 = Vollausschlag,
+  /// Stille liegt weit im Negativen). Damit erkennt der Sprach-Ablauf, wann
+  /// der Satz zu Ende ist — beim Zurufen tippt niemand auf „Stopp".
+  static Stream<Amplitude> pegel(
+          [Duration intervall = const Duration(milliseconds: 200)]) =>
+      _recorder.onAmplitudeChanged(intervall);
+
   /// Startet die Aufnahme. Wirft, wenn kein Mikrofon-Zugriff besteht.
   static Future<void> start() async {
     // Web kann kein AAC -> Opus/WebM; native nutzt AAC (universell dekodierbar).
@@ -40,8 +47,14 @@ class TranscriptionService {
   /// am Ende {"type":"done", text}. [onSegment] wird – falls gesetzt – für jedes
   /// Segment aufgerufen, sodass der Text in der App nach und nach erscheint.
   /// Rückgabe: der vollständige erkannte Text.
+  ///
+  /// [model] wählt das Whisper-Modell und damit zwischen Genauigkeit und
+  /// Tempo. Ein Diktat in die Notizen lässt es leer (Servervorgabe, genau);
+  /// ein zugerufener Sprachbefehl übergibt ein kleines Modell wie 'small' und
+  /// spart damit den Großteil der Wartezeit.
   static Future<String> stopAndTranscribe({
     String? language,
+    String? model,
     void Function(String segment)? onSegment,
   }) async {
     final result = await _recorder.stop();
@@ -62,7 +75,10 @@ class TranscriptionService {
     final response = await ApiClient.dio.post(
       _path,
       data: form,
-      queryParameters: language != null ? {'language': language} : null,
+      queryParameters: {
+        'language': ?language,
+        'model': ?model,
+      },
       options: Options(responseType: ResponseType.stream),
     );
 

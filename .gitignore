@@ -44,3 +44,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Sitzungsdateien des Kotlin-Compilers, entstehen bei jedem Gradle-Lauf.
+android/.kotlin/
+
+# Gradle-Ausgaben des Android-Moduls. Eine problems-report.html war
+# versehentlich eingecheckt und wurde bei jedem Build neu geschrieben.
+android/build/
+android/.gradle/

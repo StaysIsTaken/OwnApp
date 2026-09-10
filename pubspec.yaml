@@ -7,37 +7,44 @@ environment:
   sdk: ^3.11.1
 
 dependencies:
-  dio: ^5.9.2
+  dio: ^5.11.1
   flutter:
     sdk: flutter
   http: ^1.6.0
-  intl: ^0.19.0
+  intl: ^0.20.3
   kanban_board: ^1.0.0+2
   provider: ^6.1.5+1
-  shared_preferences: ^2.5.4
+  shared_preferences: ^2.5.5
   web_socket_channel: ^3.0.3
-  flutter_local_notifications: ^17.2.3
-  workmanager: ^0.10.9
-  timezone: ^0.9.4
-  permission_handler: ^11.3.1
-  flutter_markdown: ^0.6.14
-  table_calendar: ^3.1.3
-  file_picker: ^8.1.2
-  record: ^5.2.1
+  flutter_local_notifications: ^22.3.0
+  workmanager: ^0.10.10
+  timezone: ^0.11.1
+  permission_handler: ^12.0.0
+  flutter_markdown: ^0.7.7+1
+  table_calendar: ^3.2.1
+  file_picker: ^12.2.0
+  record: ^6.2.1
   path_provider: ^2.1.4
-  cross_file: ^0.3.4+2
-  mobile_scanner: ^5.2.3
+  cross_file: ^0.3.5+5
+  mobile_scanner: ^7.4.0
   image_picker: ^1.1.2
-  geolocator: ^13.0.1
+  geolocator: ^14.0.3
   # Anmeldung per Face ID / Fingerabdruck: local_auth macht die Pruefung auf
   # dem Geraet, flutter_secure_storage legt die Zugangsdaten in die Keychain
   # (iOS) bzw. den Keystore (Android) statt in SharedPreferences.
-  local_auth: ^2.3.0
+  local_auth: ^3.0.2
   # Diagramme fuer die selbst zusammengestellten Kacheln. Reines Dart,
   # laeuft auf allen Plattformen einschliesslich Web.
-  fl_chart: ^0.69.0
-  flutter_secure_storage: ^9.2.2
+  fl_chart: ^1.2.0
+  flutter_secure_storage: ^10.0.0
   audioplayers: ^6.8.1
+  # Sprachausgabe des Kuechen-Assistenten. Bewusst die Stimme des
+  # Betriebssystems und kein Server-Dienst: sie antwortet ohne Netzwerkweg.
+  flutter_tts: ^4.0.2
+  # Haelt den Bildschirm im Kuechenmodus an. Ein Dashboard, das nach zwei
+  # Minuten schwarz wird, ist keins.
+  wakelock_plus: ^1.2.5
+  porcupine_flutter: ^4.0.0
 
 dev_dependencies:
   flutter_test:
