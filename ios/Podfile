@@ -1,5 +1,7 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+# Mindestens iOS 14: workmanager_apple und file_picker_darwin verlangen es
+# seit dem Paket-Update. Ohne die Zeile nimmt CocoaPods 13.0 an und pod
+# install bricht ab ("requires a higher minimum iOS deployment version").
+platform :ios, '14.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
