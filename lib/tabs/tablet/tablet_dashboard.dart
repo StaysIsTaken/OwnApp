@@ -7,6 +7,7 @@ import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/dataservice/dashboard_page_service.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/provider/permission_provider.dart';
+import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
 import 'package:productivity/provider/sprach_provider.dart';
 import 'package:productivity/provider/tablet_provider.dart';
@@ -40,8 +41,12 @@ class _TabletDashboardState extends State<TabletDashboard> {
   void initState() {
     super.initState();
     _seiten = TabletSeitenProvider();
-    _sprache = SprachProvider(_seiten);
+    // Der Planer steht app-weit ueber dieser Ansicht; die Sprachbedienung
+    // stellt darueber „zeige nur … Kalender an" ein.
+    final planer = context.read<PlannerProvider>();
+    _sprache = SprachProvider(_seiten, planer);
     _seiten.laden();
+    unawaited(planer.loadKalender(alle: true));
     // Ein Küchendisplay, das nach zwei Minuten schwarz wird, ist keins.
     unawaited(_bildschirmWachHalten(true));
   }

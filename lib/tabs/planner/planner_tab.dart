@@ -5,6 +5,7 @@ import 'package:productivity/tabs/planner/views/week_view.dart';
 import 'package:productivity/tabs/planner/views/month_view.dart';
 import 'package:productivity/tabs/planner/views/day_view.dart';
 import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
+import 'package:productivity/tabs/planner/widgets/kalender_filter_dialog.dart';
 import 'package:productivity/tabs/planner/widgets/planner_import_dialog.dart';
 import 'package:productivity/widgets/drawer.dart';
 
@@ -28,6 +29,7 @@ class _PlannerTabState extends State<PlannerTab>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PlannerProvider>().loadEntries();
       context.read<PlannerProvider>().loadTypes();
+      context.read<PlannerProvider>().loadKalender(alle: true);
     });
   }
 
@@ -45,6 +47,18 @@ class _PlannerTabState extends State<PlannerTab>
         title: const Text('Kalender'),
         elevation: 0,
         actions: [
+          // Der Knopf faerbt sich, sobald gefiltert wird — sonst sucht man
+          // spaeter einen Termin, der nur ausgeblendet ist.
+          IconButton(
+            tooltip: 'Kalender anzeigen',
+            isSelected: context.watch<PlannerProvider>().filterAktiv,
+            icon: const Icon(Icons.filter_alt_outlined),
+            selectedIcon: const Icon(Icons.filter_alt),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => const KalenderFilterDialog(),
+            ),
+          ),
           IconButton(
             tooltip: 'Kalender importieren',
             icon: const Icon(Icons.file_download_outlined),

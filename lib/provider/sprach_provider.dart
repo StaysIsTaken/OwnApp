@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 
 import 'package:productivity/dataservice/assistant_service.dart';
+import 'package:productivity/dataservice/kalender_filter.dart';
 import 'package:productivity/dataservice/sprach_auskunft.dart';
 import 'package:productivity/dataservice/sprachbefehle.dart';
 import 'package:productivity/dataservice/transcription_service.dart';
 import 'package:productivity/dataservice/tts_service.dart';
 import 'package:productivity/dataservice/wakeword_service.dart';
 import 'package:productivity/dataservice/wakeword_ton.dart';
+import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/provider/tablet_seiten_provider.dart';
 
 enum SprachZustand { ruht, hoert, denkt, spricht }
@@ -42,9 +44,14 @@ enum Aufnahmeschritt {
 /// Das Fortsetzen liegt bewusst am gemeinsamen Rückweg und nicht am Ende des
 /// Erfolgsfalls: sonst wäre Jarvis nach dem ersten Fehler dauerhaft taub.
 class SprachProvider extends ChangeNotifier {
-  SprachProvider(this._seiten);
+  SprachProvider(this._seiten, this._planer);
 
   final TabletSeitenProvider _seiten;
+
+  /// Nur für „zeige nur … Kalender an". Der Filter sitzt im Planer, weil
+  /// dort die Termine liegen — die Kalenderansicht auf einer Kachel und die
+  /// im Menü sollen dasselbe zeigen.
+  final PlannerProvider _planer;
 
   // ── Schwellen der Stille-Erkennung ────────────────────────────────────
   // Die Werte sind in dBFS (0 = Vollausschlag, Stille weit im Negativen) und
@@ -414,6 +421,11 @@ class SprachProvider extends ChangeNotifier {
   }
 
   Future<void> _verarbeite(String text) async {
+    // Die Kalenderauswahl steht vor allem anderen, weil sie mit demselben
+    // Wort anfängt wie ein Seitenwechsel: „zeige nur den Arbeitskalender an"
+    // wäre sonst die Suche nach einer Seite dieses Namens.
+    if (await _kalenderAuswahl(text)) return;
+
     // Zuerst das, was das Tablet selbst kann — ohne Netz, ohne Modell.
     final ziel = Sprachbefehle.navigationsZiel(text);
     if (ziel != null) {
@@ -494,6 +506,51 @@ class SprachProvider extends ChangeNotifier {
         etwasGetan: etwasGetan || _offen.isNotEmpty,
       ),
     );
+  }
+
+  /// „Zeige nur den Arbeitskalender und Lisas Kalender an."
+  ///
+  /// Liefert true, wenn der Satz eine Kalenderauswahl war und beantwortet
+  /// wurde — dann ist der Ablauf hier zu Ende.
+  Future<bool> _kalenderAuswahl(String text) async {
+    final namen = KalenderFilter.erkenne(text);
+    if (namen == null) return false;
+
+    if (namen.isEmpty) {
+      _planer.zeigeNur(null);
+      await _antworte('Ich zeige wieder alle Kalender.');
+      return true;
+    }
+
+    // Erst jetzt holen: solange niemand filtert, braucht das Tablet die
+    // Liste nicht.
+    if (_planer.kalender.isEmpty) {
+      await _planer.loadKalender(alle: true);
+    }
+
+    final ids = KalenderFilter.waehle(_planer.kalender, namen);
+    if (ids.isEmpty) {
+      await _antworte(
+        namen.length == 1
+            ? 'Einen Kalender ${namen.first} finde ich nicht.'
+            : 'Diese Kalender finde ich nicht.',
+      );
+      return true;
+    }
+
+    _planer.zeigeNur(ids);
+    await _antworte('Ich zeige nur noch ${_aufzaehlung(_planer.sichtbareNamen)}.');
+    return true;
+  }
+
+  /// „a, b und c" — mit „und" vor dem letzten, weil es vorgelesen wird.
+  @visibleForTesting
+  static String aufzaehlung(List<String> teile) => _aufzaehlung(teile);
+
+  static String _aufzaehlung(List<String> teile) {
+    if (teile.isEmpty) return 'nichts';
+    if (teile.length == 1) return teile.first;
+    return '${teile.sublist(0, teile.length - 1).join(', ')} und ${teile.last}';
   }
 
   /// Führt eine zurückgestellte Aktion nach einem Tipp doch aus.

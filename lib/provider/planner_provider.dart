@@ -1,19 +1,91 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/dataclasses/kalender.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/planner_entry_type.dart';
 import 'package:productivity/dataservice/planner_notification_scheduler.dart';
+import 'package:productivity/dataservice/calendar_service.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 
 class PlannerProvider extends ChangeNotifier {
   List<PlannerEntry> _entries = [];
   List<PlannerEntryType> _types = [];
+  List<Kalender> _kalender = [];
+  Set<int>? _sichtbareKalender;
   bool _isLoading = false;
   String? _error;
 
   List<PlannerEntry> get entries => _entries;
   List<PlannerEntryType> get types => _types;
+  List<Kalender> get kalender => _kalender;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  /// Welche Kalender die Ansicht zeigt — `null` heißt alle.
+  ///
+  /// Bewusst `null` und nicht „die Menge aller IDs": ein neu angelegter
+  /// Kalender soll sofort mitlaufen und nicht stillschweigend ausgeblendet
+  /// sein, nur weil er beim Setzen des Filters noch nicht existierte.
+  Set<int>? get sichtbareKalender =>
+      _sichtbareKalender == null ? null : Set.unmodifiable(_sichtbareKalender!);
+
+  bool get filterAktiv => _sichtbareKalender != null;
+
+  /// Die Namen der gerade gezeigten Kalender — für die Sprachantwort.
+  List<String> get sichtbareNamen {
+    final ids = _sichtbareKalender;
+    if (ids == null) return _kalender.map((k) => k.name).toList();
+    return _kalender.where((k) => ids.contains(k.id)).map((k) => k.name).toList();
+  }
+
+  /// Zeigt nur noch die angegebenen Kalender. `null` oder leer hebt den
+  /// Filter auf — „zeige wieder alle Kalender an".
+  void zeigeNur(Set<int>? ids) {
+    _sichtbareKalender = (ids == null || ids.isEmpty) ? null : {...ids};
+    notifyListeners();
+  }
+
+  /// [alle] holt auch die Kalender der übrigen Personen — das braucht das
+  /// Küchen-Tablet, damit „zeige nur Lisas Kalender an" etwas findet.
+  ///
+  /// Fehlt dafür das Recht, antwortet der Server mit 403. Dann lieber die
+  /// eigenen Kalender als gar keine: ein Filter, der nichts zur Auswahl hat,
+  /// ist schlimmer als einer mit weniger Auswahl.
+  Future<void> loadKalender({bool alle = false}) async {
+    try {
+      try {
+        _kalender = await CalendarService.laden(alle: alle);
+      } catch (e) {
+        if (!alle) rethrow;
+        _kalender = await CalendarService.laden();
+      }
+      // Ein Kalender, der nicht mehr da ist, darf keinen Filter am Leben
+      // halten, der nichts mehr durchlässt.
+      final ids = _sichtbareKalender;
+      if (ids != null) {
+        final bekannt = _kalender.map((k) => k.id).toSet();
+        final rest = ids.intersection(bekannt);
+        _sichtbareKalender = rest.isEmpty ? null : rest;
+      }
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    }
+    notifyListeners();
+  }
+
+  /// Der Filter, angewandt auf einen einzelnen Termin.
+  ///
+  /// Termine ohne Kalender verschwinden, sobald gefiltert wird. „Nur der
+  /// Arbeitskalender" heißt nur der Arbeitskalender; ein Termin, der in
+  /// keinem liegt, gehört nicht dazu. Ohne Filter sind sie natürlich da.
+  @visibleForTesting
+  static bool sichtbar(PlannerEntry e, Set<int>? sichtbareKalender) {
+    if (sichtbareKalender == null) return true;
+    final id = e.calendarId;
+    return id != null && sichtbareKalender.contains(id);
+  }
+
+  bool _sichtbar(PlannerEntry e) => sichtbar(e, _sichtbareKalender);
 
   /// Erinnerungen für einen einzelnen Termin auffrischen.
   ///
@@ -42,6 +114,23 @@ class PlannerProvider extends ChangeNotifier {
     }
 
     _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Termine ohne Netz setzen — nur fuer Tests.
+  ///
+  /// Ohne diese Naht liesse sich der Kalenderfilter nur an der reinen
+  /// Rechnung [sichtbar] pruefen, nicht daran, ob er in den drei Abfragen
+  /// ueberhaupt angewandt wird. Genau dort sass der Fehler, den man sucht.
+  @visibleForTesting
+  void setzeTermine(List<PlannerEntry> termine) {
+    _entries = [...termine];
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void setzeKalender(List<Kalender> kalender) {
+    _kalender = [...kalender];
     notifyListeners();
   }
 
@@ -388,7 +477,10 @@ class PlannerProvider extends ChangeNotifier {
 
   List<PlannerEntry> getEntriesForDay(DateTime date) {
     return _entries
-        .where((e) => _isSameDay(e.scheduledAt, date) && e.parentId == null)
+        .where((e) =>
+            _isSameDay(e.scheduledAt, date) &&
+            e.parentId == null &&
+            _sichtbar(e))
         .toList()
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
   }
@@ -399,7 +491,8 @@ class PlannerProvider extends ChangeNotifier {
     return _entries
         .where((e) =>
             !e.scheduledAt.isBefore(weekStart) &&
-            e.scheduledAt.isBefore(weekEnd))
+            e.scheduledAt.isBefore(weekEnd) &&
+            _sichtbar(e))
         .toList()
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
   }
@@ -409,7 +502,8 @@ class PlannerProvider extends ChangeNotifier {
         .where((e) =>
             e.scheduledAt.year == monthDate.year &&
             e.scheduledAt.month == monthDate.month &&
-            e.parentId == null)
+            e.parentId == null &&
+            _sichtbar(e))
         .toList()
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
   }
