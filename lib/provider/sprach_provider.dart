@@ -97,6 +97,13 @@ class SprachProvider extends ChangeNotifier {
   /// den halben Vormittag mitliest.
   static const int _verlaufLaenge = 6;
 
+  /// Wie oft Jarvis je Zuruf zurückfragen darf.
+  ///
+  /// Zwei reichen für „in welchen Kalender?" und eine Nachfrage, falls die
+  /// Antwort unklar war. Ohne Grenze könnten sich Modell und Mikrofon
+  /// gegenseitig am Leben halten, bis jemand eingreift.
+  static const int _maxRueckfragen = 2;
+
   SprachZustand _zustand = SprachZustand.ruht;
   String _verstanden = '';
   String _antwort = '';
@@ -110,6 +117,9 @@ class SprachProvider extends ChangeNotifier {
   bool _hatGesprochen = false;
   int _lauteHintereinander = 0;
   bool _beendet = false;
+
+  /// Wie oft in diesem Zuruf schon zurückgefragt wurde.
+  int _rueckfragen = 0;
 
   /// Gesetzt, sobald der Nutzer abbricht. Die schon laufende Verarbeitung
   /// lässt sich nicht zurückrufen — aber sie darf danach nicht mehr reden.
@@ -178,11 +188,20 @@ class SprachProvider extends ChangeNotifier {
   /// sich das, da sieht man den Knopf ja umspringen.
   Future<void> starten({bool mitTon = false}) async {
     if (aktiv) return;
+    _rueckfragen = 0;
+    _offen.clear();
+    await _hoerZu(mitTon: mitTon);
+  }
 
+  /// Hört zu — ohne die Frage, ob das gerade erlaubt ist.
+  ///
+  /// Getrennt von [starten], weil die Rückfrage sie aus dem Zustand
+  /// `spricht` heraus aufruft: dort ist [aktiv] wahr, und die Sperre in
+  /// [starten] würde das Weiterhören verhindern.
+  Future<void> _hoerZu({required bool mitTon}) async {
     _verstanden = '';
     _antwort = '';
     _fehler = null;
-    _offen.clear();
     _hatGesprochen = false;
     _lauteHintereinander = 0;
     _beendet = false;
@@ -463,7 +482,18 @@ class SprachProvider extends ChangeNotifier {
             : '${_offen.length} Sachen warten auf deine Bestätigung.',
       ?_fehler,
     ];
-    await _antworte(teile.join(' '));
+
+    // „In welchen Kalender soll ich es eintragen?" — darauf will der Nutzer
+    // sofort antworten können, nicht erst wieder „Hey Jarvis" sagen müssen.
+    // Nur wenn wirklich nichts passiert ist: eine offene Bestätigung wartet
+    // auf einen Tipp, nicht auf ein Wort.
+    await _antworte(
+      teile.join(' '),
+      weiterhoeren: istRueckfrage(
+        ergebnis.reply,
+        etwasGetan: etwasGetan || _offen.isNotEmpty,
+      ),
+    );
   }
 
   /// Führt eine zurückgestellte Aktion nach einem Tipp doch aus.
@@ -485,15 +515,40 @@ class SprachProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _antworte(String text) async {
+  Future<void> _antworte(String text, {bool weiterhoeren = false}) async {
     if (_abgebrochen) return;
     _antwort = text.trim();
     _setze(SprachZustand.spricht);
     await TtsService.sprich(_antwort);
+
     // Nach dem Abbruch ist der Zustand schon zurückgesetzt; ihn hier noch
     // einmal zu setzen würde die Anzeige aus einem Ablauf überschreiben, den
     // niemand mehr sehen will.
-    if (!_abgebrochen) _zurueckInRuhe();
+    if (_abgebrochen) return;
+
+    // Hat Jarvis gefragt, hört er gleich weiter zu. Sonst müsste man nach
+    // seiner Rückfrage erneut „Hey Jarvis" sagen, um zu antworten — das ist
+    // kein Gespräch, das ist ein Formular.
+    if (weiterhoeren && _rueckfragen < _maxRueckfragen) {
+      _rueckfragen++;
+      // Mit Ton: nach einer Frage ist das Pling die einzige Rückmeldung,
+      // dass er die Antwort abwartet.
+      await _hoerZu(mitTon: true);
+      return;
+    }
+    _zurueckInRuhe();
+  }
+
+  /// Ob die Antwort eine Rückfrage ist, auf die der Nutzer antworten soll.
+  ///
+  /// Zwei Bedingungen, und die zweite ist die wichtigere: es muss ein
+  /// Fragezeichen am Ende stehen UND nichts passiert sein. „Eingetragen.
+  /// Noch etwas?" ist Höflichkeit, keine Rückfrage — wer darauf zu lauschen
+  /// begänne, hielte das Mikrofon nach jedem Auftrag unnötig offen.
+  @visibleForTesting
+  static bool istRueckfrage(String antwort, {required bool etwasGetan}) {
+    if (etwasGetan) return false;
+    return antwort.trimRight().endsWith('?');
   }
 
   void _abbrechenMit(String meldung) {
