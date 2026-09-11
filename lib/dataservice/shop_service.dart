@@ -24,6 +24,15 @@ class ShopService {
     return Shop.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Umbenennen. Die API lehnt einen Namen ab, den es schon gibt — der Laden
+  /// ist ueber den Namen identifizierbar, sonst weiss beim Preisvergleich
+  /// niemand mehr, welches Aldi gemeint war.
+  static Future<Shop> update(String shopId, String name) async {
+    final response =
+        await ApiClient.dio.put('$_path/$shopId', data: {'name': name});
+    return Shop.fromJson(response.data as Map<String, dynamic>);
+  }
+
   static Future<void> delete(String shopId) async {
     await ApiClient.dio.delete('$_path/$shopId');
   }

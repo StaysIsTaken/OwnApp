@@ -13,6 +13,7 @@ import 'package:productivity/tabs/recipes/recipes_page.dart';
 import 'package:productivity/tabs/pantry/pantry_page.dart';
 import 'package:productivity/tabs/pantry/shopping_list_page.dart';
 import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
+import 'package:productivity/tabs/einkauf/laeden_page.dart';
 import 'package:productivity/tabs/einkauf/preise_page.dart';
 import 'package:productivity/tabs/pantry/meal_plan_page.dart';
 import 'package:productivity/tabs/pantry/manage_storage_locations_page.dart';
@@ -22,7 +23,6 @@ import 'package:productivity/tabs/tasks.dart';
 import 'package:productivity/tabs/time.dart';
 import 'package:productivity/tabs/notes/notes_page.dart';
 import 'package:productivity/tabs/journal/journal_page.dart';
-import 'package:productivity/tabs/calendar/calendar_page.dart';
 import 'package:productivity/tabs/planner/planner_tab.dart';
 import 'package:productivity/tabs/planner/manage_planner_types_page.dart';
 import 'package:productivity/tabs/planner/kalender_verwalten_page.dart';
@@ -152,6 +152,7 @@ class AppRoutes {
   static const String pantry = '/pantry';
   static const String shoppingList = '/shopping-list';
   static const String einkauf = '/einkauf';
+  static const String laeden = '/laeden';
   static const String preise = '/preise';
   static const String mealPlan = '/meal-plan';
   static const String chat = '/chat';
@@ -160,7 +161,6 @@ class AppRoutes {
   // Knowledge Management
   static const String notes = '/notes';
   static const String journal = '/journal';
-  static const String calendar = '/calendar';
   static const String planner = '/planner';
   static const String plannerTypes = '/planner-types';
   static const String kalender = '/kalender';
@@ -187,6 +187,7 @@ class AppRoutes {
     pantry: (_) => const PantryPage(),
     shoppingList: (_) => const ShoppingListPage(),
     einkauf: (_) => const EinkaufslistenPage(),
+    laeden: (_) => const LaedenPage(),
     preise: (_) => const PreisePage(),
     mealPlan: (_) => const MealPlanPage(),
     chat: (_) => const ChatPage(),
@@ -194,7 +195,6 @@ class AppRoutes {
     // Knowledge Management
     notes: (_) => const NotesPage(),
     journal: (_) => const JournalPage(),
-    calendar: (_) => const CalendarPage(),
     planner: (_) => const PlannerTab(),
     plannerTypes: (_) => const ManagePlannerTypesPage(),
     kalender: (_) => const KalenderVerwaltenPage(),

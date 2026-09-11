@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 
 import 'package:productivity/dataservice/assistant_service.dart';
+import 'package:productivity/dataservice/sprach_auskunft.dart';
 import 'package:productivity/dataservice/sprachbefehle.dart';
 import 'package:productivity/dataservice/transcription_service.dart';
 import 'package:productivity/dataservice/tts_service.dart';
@@ -13,18 +14,30 @@ import 'package:productivity/provider/tablet_seiten_provider.dart';
 
 enum SprachZustand { ruht, hoert, denkt, spricht }
 
+/// Was mit einer laufenden Aufnahme geschehen soll.
+enum Aufnahmeschritt {
+  /// Weiter aufnehmen.
+  weiter,
+
+  /// Satz zu Ende — aufnehmen, hochladen, verstehen.
+  beenden,
+
+  /// Es hat nie jemand angefangen zu reden. Verwerfen statt hochladen.
+  nichtsGehoert,
+}
+
 /// Der Sprach-Ablauf des Küchentablets: aufnehmen, verstehen, ausführen,
 /// antworten.
 ///
 /// Zwei Wege hinein, danach derselbe Ablauf: der Knopf auf dem Dashboard und
 /// das Weckwort „Jarvis". Beide rufen [starten].
 ///
-/// Der heikle Teil ist die Mikrofon-Übergabe. Porcupine hält den Audiostrom,
-/// solange es lauscht; der Rekorder braucht ihn exklusiv. Deshalb genau eine
-/// Reihenfolge, und sie steht in [starten] und [_zurueckInRuhe]:
+/// Der heikle Teil ist die Mikrofon-Übergabe. Die Weckworterkennung hält den
+/// Audiostrom, solange sie lauscht; der Rekorder braucht ihn exklusiv. Deshalb
+/// genau eine Reihenfolge, und sie steht in [starten] und [_zurueckInRuhe]:
 ///
-///     Weckwort -> Porcupine anhalten -> aufnehmen -> verstehen -> ausführen
-///     -> sprechen -> Porcupine fortsetzen
+///     Weckwort -> Erkenner anhalten -> aufnehmen -> verstehen -> ausführen
+///     -> sprechen -> Erkenner fortsetzen
 ///
 /// Das Fortsetzen liegt bewusst am gemeinsamen Rückweg und nicht am Ende des
 /// Erfolgsfalls: sonst wäre Jarvis nach dem ersten Fehler dauerhaft taub.
@@ -39,8 +52,18 @@ class SprachProvider extends ChangeNotifier {
   // Mikrofon dürfen sie eher empfindlich sein; in einer lauten Küche muss
   // _schwelleStimme womöglich höher.
   static const double _schwelleStimme = -32.0;
-  static const Duration _stillePause = Duration(milliseconds: 1200);
-  static const Duration _maxVorlauf = Duration(seconds: 5);
+
+  /// So viele laute Messungen hintereinander gelten als Sprache. Der
+  /// Pegelstrom kommt alle 200 ms, zwei sind also gut 400 ms. Ein einzelner
+  /// Ausschlag -- ein Pling, ein Türklappen -- reicht bewusst nicht.
+  static const int _lauteFuerSprache = 2;
+
+  /// Vor Ablauf dieser Zeit endet keine Aufnahme, egal wie still es ist.
+  /// Nach dem Weckwort überlegt man kurz, und das darf kein Satzende sein.
+  static const Duration _mindestdauer = Duration(milliseconds: 2500);
+
+  static const Duration _stillePause = Duration(milliseconds: 1500);
+  static const Duration _maxVorlauf = Duration(seconds: 6);
   static const Duration _maxGesamt = Duration(seconds: 15);
 
   /// Am Anfang der Aufnahme werden Pegel ignoriert.
@@ -49,7 +72,7 @@ class SprachProvider extends ChangeNotifier {
   /// dem Ton, und wer nach „Hey Jarvis" eine Sekunde überlegt, würde
   /// abgeschnitten, bevor er den Satz beginnt. Dasselbe gilt für das
   /// Nachklingen des Weckworts selbst.
-  static const Duration _blindzeit = Duration(milliseconds: 350);
+  static const Duration _blindzeit = Duration(milliseconds: 600);
 
   /// Aktionen, die per Sprache ohne Rückfrage ausgeführt werden. Alles hier
   /// legt etwas an oder ändert eine Menge — im Zweifel steht ein Posten zu
@@ -85,6 +108,7 @@ class SprachProvider extends ChangeNotifier {
   DateTime? _begonnen;
   DateTime? _letzteStimme;
   bool _hatGesprochen = false;
+  int _lauteHintereinander = 0;
   bool _beendet = false;
 
   /// Gesetzt, sobald der Nutzer abbricht. Die schon laufende Verarbeitung
@@ -94,6 +118,12 @@ class SprachProvider extends ChangeNotifier {
   bool _wakewordAn = false;
   bool _wakewordLaeuft = false;
   String? _wakewordFehler;
+
+  /// Die in den Einstellungen hinterlegte Stadt, fürs Wetter. Wird vom
+  /// Dashboard nachgeführt — der Sprach-Ablauf soll die Einstellungen nicht
+  /// selbst kennen müssen, sonst hinge er an einem zweiten Provider.
+  String? wetterStadt;
+  String? get _wetterStadt => wetterStadt;
 
   /// Ob auf „Jarvis" gelauscht werden soll (Einstellung).
   bool get wakewordAn => _wakewordAn;
@@ -154,6 +184,7 @@ class SprachProvider extends ChangeNotifier {
     _fehler = null;
     _offen.clear();
     _hatGesprochen = false;
+    _lauteHintereinander = 0;
     _beendet = false;
     _abgebrochen = false;
 
@@ -208,25 +239,67 @@ class SprachProvider extends ChangeNotifier {
   void _pegelGesehen(Amplitude amp) {
     if (_beendet || _begonnen == null) return;
     final jetzt = DateTime.now();
-    if (jetzt.difference(_begonnen!) < _blindzeit) return;
+    final seitStart = jetzt.difference(_begonnen!);
 
-    if (amp.current > _schwelleStimme) {
-      _hatGesprochen = true;
-      _letzteStimme = jetzt;
-    }
-
-    if (!_hatGesprochen) {
-      // Es hat nie jemand angefangen zu reden -> nicht endlos mitlaufen.
-      if (jetzt.difference(_begonnen!) > _maxVorlauf) {
-        _beenden(nichtsGehoert: true);
+    if (seitStart >= _blindzeit) {
+      if (amp.current > _schwelleStimme) {
+        _lauteHintereinander++;
+        _letzteStimme = jetzt;
+      } else {
+        _lauteHintereinander = 0;
       }
-      return;
+      // Erst mehrere laute Messungen hintereinander gelten als Sprache.
+      //
+      // Vorher genügte eine einzige, und das war der Fehler: das
+      // Bestätigungs-Pling reichte, um die Stille-Uhr zu starten. Wer danach
+      // kurz überlegte, dessen Aufnahme war vorbei, bevor das erste Wort
+      // gesagt war -- und Whisper bekam nichts als den Ton.
+      if (_lauteHintereinander >= _lauteFuerSprache) _hatGesprochen = true;
     }
 
-    if (jetzt.difference(_letzteStimme!) > _stillePause ||
-        jetzt.difference(_begonnen!) > _maxGesamt) {
-      _beenden();
+    switch (entscheide(
+      seitStart: seitStart,
+      seitLetzterStimme: jetzt.difference(_letzteStimme!),
+      hatGesprochen: _hatGesprochen,
+    )) {
+      case Aufnahmeschritt.weiter:
+        break;
+      case Aufnahmeschritt.nichtsGehoert:
+        _beenden(nichtsGehoert: true);
+      case Aufnahmeschritt.beenden:
+        _beenden();
     }
+  }
+
+  /// Wann eine laufende Aufnahme endet — als reine Rechnung, ohne Mikrofon
+  /// und ohne Uhr.
+  ///
+  /// Bewusst herausgezogen: die Entscheidung steckte vorher mitten im
+  /// Pegelstrom und war damit nur auf einem Gerät zu prüfen. Genau dort saß
+  /// der Fehler, der die Aufnahme nach dem Weckwort zu früh beendete.
+  @visibleForTesting
+  static Aufnahmeschritt entscheide({
+    required Duration seitStart,
+    required Duration seitLetzterStimme,
+    required bool hatGesprochen,
+  }) {
+    if (seitStart < _blindzeit) return Aufnahmeschritt.weiter;
+
+    if (!hatGesprochen) {
+      // Es hat nie jemand angefangen zu reden -> nicht endlos mitlaufen.
+      return seitStart > _maxVorlauf
+          ? Aufnahmeschritt.nichtsGehoert
+          : Aufnahmeschritt.weiter;
+    }
+
+    // Nie vor der Mindestdauer abbrechen. Ein kurzes Wort, dann eine
+    // Atempause — das ist normales Sprechen und kein Satzende.
+    if (seitStart < _mindestdauer) return Aufnahmeschritt.weiter;
+
+    if (seitLetzterStimme > _stillePause || seitStart > _maxGesamt) {
+      return Aufnahmeschritt.beenden;
+    }
+    return Aufnahmeschritt.weiter;
   }
 
   /// Schaltet das Lauschen auf „Jarvis" ein.
@@ -333,6 +406,20 @@ class SprachProvider extends ChangeNotifier {
       // Eine Einleitung war da, die Seite gibt es nicht. Das ist eher ein
       // Verhörer als eine Frage ans Modell — sag es und hör auf.
       await _antworte('Die Seite $ziel kenne ich nicht.');
+      return;
+    }
+
+    // Uhrzeit, Datum, Wetter weiß das Gerät selbst. Der Umweg über das Modell
+    // kostete Sekunden für eine Antwort, die danebensteht — und die Uhrzeit
+    // rät ein Sprachmodell ohnehin nur.
+    final auskunft = SprachAuskunft.erkenne(text);
+    if (auskunft != null) {
+      await _antworte(switch (auskunft) {
+        Auskunftsart.zeit => SprachAuskunft.zeitAntwort(),
+        Auskunftsart.datum => SprachAuskunft.datumAntwort(),
+        Auskunftsart.wetter =>
+          await SprachAuskunft.wetterAntwort(stadt: _wetterStadt),
+      });
       return;
     }
 

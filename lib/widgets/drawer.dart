@@ -29,12 +29,6 @@ class _DrawerWidgetState extends State<DrawerWidget>
       route: AppRoutes.home,
     ),
     NavItem(
-      icon: Icons.calendar_today_outlined,
-      iconActive: Icons.calendar_today_rounded,
-      label: 'Kalender',
-      route: AppRoutes.calendar,
-    ),
-    NavItem(
       icon: Icons.menu_book_outlined,
       iconActive: Icons.menu_book_rounded,
       label: 'Rezepte',
@@ -52,10 +46,13 @@ class _DrawerWidgetState extends State<DrawerWidget>
       label: 'Tasks',
       route: AppRoutes.tasks,
     ),
+    // Heisst „Kalender", die Route bleibt /planner. Den Pfad umzubenennen
+    // haette gespeicherte Kachel-Layouts gebrochen: die verweisen auf
+    // Routenzeichenketten, und die stehen in der Datenbank.
     NavItem(
-      icon: Icons.event_note_outlined,
-      iconActive: Icons.event_note_rounded,
-      label: 'Planner',
+      icon: Icons.calendar_today_outlined,
+      iconActive: Icons.calendar_today_rounded,
+      label: 'Kalender',
       route: AppRoutes.planner,
     ),
     NavItem(
@@ -84,6 +81,14 @@ class _DrawerWidgetState extends State<DrawerWidget>
       iconActive: Icons.savings_rounded,
       label: 'Preise',
       route: AppRoutes.preise,
+    ),
+    // Direkt neben „Preise": ohne Laden gibt es keinen Preis, und wer den
+    // einen sucht, sucht bald den anderen.
+    NavItem(
+      icon: Icons.storefront_outlined,
+      iconActive: Icons.storefront_rounded,
+      label: 'Läden',
+      route: AppRoutes.laeden,
     ),
     // Die alte Einzelliste. Bleibt vorerst erreichbar, weil
     // Vorratsuebernahme und Essensplan noch daran haengen -- verschwindet,

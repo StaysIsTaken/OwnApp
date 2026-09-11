@@ -111,6 +111,12 @@ class _KuechenansichtState extends State<_Kuechenansicht> {
     // vergeudet: der Zuruf lief in ein 403. Dann bleibt die Küchenansicht
     // eine reine Anzeige.
     final darfSprache = Provider.of<PermissionProvider>(context).darfSprache;
+    // Fürs Wetter: der Sprach-Ablauf soll die Einstellungen nicht selbst
+    // kennen müssen, also reicht das Dashboard die Stadt durch. Steht vor dem
+    // Abgleich unten — der kehrt frueh zurueck, wenn sich am Weckwort nichts
+    // geaendert hat, und die Stadt bliebe dann stehen.
+    context.read<SprachProvider>().wetterStadt = settings.weatherCity;
+
     final soll = settings.wakewordAn && darfSprache
         ? 'an:${settings.wakewordSchwelle.toStringAsFixed(2)}'
         : '';

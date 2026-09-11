@@ -11,7 +11,6 @@ library;
 
 /// Menüpunkt (Route) → Recht, das man dafür braucht.
 const Map<String, String> rechtJeRoute = {
-  '/calendar': 'planner:read',
   '/planner': 'planner:read',
   '/planner-types': 'planner:write',
   '/kalender': 'planner:read',
@@ -27,6 +26,7 @@ const Map<String, String> rechtJeRoute = {
   '/storage-locations': 'pantry:write',
   '/shopping-list': 'shopping:read',
   '/einkauf': 'shopping:read',
+  '/laeden': 'shops:read',
   '/preise': 'prices:read',
   '/meal-plan': 'mealplan:read',
   '/notes': 'notes:read',

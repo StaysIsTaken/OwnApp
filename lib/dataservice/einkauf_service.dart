@@ -125,6 +125,21 @@ class EinkaufService {
     }
   }
 
+  /// Was in diesem Laden was kostet — die Gegenrichtung zu [preise].
+  ///
+  /// Dort fragt man „wo ist die Butter billig", hier „was weiss ich ueber
+  /// diesen Laden". Faellt wie [preise] still auf eine leere Liste zurueck.
+  static Future<List<Warenpreis>> preiseImLaden(String shopId) async {
+    try {
+      final r = await ApiClient.dio.get('$_pfad/laeden/$shopId/preise');
+      return (r.data as List<dynamic>)
+          .map((e) => Warenpreis.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   static Future<Warenpreis> preisMerken({
     required String bezeichnung,
     required String shopId,

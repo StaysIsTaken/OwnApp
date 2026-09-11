@@ -42,7 +42,7 @@ class _PlannerTabState extends State<PlannerTab>
     return Scaffold(
       drawer: const DrawerWidget(),
       appBar: AppBar(
-        title: const Text('Planner'),
+        title: const Text('Kalender'),
         elevation: 0,
         actions: [
           IconButton(
