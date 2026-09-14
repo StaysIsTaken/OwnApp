@@ -43,6 +43,28 @@ class PlannerEntry {
   /// im Backend, nicht hier.
   final bool istPrivat;
 
+  /// Ein ganztägiger Termin.
+  ///
+  /// Abgeleitet, nicht gespeichert — das Modell hat kein solches Feld. Die
+  /// Regel ist trotzdem keine Schätzung, sondern genau das, was der
+  /// ICS-Import schreibt: `_event_times()` legt einen Termin ohne Uhrzeit
+  /// als **00:00 bis 23:59** ab (bei mehrtägigen bis 23:59 des letzten
+  /// Tages). Sein eigenes `is_all_day` wirft er danach weg.
+  ///
+  /// So kommen Müllabfuhr, Feiertage und Schulferien herein. Ohne diese
+  /// Unterscheidung füllen sie im Raster die ganze Tagesspalte und drängen
+  /// alles Übrige an den Rand.
+  ///
+  /// Was die Regel NICHT erfasst: einen von Hand angelegten Termin, den
+  /// jemand als ganztägig meint. Dafür bräuchte es ein echtes Feld im
+  /// Backend — hier ginge nur Raten, und ein Termin von 0 bis 23:59, der
+  /// als Block gemeint war, würde falsch einsortiert.
+  bool get istGanztaegig =>
+      scheduledAt.hour == 0 &&
+      scheduledAt.minute == 0 &&
+      endsAt.hour == 23 &&
+      endsAt.minute == 59;
+
   PlannerEntry({
     required this.id,
     required this.userId,

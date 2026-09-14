@@ -160,7 +160,12 @@ class _WeekViewState extends State<WeekView> {
         }
 
         final theme = Theme.of(context);
-        final entries = plannerProvider.getEntriesForWeek(_weekStart);
+        final alle = plannerProvider.getEntriesForWeek(_weekStart);
+        // Ganztaegige gehoeren nicht ins Stundenraster: dort fuellten sie
+        // die komplette Tagesspalte und draengten alles Uebrige an den
+        // Rand. Genau so kommen Muellabfuhr, Feiertage und Ferien herein.
+        final ganztags = alle.where((e) => e.istGanztaegig).toList();
+        final entries = alle.where((e) => !e.istGanztaegig).toList();
         final daysOfWeek = List.generate(
           7,
           (i) => _weekStart.add(Duration(days: i)),
@@ -175,6 +180,11 @@ class _WeekViewState extends State<WeekView> {
           children: [
             _buildNavHeader(theme, weekEnd),
             _buildDayHeaders(theme, daysOfWeek, now),
+            // Ueber dem Raster und ausserhalb des Scrollbereichs: ein
+            // Feiertag soll auch dann zu sehen sein, wenn man beim
+            // Nachmittag steht.
+            if (ganztags.isNotEmpty)
+              _ganztagsStreifen(context, theme, daysOfWeek, ganztags),
             Expanded(
               child: SingleChildScrollView(
                 controller: _scrollController,
@@ -214,6 +224,98 @@ class _WeekViewState extends State<WeekView> {
         );
       },
     );
+  }
+
+  /// Ganztägige Termine über dem Raster.
+  ///
+  /// Anders als die Kachelfassung zeigt dieser **alle** eines Tages, nicht
+  /// nur den ersten. Feiertag und Schulferien fallen regelmäßig zusammen —
+  /// dort verschwand dann einer von beiden, ohne Hinweis.
+  ///
+  /// Die Höhe wächst mit dem vollsten Tag, damit nichts abgeschnitten wird.
+  Widget _ganztagsStreifen(BuildContext context, ThemeData theme,
+      List<DateTime> tage, List<PlannerEntry> ganztags) {
+    const zeilenHoehe = 22.0;
+
+    final jeTag = [
+      for (final tag in tage)
+        ganztags.where((e) => _ueberlappt(e, tag)).toList(),
+    ];
+    final meiste = jeTag.fold<int>(0, (m, l) => l.length > m ? l.length : m);
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: SizedBox(
+        height: meiste * zeilenHoehe + 6,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: _timeColumnWidth,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 5, right: 4),
+                child: Text(
+                  'ganztags',
+                  textAlign: TextAlign.right,
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: theme.hintColor, fontSize: 9),
+                ),
+              ),
+            ),
+            for (var i = 0; i < tage.length; i++)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final e in jeTag[i])
+                      GestureDetector(
+                        onTap: () {
+                          widget.beiAuswahl?.call();
+                          _showEditEntryDialog(context, e);
+                        },
+                        child: Container(
+                          height: zeilenHoehe - 4,
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 1, vertical: 2),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: _getColorFromHex(e.color)
+                                .withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            e.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 10, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Liegt der mehrtägige Termin auf diesem Tag?
+  ///
+  /// Nicht nur der Anfangstag: Schulferien fangen einmal an und dauern zwei
+  /// Wochen. Wer nur `scheduledAt` vergleicht, sieht sie am Montag und
+  /// danach nie wieder.
+  bool _ueberlappt(PlannerEntry e, DateTime tag) {
+    final beginn = DateTime(tag.year, tag.month, tag.day);
+    final ende = beginn.add(const Duration(days: 1));
+    return e.scheduledAt.isBefore(ende) && e.endsAt.isAfter(beginn);
   }
 
   Widget _buildNavHeader(ThemeData theme, DateTime weekEnd) {

@@ -140,6 +140,10 @@ class TileCatalog {
             // einen Blick, welcher Termin aus welchem Kalender kommt.
             color: d.kalenderFarben[e.calendarId] ?? e.color,
             source: e.type,
+            // Ohne das blieb der Ganztags-Streifen der Wochenansicht toter
+            // Code: `allDay` wurde nirgends gesetzt, die Liste war immer
+            // leer, und Feiertage fuellten die ganze Tagesspalte.
+            allDay: e.istGanztaegig,
           ));
         }
         return TileData.schedule(termine,
@@ -174,6 +178,10 @@ class TileCatalog {
             end: e.endsAt,
             color: d.kalenderFarben[e.calendarId] ?? e.color,
             source: e.type,
+            // Ohne das blieb der Ganztags-Streifen der Wochenansicht toter
+            // Code: `allDay` wurde nirgends gesetzt, die Liste war immer
+            // leer, und Feiertage fuellten die ganze Tagesspalte.
+            allDay: e.istGanztaegig,
           ));
         }
         return TileData.schedule(termine,
