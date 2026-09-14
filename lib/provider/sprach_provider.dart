@@ -7,6 +7,7 @@ import 'package:productivity/dataservice/assistant_service.dart';
 import 'package:productivity/dataservice/kalender_filter.dart';
 import 'package:productivity/dataservice/sprach_auskunft.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/bestaetigung.dart';
 import 'package:productivity/dataservice/einkauf_service.dart';
 import 'package:productivity/dataservice/listen_befehle.dart';
 import 'package:productivity/dataservice/timer_befehle.dart';
@@ -448,6 +449,11 @@ class SprachProvider extends ChangeNotifier {
   }
 
   Future<void> _verarbeite(String text) async {
+    // Vor allem anderen: wartet etwas auf Bestätigung, ist „ja" die
+    // Antwort darauf und kein Zuruf. Nur dann wird überhaupt gefragt —
+    // sonst schluckte ein beiläufiges „ja klar" den nächsten Befehl.
+    if (_offen.isNotEmpty && await _bestaetigungAbfangen(text)) return;
+
     // Die Kalenderauswahl steht vor allem anderen, weil sie mit demselben
     // Wort anfängt wie ein Seitenwechsel: „zeige nur den Arbeitskalender an"
     // wäre sonst die Suche nach einer Seite dieses Namens.
@@ -538,22 +544,72 @@ class SprachProvider extends ChangeNotifier {
         ergebnis.reply.trim(),
       if (_offen.isNotEmpty)
         _offen.length == 1
-            ? 'Eine Sache wartet auf deine Bestätigung.'
-            : '${_offen.length} Sachen warten auf deine Bestätigung.',
+            ? 'Soll ich das machen?'
+            : 'Soll ich diese ${_offen.length} Sachen machen?',
       ?_fehler,
     ];
 
     // „In welchen Kalender soll ich es eintragen?" — darauf will der Nutzer
     // sofort antworten können, nicht erst wieder „Hey Jarvis" sagen müssen.
-    // Nur wenn wirklich nichts passiert ist: eine offene Bestätigung wartet
-    // auf einen Tipp, nicht auf ein Wort.
+    //
+    // Und seit es „ja"/„nein" gibt, gilt dasselbe für eine offene
+    // Bestätigung: sie wartet nicht mehr auf einen Tipp, sondern auf ein
+    // Wort — also muss das Mikrofon offen bleiben.
     await _antworte(
       teile.join(' '),
-      weiterhoeren: istRueckfrage(
-        ergebnis.reply,
-        etwasGetan: etwasGetan || _offen.isNotEmpty,
-      ),
+      weiterhoeren: _offen.isNotEmpty ||
+          istRueckfrage(ergebnis.reply, etwasGetan: etwasGetan),
     );
+  }
+
+  /// Fängt „ja" oder „nein" auf eine offene Rückfrage ab.
+  ///
+  /// Liefert true, wenn der Satz eine Antwort war — dann ist der Ablauf
+  /// hier zu Ende. War er keine, geht es weiter: wer statt zu antworten
+  /// etwas Neues zuruft, soll nicht aufgehalten werden, und das Offene
+  /// bleibt offen.
+  Future<bool> _bestaetigungAbfangen(String text) async {
+    final antwort = Bestaetigung.erkenne(text);
+    if (antwort == null) return false;
+
+    // Kopie: bestaetige() räumt aus _offen, und darüber wird gerade
+    // gelaufen.
+    final wartend = List.of(_offen);
+
+    if (antwort == Zustimmung.nein) {
+      for (final a in wartend) {
+        verwerfe(a);
+      }
+      await _antworte(wartend.length == 1
+          ? 'Gut, gelassen.'
+          : 'Gut, alle ${wartend.length} gelassen.');
+      return true;
+    }
+
+    final erledigt = <String>[];
+    final gescheitert = <String>[];
+    for (final a in wartend) {
+      try {
+        await AssistantService.execute(a.kind, a.params);
+        _offen.remove(a);
+        erledigt.add(a.label);
+      } catch (e) {
+        gescheitert.add(a.label);
+      }
+    }
+    if (erledigt.isNotEmpty) _seiten.neuLaden();
+    notifyListeners();
+
+    // Was schiefging, wird genannt. Ein „erledigt", das nur für die Hälfte
+    // gilt, ist schlimmer als ein ehrliches Teilergebnis.
+    await _antworte([
+      if (erledigt.isNotEmpty) erledigt.join('. '),
+      if (gescheitert.isNotEmpty)
+        gescheitert.length == 1
+            ? 'Nicht geklappt: ${gescheitert.first}.'
+            : '${gescheitert.length} haben nicht geklappt.',
+    ].join(' '));
+    return true;
   }
 
   /// Führt den Timer-Befehl aus und liefert, was vorgelesen wird.
