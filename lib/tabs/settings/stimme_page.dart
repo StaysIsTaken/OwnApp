@@ -79,6 +79,11 @@ class _InhaltState extends State<_Inhalt> {
   /// beginnt.
   String? _letzterFehler;
 
+  /// Und das Gegenstück: was zuletzt geklappt hat. Aus demselben Grund
+  /// sichtbar — wer während der vier Sekunden wegschaut, bekommt sonst
+  /// nur mit, dass sich etwas gedreht hat.
+  String? _letzterErfolg;
+
   /// Sekunden, die noch aufgenommen werden. 0 heißt: läuft gerade nicht.
   int _rest = 0;
   Timer? _uhr;
@@ -194,6 +199,7 @@ class _InhaltState extends State<_Inhalt> {
       _rest = 0;
       _protokoll.clear();
       _letzterFehler = null;
+      _letzterErfolg = null;
     });
 
     _waechter?.cancel();
@@ -301,7 +307,9 @@ class _InhaltState extends State<_Inhalt> {
       if (!mounted) return;
       setState(() => _satzNummer = (_satzNummer + 1) % _saetze.length);
       await _laden();
-      _scheitert('Probe gespeichert — ${profil.length} Werte.');
+      setState(() =>
+          _letzterErfolg = 'Probe gespeichert — ${profil.length} Werte.');
+      _melde('Probe gespeichert.');
     } on TimeoutException {
       _scheitert('Der Server hat nicht geantwortet. Nochmal versuchen?');
     } catch (e) {
@@ -496,6 +504,31 @@ class _InhaltState extends State<_Inhalt> {
                 ),
               ),
             ),
+
+            // ── Wenn es geklappt hat ────────────────────────────────
+            if (_letzterErfolg != null) ...[
+              const SizedBox(height: 16),
+              Card(
+                color: colors.primaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle_outline,
+                          color: colors.onPrimaryContainer),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _letzterErfolg!,
+                          style: text.bodyMedium
+                              ?.copyWith(color: colors.onPrimaryContainer),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
 
             // ── Wenn etwas schiefging ───────────────────────────────
             // Steht hier und nicht nur als Schnipsel unten: bei einem
