@@ -118,7 +118,10 @@ class _InhaltState extends State<_Inhalt> {
 
     try {
       if (!StimmErkennung.bereit) {
-        final ok = await StimmErkennung.starten();
+        // Nur das Modell: zum Einlernen der eigenen Stimme braucht es
+        // die Profile der anderen nicht -- und die gibt es ohnehin nur
+        // gegen `tablet:use`.
+        final ok = await StimmErkennung.modellLaden();
         if (!ok) {
           _melde(StimmErkennung.fehler ?? 'Die Stimmerkennung läuft nicht.');
           return;

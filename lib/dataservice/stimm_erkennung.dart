@@ -92,16 +92,22 @@ class StimmErkennung {
     return ziel.path;
   }
 
-  /// Lädt das Modell und holt die Stimmprofile vom Server.
+  /// Lädt nur das Modell — genug, um die **eigene** Stimme einzulernen.
   ///
-  /// Gibt false zurück, wenn es nicht geht — abgeschaltet, kein Recht,
-  /// kein Modell. Das ist **kein Fehler im Ablauf**: ohne Stimmerkennung
-  /// fragt Jarvis eben „Wer bist du?", und das funktioniert.
-  static Future<bool> starten() async {
+  /// Bewusst getrennt von [starten]: zum Rechnen eines Stimmprofils
+  /// braucht es das Modell und sonst nichts. Die Profile der anderen
+  /// braucht nur, wer vergleichen will, und die gibt es ausschließlich
+  /// gegen `tablet:use` — das auf einem Telefon niemand hat. Hingen beide
+  /// an einem Aufruf, könnte man seine Stimme nur am Küchentablet
+  /// einlernen, und das wäre genau verkehrt herum.
+  ///
+  /// Gibt false zurück, wenn es nicht geht — abgeschaltet, kein Modell,
+  /// Browser. Das ist **kein Fehler im Ablauf**: ohne Stimmerkennung fragt
+  /// Jarvis eben „Wer bist du?", und das funktioniert.
+  static Future<bool> modellLaden() async {
     if (kIsWeb) {
-      // Die Tablet-Ansicht ist der Ort dafür, und die läuft nicht im
-      // Browser. Ein 28-MB-Modell über das Netz zu laden wäre ohnehin
-      // keine gute Idee.
+      // Ein 28-MB-Modell über das Netz zu laden wäre keine gute Idee, und
+      // die Tablet-Ansicht läuft ohnehin nicht im Browser.
       _fehler = 'Im Browser gibt es keine Stimmerkennung.';
       return false;
     }
@@ -113,6 +119,7 @@ class StimmErkennung {
         await beenden();
         return false;
       }
+      _schwelle = einstellungen.schwelle;
 
       if (_rechner == null) {
         sherpa.initBindings();
@@ -123,9 +130,6 @@ class StimmErkennung {
           ),
         );
       }
-
-      _schwelle = einstellungen.schwelle;
-      await profileNeuLaden();
       _fehler = null;
       return true;
     } catch (e) {
@@ -134,19 +138,44 @@ class StimmErkennung {
     }
   }
 
+  /// Lädt das Modell **und** die Stimmprofile — zum Erkennen.
+  ///
+  /// Verlangt `tablet:use`, denn nur damit gibt der Server die Vektoren
+  /// heraus. Auf einem Telefon schlägt das fehl, und das ist richtig so:
+  /// dort wird eingelernt, nicht erkannt.
+  static Future<bool> starten() async {
+    if (!await modellLaden()) return false;
+    await profileNeuLaden();
+    return true;
+  }
+
   /// Holt die Profile neu — nach dem Einlernen einer Stimme.
+  ///
+  /// Still, wenn der Server sie nicht herausgibt: auf einem Telefon ohne
+  /// `tablet:use` ist das der Normalfall und kein Grund für eine Meldung.
   static Future<void> profileNeuLaden() async {
     final rechner = _rechner;
     if (rechner == null) return;
 
-    // Ein frisches Verzeichnis statt eines gepflegten: gelöschte Proben
-    // müssten sonst einzeln herausgenommen werden, und eine übersehene
-    // hieße, dass jemand erkannt wird, der sich gerade austragen wollte.
+    final List<Stimme> leute;
+    try {
+      leute = await StimmService.stimmen();
+    } catch (_) {
+      // Kein `tablet:use` — dann wird hier nicht verglichen. Die
+      // vorhandenen Profile bleiben, wie sie sind.
+      return;
+    }
+
+    // Erst hier tauschen, nach dem geglückten Abruf: sonst erkennt ein
+    // Netzaussetzer plötzlich niemanden mehr. Und ein frisches
+    // Verzeichnis statt eines gepflegten — gelöschte Proben müssten sonst
+    // einzeln herausgenommen werden, und eine übersehene hieße, dass
+    // jemand erkannt wird, der sich gerade austragen wollte.
     _verzeichnis?.free();
     final verzeichnis = sherpa.SpeakerEmbeddingManager(rechner.dim);
     _bekannte = 0;
 
-    for (final person in await StimmService.stimmen()) {
+    for (final person in leute) {
       final passend = person.embeddings
           .where((e) => e.length == rechner.dim)
           .map(Float32List.fromList)
