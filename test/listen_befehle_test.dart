@@ -92,30 +92,32 @@ void main() {
 
   group('Das Kurzgedaechtnis', () {
     test('merkt und loest auf', () {
-      final g = Listengedaechtnis()..merken(['Wocheneinkauf', 'Baumarkt']);
+      final g = Auswahlgedaechtnis()..merken(['Wocheneinkauf', 'Baumarkt']);
       expect(g.aufloesen('die zweite'), 'Baumarkt');
     });
 
     test('ohne Gemerktes loest es nichts auf', () {
       // Sonst deutete jedes „die zweite" irgendetwas.
-      expect(Listengedaechtnis().aufloesen('die zweite'), isNull);
+      expect(Auswahlgedaechtnis().aufloesen('die zweite'), isNull);
     });
 
     test('vergessen raeumt es weg', () {
-      final g = Listengedaechtnis()..merken(['A', 'B']);
+      final g = Auswahlgedaechtnis()..merken(['A', 'B']);
       g.vergessen();
       expect(g.offen, isEmpty);
       expect(g.aufloesen('die erste'), isNull);
     });
 
-    test('die Gueltigkeit ist kurz', () {
-      // Wer zehn Minuten spaeter „die zweite" sagt, meint etwas anderes.
-      expect(Listengedaechtnis.gueltig, const Duration(minutes: 2));
+    test('die Gueltigkeit reicht fuer einen Gang durch die Kueche', () {
+      // Zwei Minuten waren zu knapp: man ruft quer durch den Raum, geht
+      // etwas holen und kommt zurueck -- und die Antwort kam in eine
+      // Auswahl, die es nicht mehr gab.
+      expect(Auswahlgedaechtnis.gueltig, const Duration(minutes: 10));
     });
 
     test('die Reihenfolge bleibt, wie vorgelesen wurde', () {
       // Die Ordnungszahl bezieht sich genau darauf.
-      final g = Listengedaechtnis()..merken(['Zuerst', 'Danach']);
+      final g = Auswahlgedaechtnis()..merken(['Zuerst', 'Danach']);
       expect(g.offen, ['Zuerst', 'Danach']);
       expect(g.aufloesen('die erste'), 'Zuerst');
     });

@@ -93,12 +93,22 @@ class ListenBefehle {
 /// Name. „Die zweite" wäre für das Gerät bis dahin ein Satz wie jeder
 /// andere gewesen.
 ///
-/// Bewusst kurzlebig. Eine Auswahl, die eine Viertelstunde später noch
-/// gilt, beantwortet irgendwann die falsche Frage — wer nach zehn Minuten
-/// „die zweite" sagt, meint etwas anderes.
-class Listengedaechtnis {
+/// **Nicht nur für Listen.** Der Name ist Geschichte — es merkt sich eine
+/// beliebige Auswahl, die die App angeboten hat: Zettel, Kalender, Läden,
+/// Aufgaben. Es kennt keinen davon, nur Namen in der Reihenfolge, in der
+/// vorgelesen wurde.
+///
+/// Es gilt nur für Rückfragen, die **die App selbst** stellt. Fragt das
+/// Sprachmodell (weil ein Werkzeug mehrere Treffer meldet), steht die
+/// Auswahl in seiner eigenen Antwort und damit in seinem Verlauf — dort
+/// löst es „die zweite" selbst auf.
+class Auswahlgedaechtnis {
   /// Wie lange eine angebotene Auswahl gilt.
-  static const Duration gueltig = Duration(minutes: 2);
+  ///
+  /// Zehn Minuten. Die ersten zwei waren zu knapp: am Küchentablet ruft
+  /// man quer durch den Raum, geht etwas holen und kommt zurück — und die
+  /// Antwort kam dann in eine Auswahl, die es nicht mehr gab.
+  static const Duration gueltig = Duration(minutes: 10);
 
   List<String> _namen = const [];
   DateTime? _seit;
