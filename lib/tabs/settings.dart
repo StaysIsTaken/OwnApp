@@ -969,16 +969,29 @@ class _SettingsBodyState extends State<_SettingsBody> {
               ],
             ),
           ),
-          // Die eigene Stimme -- eigene Seite, weil dort aufgenommen wird
-          // und das Mikrofon nicht nebenbei zu haben ist.
+        ],
+
+        // ── Stimme ──
+        // BEWUSST NICHT im Küchenassistent-Block: der verlangt `ai:use`
+        // und `chat:use`, und beides braucht hier niemand. Am Küchentablet
+        // läuft jeder Zuruf unter dem TABLET-Konto -- wer davorsteht und
+        // "was steht bei mir an" fragt, braucht selbst keine
+        // Sprachrechte. Seine Stimme muss trotzdem eingelernt sein, sonst
+        // weiß das Tablet nicht, wessen Kalender gemeint ist.
+        //
+        // Nicht im Web: dort wird in Opus aufgenommen, und daraus lässt
+        // sich kein Stimmprofil rechnen.
+        if (!kIsWeb) ...[
+          const SizedBox(height: 16),
+          _SectionTitle('Stimme'),
           Card(
             child: ListTile(
               leading: Icon(Icons.record_voice_over_outlined,
                   color: colors.primary),
               title: const Text('Deine Stimme'),
               subtitle: const Text(
-                'Damit Jarvis „was steht bei mir an" beantworten kann, ohne '
-                'dass du deinen Namen sagst.',
+                'Damit das Küchentablet „was steht bei mir an" beantworten '
+                'kann, ohne dass du deinen Namen sagst.',
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.pushNamed(context, AppRoutes.stimme),
