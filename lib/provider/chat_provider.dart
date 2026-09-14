@@ -106,11 +106,13 @@ class ChatProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Führt eine bestätigte Aktion aus; liefert 'affects' (z.B. 'planner').
   Future<String?> confirm(ChatPendingItem item) async {
-    final affects =
+    // Der Chat braucht nur den Bereich; die Ruecknahme nutzt die
+    // Sprachbedienung.
+    final ergebnis =
         await AssistantService.execute(item.action.kind, item.action.params);
     item.status = 'done';
     notifyListeners();
-    return affects;
+    return ergebnis.affects;
   }
 
   void dismiss(ChatPendingItem item) {
