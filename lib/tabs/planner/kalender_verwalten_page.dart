@@ -8,6 +8,9 @@ import 'package:productivity/dataservice/calendar_service.dart';
 import 'package:productivity/dataclasses/planner_entry_type.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/main.dart';
+import 'package:productivity/provider/user_provider.dart';
+import 'package:productivity/tabs/planner/widgets/kalender_freigabe_dialog.dart';
+import 'package:provider/provider.dart';
 import 'package:productivity/widgets/color_picker_dialog.dart';
 
 /// Kalender anlegen, ändern, abholen, löschen.
@@ -22,6 +25,10 @@ import 'package:productivity/widgets/color_picker_dialog.dart';
 /// * **Abonniert** — eine ICS-Adresse, die regelmäßig geholt wird.
 ///   Müllabfuhr, Feiertage, Schulferien. Die Adresse trägt der Nutzer ein;
 ///   eine fest eingebaute Liste wäre nach dem ersten Umzug falsch.
+///
+/// Hier wird auch **freigegeben**: ohne Freigabe sieht niemand einen
+/// fremden Kalender. Fremde Kalender, die mir jemand freigegeben hat,
+/// stehen in derselben Liste — nur zu lesen, erkennbar am Schloss.
 class KalenderVerwaltenPage extends BasePage {
   const KalenderVerwaltenPage({super.key})
       : super(title: 'Kalender verwalten');
@@ -48,9 +55,14 @@ class _InhaltState extends State<_Inhalt> {
   /// entscheidet, was man dagegen tun kann.
   bool _verboten = false;
 
+  /// Die eigene Kennung – daran hängt, was ein Kalender hier darf: ändern,
+  /// freigeben und löschen nur der Besitzer, alles andere ist nur zu lesen.
+  String? _meineId;
+
   @override
   void initState() {
     super.initState();
+    _meineId = context.read<UserProvider>().user?.id;
     _laden();
   }
 
@@ -118,6 +130,16 @@ class _InhaltState extends State<_Inhalt> {
     if (ergebnis == true) await _laden();
   }
 
+  Future<void> _freigeben(Kalender k) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => KalenderFreigabeDialog(kalender: k),
+    );
+    // Die Liste selbst aendert sich dadurch nicht, aber der Untertitel
+    // nennt die Zahl der Eingeladenen.
+    await _laden();
+  }
+
   Future<void> _loeschen(Kalender k) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -160,10 +182,10 @@ class _InhaltState extends State<_Inhalt> {
           children: [
             SwitchListTile(
               value: _alle,
-              title: const Text('Auch die Kalender der anderen'),
+              title: const Text('Die Kalender des ganzen Haushalts'),
               subtitle: const Text(
-                'Verlangt das Recht „planner:read_all". Ändern darfst du '
-                'weiterhin nur die eigenen.',
+                'Für Admin und Küchen-Tablet. Ohne den Schalter siehst du '
+                'deine eigenen und die, die dir jemand freigegeben hat.',
               ),
               onChanged: (v) {
                 setState(() => _alle = v);
@@ -176,7 +198,9 @@ class _InhaltState extends State<_Inhalt> {
                 padding: EdgeInsets.all(40),
                 child: Text(
                   'Noch kein Kalender. Unten rechts einen anlegen —\n'
-                  'zum Beispiel einen für die Müllabfuhr.',
+                  'zum Beispiel einen für die Müllabfuhr.\n\n'
+                  'Fremde Kalender erscheinen hier erst, wenn ihr Besitzer '
+                  'sie dir freigibt.',
                   textAlign: TextAlign.center,
                 ),
               )
@@ -196,6 +220,7 @@ class _InhaltState extends State<_Inhalt> {
   Widget _zeile(Kalender k) {
     final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
+    final meiner = k.ownerId == _meineId;
 
     return Card(
       child: ListTile(
@@ -205,30 +230,46 @@ class _InhaltState extends State<_Inhalt> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (k.istAbonniert)
-              IconButton(
-                icon: const Icon(Icons.sync_rounded),
-                tooltip: 'Jetzt holen',
-                onPressed: () => _abholen(k),
+            // Einen fremden Kalender darf man lesen und sonst nichts. Das
+            // Schloss sagt das, bevor jemand einen Knopf sucht, den es
+            // nicht gibt.
+            if (!meiner)
+              Tooltip(
+                message: 'Dir freigegeben — nur zu lesen',
+                child: Icon(Icons.lock_outline,
+                    size: 20, color: colors.onSurfaceVariant),
               ),
-            IconButton(
-              icon: const Icon(Icons.file_upload_outlined),
-              tooltip: 'Termine aus einer .ics-Datei einlesen',
-              onPressed: () => _importieren(k),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: 'Ändern',
-              onPressed: () => _bearbeiten(vorhanden: k),
-            ),
-            // Der Standardkalender lässt sich nicht löschen – jeder braucht
-            // einen, in dem Termine ohne eigene Angabe landen.
-            if (!k.istStandard)
+            if (meiner) ...[
+              if (k.istAbonniert)
+                IconButton(
+                  icon: const Icon(Icons.sync_rounded),
+                  tooltip: 'Jetzt holen',
+                  onPressed: () => _abholen(k),
+                ),
               IconButton(
-                icon: Icon(Icons.delete_outline, color: colors.error),
-                tooltip: 'Löschen',
-                onPressed: () => _loeschen(k),
+                icon: const Icon(Icons.file_upload_outlined),
+                tooltip: 'Termine aus einer .ics-Datei einlesen',
+                onPressed: () => _importieren(k),
               ),
+              IconButton(
+                icon: const Icon(Icons.person_add_alt_1_outlined),
+                tooltip: 'Freigeben',
+                onPressed: () => _freigeben(k),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Ändern',
+                onPressed: () => _bearbeiten(vorhanden: k),
+              ),
+              // Der Standardkalender lässt sich nicht löschen – jeder braucht
+              // einen, in dem Termine ohne eigene Angabe landen.
+              if (!k.istStandard)
+                IconButton(
+                  icon: Icon(Icons.delete_outline, color: colors.error),
+                  tooltip: 'Löschen',
+                  onPressed: () => _loeschen(k),
+                ),
+            ],
           ],
         ),
       ),
@@ -237,7 +278,9 @@ class _InhaltState extends State<_Inhalt> {
 
   String _untertitel(Kalender k) {
     final teile = <String>[
-      if (_alle) k.ownerName,
+      // Bei einem fremden Kalender ist der Besitzer die wichtigste Angabe –
+      // „Privat" gibt es zweimal im Haushalt.
+      if (_alle || k.ownerId != _meineId) k.ownerName,
       if (k.istAbonniert)
         'abonniert${k.zuletztGeholt == null ? "" : ", zuletzt "
             "${k.zuletztGeholt!.day}.${k.zuletztGeholt!.month}."}'
