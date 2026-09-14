@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/preisvergleich.dart';
 import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/dataservice/einkauf_service.dart';
 
@@ -35,6 +36,7 @@ class _EinkaufslistePageState extends State<EinkaufslistePage> {
   /// Ob Abgehaktes mitgezeigt wird. Standardmäßig nicht — eine Liste, auf
   /// der alles stehenbleibt, wird beim Einkaufen unlesbar.
   bool _zeigeErledigte = false;
+  bool _rechnet = false;
 
   final _neu = TextEditingController();
   final _neuFokus = FocusNode();
@@ -206,6 +208,43 @@ class _EinkaufslistePageState extends State<EinkaufslistePage> {
     }
   }
 
+  /// „Dieser Zettel kostet bei Aldi 34 €, bei Rewe 39 €."
+  ///
+  /// Die Preise holt es Posten für Posten aus dem Gedächtnis — das hängt
+  /// an der Bezeichnung, nicht am Listeneintrag, und weiß deshalb auch
+  /// etwas über Waren, die zum ersten Mal auf diesem Zettel stehen.
+  Future<void> _preisvergleich() async {
+    final offen = _positionen.where((p) => !p.erledigt).toList();
+    if (offen.isEmpty) {
+      _melde('Nichts Offenes zu rechnen.');
+      return;
+    }
+
+    setState(() => _rechnet = true);
+    final preise = <String, List<Warenpreis>>{};
+    try {
+      // Je Bezeichnung einmal: zwei Zeilen „Milch" sollen nicht zwei
+      // Abfragen auslösen.
+      for (final name in {for (final p in offen) p.name.trim().toLowerCase()}) {
+        preise[name] = await EinkaufService.preise(name);
+      }
+    } finally {
+      if (mounted) setState(() => _rechnet = false);
+    }
+    if (!mounted) return;
+
+    final vergleich =
+        Preisvergleich.rechne(positionen: offen, preise: preise);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => _Vergleichsblatt(
+        liste: widget.liste.name,
+        vergleich: vergleich,
+      ),
+    );
+  }
+
   void _melde(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -233,6 +272,15 @@ class _EinkaufslistePageState extends State<EinkaufslistePage> {
               onPressed: () =>
                   setState(() => _zeigeErledigte = !_zeigeErledigte),
             ),
+          IconButton(
+            icon: _rechnet
+                ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.euro_outlined),
+            tooltip: 'Was kostet der Zettel wo?',
+            onPressed: _rechnet ? null : _preisvergleich,
+          ),
           // Vor dem Wegräumen: wer erst räumt, kann nicht mehr buchen.
           if (erledigt.isNotEmpty)
             IconButton(
@@ -467,6 +515,139 @@ class _EinkaufslistePageState extends State<EinkaufslistePage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+/// Der Preisvergleich als Blatt von unten.
+///
+/// Zeigt nicht nur die Summen, sondern **worauf sie stehen**. Eine Zahl
+/// ohne ihre Grundlage wäre hier gefährlich: wer „Aldi 12,40 €" liest und
+/// nicht dazu, dass das nur neun von fünfzehn Posten sind, plant mit einer
+/// Zahl, die es nicht gibt.
+class _Vergleichsblatt extends StatelessWidget {
+  final String liste;
+  final Preisvergleich vergleich;
+
+  const _Vergleichsblatt({required this.liste, required this.vergleich});
+
+  String _euro(double betrag) => '${betrag.toStringAsFixed(2)} €'
+      .replaceFirst('.', ',');
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('„$liste" kostet', style: text.titleLarge),
+          const SizedBox(height: 4),
+          Text(
+            vergleich.leer
+                ? 'Dazu ist noch kein Preis gemerkt.'
+                : 'Gerechnet auf ${vergleich.verglichen} von '
+                    '${vergleich.gesamt} offenen Posten.',
+            style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+
+          for (var i = 0; i < vergleich.laeden.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    i == 0 ? Icons.savings_outlined : Icons.storefront_outlined,
+                    size: 20,
+                    color: i == 0 ? colors.primary : colors.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      vergleich.laeden[i].laden,
+                      style: i == 0
+                          ? text.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)
+                          : text.titleMedium,
+                    ),
+                  ),
+                  Text(
+                    _euro(vergleich.laeden[i].summe),
+                    style: (i == 0
+                            ? text.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colors.primary)
+                            : text.titleMedium)
+                        ?.copyWith(
+                            fontFeatures: const [FontFeature.tabularFigures()]),
+                  ),
+                ],
+              ),
+            ),
+
+          if (vergleich.ersparnis > 0.005) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${_euro(vergleich.ersparnis)} Unterschied.',
+              style: text.bodyMedium?.copyWith(color: colors.primary),
+            ),
+          ],
+
+          // Was nicht in die Rechnung einging, steht darunter — still
+          // weglassen hiesse, eine Zahl größer aussehen zu lassen, als sie
+          // gedeckt ist.
+          if (vergleich.nichtUeberall.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _Hinweis(
+              symbol: Icons.compare_arrows_rounded,
+              text: 'Nicht überall bekannt, deshalb draußen: '
+                  '${vergleich.nichtUeberall.join(", ")}',
+            ),
+          ],
+          if (vergleich.ohnePreis.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _Hinweis(
+              symbol: Icons.help_outline_rounded,
+              text: 'Noch kein Preis gemerkt: '
+                  '${vergleich.ohnePreis.join(", ")}',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Hinweis extends StatelessWidget {
+  final IconData symbol;
+  final String text;
+
+  const _Hinweis({required this.symbol, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(symbol, size: 16, color: colors.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ),
+      ],
     );
   }
 }
