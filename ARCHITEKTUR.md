@@ -227,6 +227,48 @@ dem Telefon, nicht dieselbe mit einem Häkchen mehr.
 
 ---
 
+## 2b. Zwei Wochenansichten, ein gemeinsamer Unterbau
+
+Es gibt sie zweimal, und das bleibt so:
+
+| | `tile_week_view.dart` (Kachel) | `views/week_view.dart` (Planner) |
+|---|---|---|
+| Stundenfenster | aus den Terminen abgeleitet, 0–24 nur bei viel Platz | immer 0–24 |
+| Stundenhöhe | passt sich dem Platz an | fest, 64 px |
+| Termine platzieren | absolut in einem `Stack` | je Tag eine Spalte, Überlappung in Nebenspalten |
+| Bedienung | zeigt nur | ziehen, antippen, Dialoge |
+
+**Warum nicht eins daraus?** Ein Widget, das beides könnte, müsste
+Stundenfenster, Stundenhöhe, zwei Platzierungsverfahren und die
+Bedienbarkeit als Schalter tragen — und wäre schwerer zu lesen als die
+zwei Dateien zusammen. Die Kachel hat ihre Rechnung nicht aus Versehen:
+in einer Kachel verschenkt ein leerer Vormittag die halbe Fläche.
+
+Gemeinsam ist deshalb nur, was **wirklich** dasselbe ist —
+`widgets/kalender/wochenraster_teile.dart`:
+
+* `zielStunde` / `startVersatz` — wo die Ansicht aufgeht. `abStunde`
+  trägt das Stundenfenster der Kachel mit.
+* `Ganztagsstreifen` + `Ganztagseintrag` — der Streifen über dem Raster.
+
+Die Kachel hat durch die Auslagerung zwei Fehler verloren, die sie vorher
+allein hatte: sie zeigte nur den **ersten** Ganztagstermin eines Tages
+(Feiertag *und* Schulferien fallen regelmäßig zusammen) und mehrtägige
+nur am **Anfangstag** (Ferien waren am Montag zu sehen und danach nie
+wieder).
+
+### Ganztägig ist abgeleitet, nicht gespeichert
+
+`PlannerEntry.istGanztaegig` prüft **00:00 bis 23:59** — genau die Form,
+die der ICS-Import schreibt (`_event_times`, das sein eigenes
+`is_all_day` danach wegwirft). So kommen Müllabfuhr, Feiertage und
+Schulferien herein.
+
+Was die Regel nicht erfasst: einen von Hand als ganztägig *gemeinten*
+Termin. Dafür bräuchte es ein echtes Feld im Backend.
+
+---
+
 ## 3. Die Sprachsteuerung hat eine Reihenfolge, und die ist Absicht
 
 `SprachProvider._verarbeite()` arbeitet von oben nach unten. Jede Stufe,

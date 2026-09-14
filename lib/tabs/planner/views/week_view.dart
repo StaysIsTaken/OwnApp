@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
+import 'package:productivity/widgets/kalender/wochenraster_teile.dart';
 import 'package:productivity/widgets/platform_draggable.dart';
 import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
 
@@ -25,22 +26,6 @@ class WeekView extends StatefulWidget {
 
   @override
   State<WeekView> createState() => _WeekViewState();
-}
-
-/// Welche Stunde beim Öffnen oben stehen soll.
-///
-/// Eigene Funktion, damit sie sich prüfen lässt: das Springen selbst
-/// braucht einen Scroll-Controller mit echter Ausdehnung, die Entscheidung
-/// dahinter ist reine Rechnung.
-///
-/// Zeigt die Ansicht eine andere Woche, sagt „jetzt" nichts über sie aus —
-/// dann lieber beim Vormittag anfangen als bei Mitternacht. Mitternacht
-/// wäre die schlechtere Antwort: man sähe sechs leere Stunden und müsste
-/// erst scrollen.
-double zielStunde({required DateTime jetzt, required DateTime wochenStart}) {
-  final ende = wochenStart.add(const Duration(days: 7));
-  final inDieserWoche = !jetzt.isBefore(wochenStart) && jetzt.isBefore(ende);
-  return inDieserWoche ? jetzt.hour + jetzt.minute / 60.0 : 8.0;
 }
 
 class _WeekViewState extends State<WeekView> {
@@ -66,10 +51,11 @@ class _WeekViewState extends State<WeekView> {
   ///
   /// Eine Stunde Vorlauf, damit auch der eben vergangene Termin noch zu
   /// sehen ist; sonst klebt „jetzt" am oberen Rand.
-  double _startVersatz() =>
-      ((zielStunde(jetzt: DateTime.now(), wochenStart: _weekStart) - 1) *
-              _hourHeight)
-          .clamp(0.0, double.infinity);
+  double _startVersatz() => startVersatz(
+        jetzt: DateTime.now(),
+        wochenStart: _weekStart,
+        stundenHoehe: _hourHeight,
+      );
 
   @override
   void initState() {
@@ -183,8 +169,23 @@ class _WeekViewState extends State<WeekView> {
             // Ueber dem Raster und ausserhalb des Scrollbereichs: ein
             // Feiertag soll auch dann zu sehen sein, wenn man beim
             // Nachmittag steht.
-            if (ganztags.isNotEmpty)
-              _ganztagsStreifen(context, theme, daysOfWeek, ganztags),
+            Ganztagsstreifen(
+              tage: daysOfWeek,
+              zeitBreite: _timeColumnWidth,
+              eintraege: [
+                for (final e in ganztags)
+                  Ganztagseintrag(
+                    titel: e.title,
+                    von: e.scheduledAt,
+                    bis: e.endsAt,
+                    farbe: _getColorFromHex(e.color),
+                    beiTipp: () {
+                      widget.beiAuswahl?.call();
+                      _showEditEntryDialog(context, e);
+                    },
+                  ),
+              ],
+            ),
             Expanded(
               child: SingleChildScrollView(
                 controller: _scrollController,
@@ -224,98 +225,6 @@ class _WeekViewState extends State<WeekView> {
         );
       },
     );
-  }
-
-  /// Ganztägige Termine über dem Raster.
-  ///
-  /// Anders als die Kachelfassung zeigt dieser **alle** eines Tages, nicht
-  /// nur den ersten. Feiertag und Schulferien fallen regelmäßig zusammen —
-  /// dort verschwand dann einer von beiden, ohne Hinweis.
-  ///
-  /// Die Höhe wächst mit dem vollsten Tag, damit nichts abgeschnitten wird.
-  Widget _ganztagsStreifen(BuildContext context, ThemeData theme,
-      List<DateTime> tage, List<PlannerEntry> ganztags) {
-    const zeilenHoehe = 22.0;
-
-    final jeTag = [
-      for (final tag in tage)
-        ganztags.where((e) => _ueberlappt(e, tag)).toList(),
-    ];
-    final meiste = jeTag.fold<int>(0, (m, l) => l.length > m ? l.length : m);
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: theme.dividerColor.withValues(alpha: 0.5)),
-        ),
-      ),
-      child: SizedBox(
-        height: meiste * zeilenHoehe + 6,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: _timeColumnWidth,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 5, right: 4),
-                child: Text(
-                  'ganztags',
-                  textAlign: TextAlign.right,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: theme.hintColor, fontSize: 9),
-                ),
-              ),
-            ),
-            for (var i = 0; i < tage.length; i++)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final e in jeTag[i])
-                      GestureDetector(
-                        onTap: () {
-                          widget.beiAuswahl?.call();
-                          _showEditEntryDialog(context, e);
-                        },
-                        child: Container(
-                          height: zeilenHoehe - 4,
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 1, vertical: 2),
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: _getColorFromHex(e.color)
-                                .withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            e.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 10, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Liegt der mehrtägige Termin auf diesem Tag?
-  ///
-  /// Nicht nur der Anfangstag: Schulferien fangen einmal an und dauern zwei
-  /// Wochen. Wer nur `scheduledAt` vergleicht, sieht sie am Montag und
-  /// danach nie wieder.
-  bool _ueberlappt(PlannerEntry e, DateTime tag) {
-    final beginn = DateTime(tag.year, tag.month, tag.day);
-    final ende = beginn.add(const Duration(days: 1));
-    return e.scheduledAt.isBefore(ende) && e.endsAt.isAfter(beginn);
   }
 
   Widget _buildNavHeader(ThemeData theme, DateTime weekEnd) {

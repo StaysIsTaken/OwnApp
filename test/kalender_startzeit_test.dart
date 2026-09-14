@@ -11,7 +11,7 @@
 // Ansicht kaputt ist, und waere damit schlechter als keiner.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:productivity/tabs/planner/views/week_view.dart';
+import 'package:productivity/widgets/kalender/wochenraster_teile.dart';
 
 void main() {
   // Montag, 14.9.2026.
