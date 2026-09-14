@@ -3,11 +3,9 @@ import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/ingredient.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/dataservice/login_service.dart';
-import 'package:productivity/dataservice/task_service.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/ingredient_service.dart';
-import 'package:productivity/dataservice/notification_scheduler.dart';
-import 'package:productivity/dataservice/planner_service.dart';
+import 'package:productivity/dataservice/erinnerungs_abgleich.dart';
 import 'package:workmanager/workmanager.dart';
 
 // ─────────────────────────────────────────────
@@ -102,24 +100,14 @@ class BackgroundTaskManager {
     await _checkPantryStatus();
   }
 
-  /// Holt Aufgaben UND Termine vom Server und plant die Erinnerungen neu ein.
+  /// Füllt den Vorrat an vorgemerkten Erinnerungen auf.
   ///
-  /// Beides zusammen, weil iOS nur 64 vorgemerkte Mitteilungen pro App
-  /// zulässt – der `NotificationScheduler` sortiert nach Zeitpunkt und
-  /// behält die nächstliegenden. Was hinten abfällt, trägt der nächste Lauf
-  /// nach; deshalb ist dieser Job auch die Stelle, die den Vorrat auffüllt.
-  static Future<void> _syncTaskNotifications() async {
-    try {
-      final tasks = await TaskService.loadAll(limit: 200);
-      final entries = await PlannerService.loadAll();
-      await NotificationScheduler.rescheduleAll(
-        tasks: tasks,
-        plannerEntries: entries,
-      );
-    } catch (_) {
-      // ignore – will retry on next run
-    }
-  }
+  /// Der Abgleich selbst liegt in [ErinnerungsAbgleich]: dieselbe Arbeit
+  /// hängt auch am App-Start, an der Rückkehr in den Vordergrund und an der
+  /// Meldung des Servers. Hier wird sie erzwungen — sechs Stunden Abstand
+  /// sind ohnehin mehr als jede Ruhezeit.
+  static Future<void> _syncTaskNotifications() =>
+      ErinnerungsAbgleich.jetzt(erzwingen: true);
 
   /// Checks the pantry for low stock and items expiring soon, then shows
   /// system notifications for them.

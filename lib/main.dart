@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:productivity/provider/user_provider.dart';
@@ -11,6 +12,7 @@ import 'package:productivity/tabs/register.dart';
 import 'package:productivity/tabs/settings.dart';
 import 'package:productivity/tabs/recipes/recipes_page.dart';
 import 'package:productivity/tabs/pantry/pantry_page.dart';
+import 'package:productivity/dataservice/erinnerungs_abgleich.dart';
 import 'package:productivity/provider/timer_provider.dart';
 import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
 import 'package:productivity/tabs/einkauf/laeden_page.dart';
@@ -69,7 +71,7 @@ void main() async {
         // waehrend man blaettert, und die Sprache stellt ihn von aussen.
         ChangeNotifierProvider(create: (_) => TimerProvider()),
       ],
-      child: const MyApp(),
+      child: const _ErinnerungenNachziehen(child: MyApp()),
     ),
   );
 
@@ -84,6 +86,56 @@ void main() async {
     LocalNotificationManager().requestPermissions();
     BackgroundTaskManager.init();
   }
+}
+
+/// Hält die vorgemerkten Erinnerungen aktuell.
+///
+/// Zwei Auslöser, die vorher fehlten: der Start der App und die Rückkehr in
+/// den Vordergrund. Bis hierher tat das nur der Hintergrundlauf alle sechs
+/// Stunden — auf Android verlässlich, auf iOS nicht: dort ist der
+/// Hintergrundlauf eine Bitte und kein Versprechen. Ein Termin, den ein
+/// anderes Gerät angelegt hatte, konnte auf dem iPhone unbemerkt
+/// durchrutschen.
+///
+/// Sitzt bewusst um die ganze App herum und nicht in einer einzelnen Seite:
+/// der Lebenszyklus gehört der App, nicht dem Kalender.
+class _ErinnerungenNachziehen extends StatefulWidget {
+  final Widget child;
+
+  const _ErinnerungenNachziehen({required this.child});
+
+  @override
+  State<_ErinnerungenNachziehen> createState() =>
+      _ErinnerungenNachziehenState();
+}
+
+class _ErinnerungenNachziehenState extends State<_ErinnerungenNachziehen> {
+  AppLifecycleListener? _lebenszyklus;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) return; // Der Browser kann nichts vormerken.
+
+    // Beim Start erzwungen: wer die App aufmacht, hat oft gerade auf einem
+    // anderen Geraet etwas eingetragen.
+    unawaited(ErinnerungsAbgleich.jetzt(erzwingen: true));
+
+    // Beim Zurueckkommen nicht erzwungen — das passiert bei jedem Wechsel
+    // zwischen zwei Apps, und die Ruhezeit faengt das Haeufige ab.
+    _lebenszyklus = AppLifecycleListener(
+      onResume: () => unawaited(ErinnerungsAbgleich.jetzt()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lebenszyklus?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class MyApp extends StatelessWidget {

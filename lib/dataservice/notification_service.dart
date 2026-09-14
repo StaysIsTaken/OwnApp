@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/api_client.dart';
+import 'package:productivity/dataservice/erinnerungs_abgleich.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/dataservice/login_service.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -113,6 +114,15 @@ class NotificationService {
       // "Vorrat abgelaufen"-Meldung wurde still verworfen.
       else if (data['type'] == 'pantry_expired') {
         _showPantryExpired(data);
+      }
+      // Termine haben sich geaendert – irgendwo, nicht unbedingt hier.
+      //
+      // Die Meldung traegt bewusst keinen Inhalt: sie ist der Anstoss, die
+      // Erinnerungen neu einzuplanen. Erinnerungen liegen beim
+      // Betriebssystem dieses Geraets, und ein Termin, den das Tablet
+      // angelegt hat, steht hier sonst erst beim naechsten Start.
+      else if (data['type'] == 'planner_changed') {
+        unawaited(ErinnerungsAbgleich.jetzt(erzwingen: true));
       }
     } catch (_) {
       // Fehlerhafte/unbekannte WS-Nachricht: ignorieren, Verbindung bleibt bestehen.
