@@ -4,5 +4,16 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- Ohne das erreicht die App im Sandkasten ihren eigenen Server nicht:
+	     macOS laesst ohne network.client keine ausgehende Verbindung zu,
+	     und zwar stillschweigend. Die App startet, der Login scheitert,
+	     und in keinem Protokoll steht warum. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- Mikrofon: fuer den Zuruf an Jarvis, das Weckwort und das
+	     Einlernen der Stimme. sherpa_onnx und record bringen macOS-Teile
+	     mit, es fehlte allein die Erlaubnis. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>

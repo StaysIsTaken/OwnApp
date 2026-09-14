@@ -26,6 +26,8 @@
 	<string>$(PRODUCT_COPYRIGHT)</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Für Zurufe an Jarvis, das Weckwort und das Einlernen deiner Stimme. Die Aufnahme bleibt auf deinem eigenen Server.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>
