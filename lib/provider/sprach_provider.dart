@@ -62,10 +62,10 @@ class SprachProvider extends ChangeNotifier {
   ///
   /// Ohne das endet die Rückfrage in einer Sackgasse: die einzige Antwort,
   /// die ankäme, wäre der vollständige Name.
-  final Listengedaechtnis _listen = Listengedaechtnis();
+  final Auswahlgedaechtnis _listen = Auswahlgedaechtnis();
 
   @visibleForTesting
-  Listengedaechtnis get listengedaechtnis => _listen;
+  Auswahlgedaechtnis get listengedaechtnis => _listen;
 
   /// Nur für „zeige nur … Kalender an". Der Filter sitzt im Planer, weil
   /// dort die Termine liegen — die Kalenderansicht auf einer Kachel und die
