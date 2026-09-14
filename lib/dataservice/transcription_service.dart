@@ -39,23 +39,28 @@ class TranscriptionService {
 
   /// Startet die Aufnahme. Wirft, wenn kein Mikrofon-Zugriff besteht.
   ///
-  /// Nativ wird seit der Stimmerkennung **roh** aufgenommen statt in AAC.
-  /// Der Grund steht in `wav.dart`: AAC lässt sich in Dart nicht ohne
-  /// weiteres aufmachen, und das Modell will Abtastwerte. Für den Server
-  /// bekommen dieselben Werte 44 Byte Kopf und gehen als WAV hinaus —
-  /// Whisper liest das ohne Umstand.
+  /// Nativ wird seit der Stimmerkennung als **WAV** aufgenommen statt in
+  /// AAC. Der Grund steht in `wav.dart`: AAC lässt sich in Dart nicht ohne
+  /// weiteres aufmachen, und das Modell will Abtastwerte. Aus einer
+  /// WAV-Datei sind sie herauszuholen, ohne etwas zu dekodieren — und
+  /// Whisper liest WAV ohne Umstand.
+  ///
+  /// **Warum WAV und nicht `pcm16bits`:** beide schreiben dieselben
+  /// Abtastwerte, aber `AVAudioRecorder` auf iOS leitet das
+  /// Containerformat aus der **Dateiendung** ab. Eine Endung `.pcm` kennt
+  /// es nicht. WAV ist der Weg, den die Plattform selbst vorsieht.
   ///
   /// Der Preis ist die Größe: 32 kB je Sekunde statt gut 2 kB. Bei
   /// fünfzehn Sekunden über das eigene WLAN fällt das nicht ins Gewicht.
   static Future<void> start() async {
-    // Web kann kein PCM in eine Datei schreiben -> Opus/WebM wie bisher.
-    final encoder = kIsWeb ? AudioEncoder.opus : AudioEncoder.pcm16bits;
+    // Web kann kein WAV in eine Datei schreiben -> Opus/WebM wie bisher.
+    final encoder = kIsWeb ? AudioEncoder.opus : AudioEncoder.wav;
 
     String path = '';
     if (!kIsWeb) {
       final dir = await getTemporaryDirectory();
       final stamp = DateTime.now().millisecondsSinceEpoch;
-      path = '${dir.path}/rec_$stamp.pcm';
+      path = '${dir.path}/rec_$stamp.wav';
     }
     letzteAufnahme = null;
     await _recorder.start(
@@ -81,8 +86,9 @@ class TranscriptionService {
   static Future<Uint8List?> stopNurAudio() async {
     final result = await _recorder.stop();
     if (result == null || kIsWeb) return null;
-    final roh = await XFile(result).readAsBytes();
-    letzteAufnahme = roh.isEmpty ? null : roh;
+    final datei = await XFile(result).readAsBytes();
+    final pcm = Wav.pcmAus(datei);
+    letzteAufnahme = pcm.isEmpty ? null : pcm;
     return letzteAufnahme;
   }
 
@@ -112,17 +118,17 @@ class TranscriptionService {
       throw Exception('Leere Aufnahme.');
     }
 
-    // Nativ liegen hier rohe Abtastwerte: die hebt die Stimmerkennung ab,
-    // und der Server bekommt sie als WAV. Auf Web bleibt alles wie bisher.
-    final Uint8List bytes;
+    // Nativ liegt hier fertiges WAV: das geht unverändert zum Server, und
+    // die Stimmerkennung hebt sich die Abtastwerte daraus ab. Auf Web
+    // bleibt alles wie bisher.
+    final Uint8List bytes = roh;
     final String filename;
     if (kIsWeb) {
-      bytes = roh;
       filename = 'audio.webm';
     } else {
-      letzteAufnahme = roh;
-      bytes = Wav.ausPcm16(roh);
       filename = 'audio.wav';
+      final pcm = Wav.pcmAus(roh);
+      letzteAufnahme = pcm.isEmpty ? null : pcm;
     }
 
     final form = FormData.fromMap({

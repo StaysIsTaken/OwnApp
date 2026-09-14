@@ -24,6 +24,11 @@ Uint8List pcm(List<int> werte) {
 String text(Uint8List d, int von, int laenge) =>
     String.fromCharCodes(d.sublist(von, von + laenge));
 
+Uint8List _u32(int w) =>
+    (ByteData(4)..setUint32(0, w, Endian.little)).buffer.asUint8List();
+Uint8List _u16(int w) =>
+    (ByteData(2)..setUint16(0, w, Endian.little)).buffer.asUint8List();
+
 void main() {
   group('Der Kopf', () {
     final datei = Wav.ausPcm16(pcm([0, 1000, -1000, 32767]));
@@ -83,6 +88,117 @@ void main() {
       expect(leer.length, 44);
       expect(text(leer, 0, 4), 'RIFF');
       expect(ByteData.sublistView(leer).getUint32(40, Endian.little), 0);
+    });
+  });
+
+  group('Abtastwerte aus einer WAV-Datei holen', () {
+    // Der Fall, der auf dem Geraet schiefging: aufgenommen wird jetzt als
+    // WAV, weil AVAudioRecorder das Containerformat aus der Dateiendung
+    // ableitet und `.pcm` nicht kennt. Also muss der Weg zurueck stimmen.
+    test('was hineinging, kommt wieder heraus', () {
+      final roh = pcm([0, 1000, -1000, 32767]);
+      expect(Wav.pcmAus(Wav.ausPcm16(roh)), roh);
+    });
+
+    test('ein Block VOR data wird uebersprungen', () {
+      // Der eigentliche Grund, warum nicht einfach 44 Byte gezaehlt
+      // werden: iOS legt gern einen LIST-Block dazu. Wer 44 nimmt, liest
+      // dessen Inhalt als Audio und bekommt Knacken.
+      final nutz = pcm([111, 222]);
+      final b = BytesBuilder()
+        ..add('RIFF'.codeUnits)
+        ..add(_u32(4 + 24 + 12 + 8 + nutz.length))
+        ..add('WAVE'.codeUnits)
+        ..add('fmt '.codeUnits)
+        ..add(_u32(16))
+        ..add(_u16(1))..add(_u16(1))
+        ..add(_u32(16000))..add(_u32(32000))
+        ..add(_u16(2))..add(_u16(16))
+        // Ein fremder Block mittendrin.
+        ..add('LIST'.codeUnits)
+        ..add(_u32(4))
+        ..add('INFO'.codeUnits)
+        ..add('data'.codeUnits)
+        ..add(_u32(nutz.length))
+        ..add(nutz);
+      expect(Wav.pcmAus(b.toBytes()), nutz);
+    });
+
+    test('eine Laengenangabe von 0 heisst: bis zum Ende', () {
+      // Manche Schreiber tragen die Laenge erst beim Schliessen ein.
+      // Bricht die Aufnahme ab, steht dort 0 -- und die Aufnahme waere
+      // verloren, obwohl sie da ist.
+      final datei = Wav.ausPcm16(pcm([5, 6, 7]));
+      final ohneLaenge = Uint8List.fromList(datei);
+      ByteData.sublistView(ohneLaenge).setUint32(40, 0, Endian.little);
+      expect(Wav.pcmAus(ohneLaenge).length, 6);
+    });
+
+    test('eine zu grosse Laengenangabe kippt nichts', () {
+      final datei = Wav.ausPcm16(pcm([5, 6, 7]));
+      final zuViel = Uint8List.fromList(datei);
+      ByteData.sublistView(zuViel).setUint32(40, 999999, Endian.little);
+      expect(Wav.pcmAus(zuViel).length, 6);
+    });
+
+    test('ein Block mit UNGERADER Laenge wird richtig uebersprungen', () {
+      // Die WAV-Regel: Bloecke werden auf gerade Laenge aufgefuellt, das
+      // Fuellbyte zaehlt aber nicht zur angegebenen Laenge. Wer das
+      // uebersieht, landet ein Byte zu frueh und liest ab da nur noch
+      // Unsinn -- auch den data-Block findet er dann nicht mehr.
+      final nutz = pcm([77, 88]);
+      final b = BytesBuilder()
+        ..add('RIFF'.codeUnits)
+        ..add(_u32(100))
+        ..add('WAVE'.codeUnits)
+        ..add('note'.codeUnits)
+        ..add(_u32(3))            // ungerade!
+        ..add([1, 2, 3])
+        ..add([0])                // Fuellbyte
+        ..add('data'.codeUnits)
+        ..add(_u32(nutz.length))
+        ..add(nutz);
+      expect(Wav.pcmAus(b.toBytes()), nutz);
+    });
+
+    test('ohne RIFF/WAVE wird gar nicht erst gesucht', () {
+      // Sonst wuerde in einer beliebigen Datei, in der zufaellig "data"
+      // steht, irgendetwas als Audio gelesen.
+      final b = BytesBuilder()
+        ..add('OGGS'.codeUnits)
+        ..add(_u32(0))
+        ..add('XXXX'.codeUnits)
+        ..add('data'.codeUnits)
+        ..add(_u32(2))
+        ..add([9, 9]);
+      expect(Wav.pcmAus(b.toBytes()), isEmpty);
+    });
+
+    test('eine abgebrochene RIFF-Datei kippt nichts', () {
+      // Bricht die Aufnahme gleich zu Beginn ab, stehen ein paar Byte da
+      // und sonst nichts. Das darf eine Meldung geben, keinen Absturz.
+      expect(Wav.pcmAus(Uint8List.fromList('RIFF\u0000\u0000'.codeUnits)),
+          isEmpty);
+    });
+
+    test('kein WAV gibt nichts', () {
+      expect(Wav.pcmAus(Uint8List.fromList('Das ist kein WAV'.codeUnits)),
+          isEmpty);
+    });
+
+    test('zu kurz gibt nichts, statt zu werfen', () {
+      expect(Wav.pcmAus(Uint8List(6)), isEmpty);
+    });
+
+    test('WAV ohne data-Block gibt nichts', () {
+      final b = BytesBuilder()
+        ..add('RIFF'.codeUnits)
+        ..add(_u32(20))
+        ..add('WAVE'.codeUnits)
+        ..add('fmt '.codeUnits)
+        ..add(_u32(4))
+        ..add(_u32(0));
+      expect(Wav.pcmAus(b.toBytes()), isEmpty);
     });
   });
 

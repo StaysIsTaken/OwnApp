@@ -38,9 +38,17 @@ class _Inhalt extends StatefulWidget {
 }
 
 class _InhaltState extends State<_Inhalt> {
-  /// Wie lange eine Probe dauert. Drei Sekunden sind genug für einen Satz
+  /// Wie lange eine Probe dauert. Vier Sekunden sind genug für einen Satz
   /// und kurz genug, dass niemand ungeduldig wird.
-  static const Duration _probendauer = Duration(seconds: 3);
+  static const int _probensekunden = 4;
+
+  /// Wie lange auf den Server gewartet wird, bevor es eine Meldung gibt.
+  ///
+  /// Der allgemeine Zeitrahmen der App ist 30 Sekunden zum Verbinden und
+  /// fünf Minuten zum Empfangen — sinnvoll für einen Datei-Upload,
+  /// unerträglich für einen Statusabruf, hinter dem jemand mit dem Finger
+  /// über dem Knopf steht.
+  static const Duration _geduld = Duration(seconds: 15);
 
   /// Was man sagen soll. Der Inhalt ist gleichgültig — es zählt der Klang.
   /// Ein vorgegebener Satz ist trotzdem besser als „sag irgendwas": davor
@@ -58,10 +66,29 @@ class _InhaltState extends State<_Inhalt> {
   String? _fehler;
   int _satzNummer = 0;
 
+  /// Was gerade läuft. Ein Rad, das sich dreht, ohne zu sagen warum, ist
+  /// die schlechteste Rückmeldung überhaupt: nach zwanzig Sekunden weiß
+  /// niemand, ob er warten oder neu anfangen soll.
+  String _schritt = '';
+
+  /// Sekunden, die noch aufgenommen werden. 0 heißt: läuft gerade nicht.
+  int _rest = 0;
+  Timer? _uhr;
+
   @override
   void initState() {
     super.initState();
     _laden();
+  }
+
+  @override
+  void dispose() {
+    _uhr?.cancel();
+    super.dispose();
+  }
+
+  void _zeige(String was) {
+    if (mounted) setState(() => _schritt = was);
   }
 
   Future<void> _laden() async {
@@ -106,44 +133,89 @@ class _InhaltState extends State<_Inhalt> {
 
   /// Eine Probe aufnehmen und als Vektor hinterlegen.
   ///
+  /// Jeder Schritt sagt, was er tut, und jeder hat eine Obergrenze. Ein
+  /// Rad, das sich dreht, ohne zu sagen warum, ist die schlechteste
+  /// Rückmeldung überhaupt — und genau das stand hier vorher.
+  ///
   /// Das Mikrofon gehört immer nur einem: solange das Weckwort lauscht,
   /// hält es den Audiostrom. Deshalb anhalten — und in `finally` wieder
   /// fortsetzen, sonst ist Jarvis nach dem ersten Fehler taub.
   Future<void> _einlernen() async {
     if (_nimmtAuf) return;
-    setState(() => _nimmtAuf = true);
+    setState(() {
+      _nimmtAuf = true;
+      _schritt = '';
+      _rest = 0;
+    });
 
     final sprache = context.read<SprachProvider>();
     var angehalten = false;
 
     try {
+      // ── Modell ──────────────────────────────────────────────────
+      // Beim ersten Mal werden 28 MB ausgepackt und die ONNX-Laufzeit
+      // hochgefahren. Das dauert, und ohne Text sieht es nach Absturz aus.
       if (!StimmErkennung.bereit) {
-        // Nur das Modell: zum Einlernen der eigenen Stimme braucht es
-        // die Profile der anderen nicht -- und die gibt es ohnehin nur
-        // gegen `tablet:use`.
-        final ok = await StimmErkennung.modellLaden();
+        _zeige('Spracherkennung wird vorbereitet …');
+        final ok = await StimmErkennung.modellLaden().timeout(
+          _geduld,
+          onTimeout: () => false,
+        );
         if (!ok) {
-          _melde(StimmErkennung.fehler ?? 'Die Stimmerkennung läuft nicht.');
+          _melde(StimmErkennung.fehler ??
+              'Die Spracherkennung ließ sich nicht vorbereiten. '
+                  'Erreichst du den Server?');
           return;
         }
       }
 
       if (WakewordService.laeuft) {
+        _zeige('Weckwort wird kurz angehalten …');
         await WakewordService.anhalten();
         angehalten = true;
       }
 
+      _zeige('Mikrofon …');
       if (!await TranscriptionService.hasPermission()) {
         _melde('Ohne Mikrofon geht es nicht.');
         return;
       }
 
+      // ── Aufnehmen ───────────────────────────────────────────────
+      // Eine Sekunde Vorlauf: wer erst das Gerät zum Mund führt, verliert
+      // sonst den Anfang -- und bekommt "das war zu kurz" für etwas, das
+      // er richtig gemacht hat.
+      _zeige('Gleich geht es los …');
+      await Future<void>.delayed(const Duration(seconds: 1));
+
       await TranscriptionService.start();
-      await Future<void>.delayed(_probendauer);
+      if (!mounted) return;
+
+      // Der Countdown ist die eigentliche Verbesserung: man sieht, wie
+      // lange man noch sprechen soll, statt ins Ungewisse zu reden.
+      setState(() {
+        _schritt = 'Sprich jetzt';
+        _rest = _probensekunden;
+      });
+      _uhr?.cancel();
+      _uhr = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) return;
+        setState(() => _rest = _rest > 0 ? _rest - 1 : 0);
+      });
+      await Future<void>.delayed(const Duration(seconds: _probensekunden));
+      _uhr?.cancel();
+
+      _zeige('Wird ausgewertet …');
       final pcm = await TranscriptionService.stopNurAudio();
 
-      if (pcm == null || Wav.dauer(pcm) < StimmErkennung.mindestdauer) {
-        _melde('Das war zu kurz. Nochmal, und sprich durch.');
+      if (pcm == null || pcm.isEmpty) {
+        _melde('Es kam kein Ton an. Ist das Mikrofon belegt?');
+        return;
+      }
+      final dauer = Wav.dauer(pcm);
+      if (dauer < StimmErkennung.mindestdauer) {
+        _melde('Nur ${(dauer.inMilliseconds / 1000).toStringAsFixed(1)} '
+            'Sekunden angekommen. Nochmal, und sprich durch.');
         return;
       }
 
@@ -153,22 +225,32 @@ class _InhaltState extends State<_Inhalt> {
         return;
       }
 
-      await StimmService.probeAnlegen(profil.toList(), label: 'Probe');
-      // Damit die frische Stimme sofort zählt und nicht erst beim
-      // nächsten Start des Geräts.
+      // ── Speichern ───────────────────────────────────────────────
+      _zeige('Wird gespeichert …');
+      await StimmService.probeAnlegen(profil.toList(), label: 'Probe')
+          .timeout(_geduld);
       await sprache.stimmprofileNeuLaden();
 
       if (!mounted) return;
       setState(() => _satzNummer = (_satzNummer + 1) % _saetze.length);
       await _laden();
-      _melde('Probe gespeichert.');
+      _melde('Probe gespeichert — ${profil.length} Werte.');
+    } on TimeoutException {
+      _melde('Der Server hat nicht geantwortet. Nochmal versuchen?');
     } catch (e) {
       _melde(ApiFehler.text(e));
     } finally {
+      _uhr?.cancel();
       if (angehalten) {
         unawaited(WakewordService.fortsetzen());
       }
-      if (mounted) setState(() => _nimmtAuf = false);
+      if (mounted) {
+        setState(() {
+          _nimmtAuf = false;
+          _schritt = '';
+          _rest = 0;
+        });
+      }
     }
   }
 
@@ -308,11 +390,30 @@ class _InhaltState extends State<_Inhalt> {
                     ),
                     const SizedBox(height: 20),
                     if (_nimmtAuf)
-                      const Column(
+                      Column(
                         children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 12),
-                          Text('Hört zu …'),
+                          // Während der Aufnahme die Sekunden statt eines
+                          // Rades: man sieht, wie lange man noch sprechen
+                          // soll, statt ins Ungewisse zu reden.
+                          if (_rest > 0)
+                            Text(
+                              '$_rest',
+                              style: text.displayMedium?.copyWith(
+                                color: colors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          else
+                            const CircularProgressIndicator(),
+                          const SizedBox(height: 12),
+                          Text(
+                            _schritt.isEmpty ? 'Einen Moment …' : _schritt,
+                            style: _rest > 0
+                                ? text.titleMedium
+                                    ?.copyWith(color: colors.primary)
+                                : text.bodyMedium,
+                            textAlign: TextAlign.center,
+                          ),
                         ],
                       )
                     else

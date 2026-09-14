@@ -70,6 +70,44 @@ class Wav {
     return ganz;
   }
 
+  /// Holt die Abtastwerte aus einer WAV-Datei.
+  ///
+  /// **Nicht einfach 44 Byte überspringen.** Ein WAV-Kopf ist kein Block
+  /// fester Länge: zwischen `fmt ` und `data` dürfen weitere Blöcke
+  /// stehen — iOS legt gern einen mit Aufnahmedaten dazu. Wer 44 zählt,
+  /// liest deren Inhalt als Audio und bekommt Knacken.
+  ///
+  /// Gibt eine leere Liste zurück, wenn die Datei kein WAV ist oder
+  /// keinen `data`-Block hat. Das ist kein Fehler, den jemand beheben
+  /// könnte — dann wird eben kein Stimmprofil gerechnet.
+  static Uint8List pcmAus(Uint8List datei) {
+    if (datei.length < 12) return Uint8List(0);
+
+    String marke(int pos) =>
+        String.fromCharCodes(datei.sublist(pos, pos + 4));
+
+    if (marke(0) != 'RIFF' || marke(8) != 'WAVE') return Uint8List(0);
+
+    final sicht = ByteData.sublistView(datei);
+    var pos = 12;
+    while (pos + 8 <= datei.length) {
+      final name = marke(pos);
+      final laenge = sicht.getUint32(pos + 4, Endian.little);
+      final anfang = pos + 8;
+      if (name == 'data') {
+        // Manche Schreiber tragen die Länge erst beim Schließen ein; steht
+        // dort Unsinn, gilt der Rest der Datei.
+        final ende = (laenge == 0 || anfang + laenge > datei.length)
+            ? datei.length
+            : anfang + laenge;
+        return Uint8List.sublistView(datei, anfang, ende);
+      }
+      // Blöcke ungerader Länge werden auf gerade aufgefüllt.
+      pos = anfang + laenge + (laenge.isOdd ? 1 : 0);
+    }
+    return Uint8List(0);
+  }
+
   /// Rechnet 16-bit-PCM in Gleitkommawerte zwischen -1 und 1 um.
   ///
   /// Das ist, was sherpa-onnx erwartet. Geteilt wird durch 32768 und nicht
