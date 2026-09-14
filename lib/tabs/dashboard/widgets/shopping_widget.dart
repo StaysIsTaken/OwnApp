@@ -56,7 +56,7 @@ class ShoppingWidget extends StatelessWidget {
       color: colors.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: () => Navigator.pushNamed(context, AppRoutes.shoppingList),
+        onTap: () => Navigator.pushNamed(context, AppRoutes.einkauf),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),

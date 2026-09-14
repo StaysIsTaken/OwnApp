@@ -167,6 +167,45 @@ class _EinkaufslistePageState extends State<EinkaufslistePage> {
     }
   }
 
+  /// Bucht das Abgehakte in den Vorrat.
+  ///
+  /// Mit Rückfrage, weil es zwei Dinge auf einmal tut: hochbuchen UND von
+  /// der Liste räumen. Was liegen blieb, steht in der Meldung — sonst sucht
+  /// jemand die Batterien im Vorrat.
+  Future<void> _inDenVorrat(int anzahlErledigt) async {
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('In den Vorrat buchen?'),
+        content: Text(
+          anzahlErledigt == 1
+              ? 'Der abgehakte Posten wird dem Vorrat gutgeschrieben und '
+                  'von der Liste genommen.'
+              : 'Die $anzahlErledigt abgehakten Posten werden dem Vorrat '
+                  'gutgeschrieben und von der Liste genommen.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Abbrechen')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Buchen')),
+        ],
+      ),
+    );
+    if (ja != true) return;
+
+    try {
+      final ergebnis = await EinkaufService.inDenVorrat(widget.liste.id);
+      if (!mounted) return;
+      _melde(ergebnis.meldung);
+      await _laden();
+    } catch (e) {
+      if (mounted) _melde(ApiFehler.text(e));
+    }
+  }
+
   void _melde(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -193,6 +232,13 @@ class _EinkaufslistePageState extends State<EinkaufslistePage> {
                   : 'Abgehaktes einblenden (${erledigt.length})',
               onPressed: () =>
                   setState(() => _zeigeErledigte = !_zeigeErledigte),
+            ),
+          // Vor dem Wegräumen: wer erst räumt, kann nicht mehr buchen.
+          if (erledigt.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.kitchen_outlined),
+              tooltip: 'Abgehaktes in den Vorrat buchen',
+              onPressed: () => _inDenVorrat(erledigt.length),
             ),
           if (erledigt.isNotEmpty)
             IconButton(

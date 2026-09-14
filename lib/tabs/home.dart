@@ -376,9 +376,9 @@ class _HomePageContentState extends State<_HomePageContent> {
               _buildNavigationCard(
                 context,
                 icon: Icons.shopping_cart_outlined,
-                title: 'Einkaufsliste',
-                description: 'Einkäufe planen',
-                route: AppRoutes.shoppingList,
+                title: 'Einkaufslisten',
+                description: 'Mehrere Zettel, Preise, Läden',
+                route: AppRoutes.einkauf,
                 containerColor: colors.secondaryContainer.withAlpha(160),
                 iconColor: colors.onSecondaryContainer,
               ),
