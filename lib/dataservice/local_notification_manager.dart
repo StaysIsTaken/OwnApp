@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:productivity/dataservice/mitteilungs_ziel.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -342,9 +343,27 @@ class LocalNotificationManager {
     }
   }
 
+  /// Ein Tipp auf eine Mitteilung.
+  ///
+  /// Das Ziel wird nur gemerkt, nicht angesteuert: dieser Rückruf kann
+  /// feuern, bevor der Navigator steht. Wer springt, ist
+  /// [MitteilungsSpringer] — der holt es ab, sobald ein Bild gezeichnet
+  /// wurde.
   static void _handleNotificationTap(NotificationResponse response) {
-    // Notification was tapped. Payload could be used for routing.
-    // Example: payload = "task:abc-123" → could route to tasks page
-    // Currently we just open the app (which is the default behavior).
+    MitteilungsZiel.merken(response.payload);
+    MitteilungsZiel.anstossen();
+  }
+
+  /// Warum die App gestartet wurde.
+  ///
+  /// Beim Kaltstart feuert [_handleNotificationTap] NICHT — die App lief ja
+  /// nicht, als getippt wurde. Der Grund steht stattdessen hier. Ohne
+  /// diesen Weg funktioniert das Antippen nur bei bereits offener App.
+  Future<void> startgrundPruefen() async {
+    if (!_platformSupported() || !_initialized) return;
+    final start = await _getPlugin().getNotificationAppLaunchDetails();
+    if (start?.didNotificationLaunchApp ?? false) {
+      MitteilungsZiel.merken(start!.notificationResponse?.payload);
+    }
   }
 }
