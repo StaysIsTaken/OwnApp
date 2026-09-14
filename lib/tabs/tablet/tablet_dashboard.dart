@@ -12,6 +12,7 @@ import 'package:productivity/provider/settings_provider.dart';
 import 'package:productivity/provider/sprach_provider.dart';
 import 'package:productivity/provider/tablet_provider.dart';
 import 'package:productivity/provider/tablet_seiten_provider.dart';
+import 'package:productivity/provider/timer_provider.dart';
 import 'package:productivity/tabs/tablet/tablet_seite.dart';
 import 'package:productivity/widgets/sprach_leiste.dart';
 import 'package:provider/provider.dart';
@@ -44,7 +45,9 @@ class _TabletDashboardState extends State<TabletDashboard> {
     // Der Planer steht app-weit ueber dieser Ansicht; die Sprachbedienung
     // stellt darueber „zeige nur … Kalender an" ein.
     final planer = context.read<PlannerProvider>();
-    _sprache = SprachProvider(_seiten, planer);
+    // Der Timer steht ebenfalls app-weit: er soll weiterlaufen, wenn man
+    // die Kuechenansicht verlaesst, und per Zuruf stellbar sein.
+    _sprache = SprachProvider(_seiten, planer, context.read<TimerProvider>());
     _seiten.laden();
     unawaited(planer.loadKalender(alle: true));
     // Ein Küchendisplay, das nach zwei Minuten schwarz wird, ist keins.

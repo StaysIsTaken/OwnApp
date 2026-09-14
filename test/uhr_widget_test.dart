@@ -8,6 +8,8 @@ import 'package:productivity/tabs/dashboard/custom/tile_clock_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_spec.dart';
 import 'package:productivity/dataservice/timer_ton.dart';
+import 'package:productivity/provider/timer_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
 /// Nur im Dialog suchen. Dieselbe Zeit steht oft auch in der Kachel
@@ -21,9 +23,14 @@ Future<void> zeichne(WidgetTester tester, {double hoehe = 500}) async {
   tester.view.physicalSize = Size(700, hoehe + 100);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: SizedBox(width: 600, height: hoehe, child: const TileClockView()),
+  // Der Timer liegt seit dem Sprachbefehl im Provider, nicht mehr in der
+  // Kachel. Frisch je Test, sonst traegt einer den Stand des vorigen mit.
+  await tester.pumpWidget(ChangeNotifierProvider(
+    create: (_) => TimerProvider(),
+    child: MaterialApp(
+      home: Scaffold(
+        body: SizedBox(width: 600, height: hoehe, child: const TileClockView()),
+      ),
     ),
   ));
   await tester.pump();
