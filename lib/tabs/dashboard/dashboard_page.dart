@@ -7,29 +7,27 @@ import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/widgets/tablet_switch.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/task.dart';
-import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/ingredient.dart';
 import 'package:productivity/dataclasses/time_entry.dart';
 import 'package:productivity/dataclasses/meal_plan.dart';
 import 'package:productivity/dataclasses/recipe.dart';
-import 'package:productivity/dataclasses/shop.dart';
-import 'package:productivity/dataclasses/shopping_list_item_price.dart';
 import 'package:productivity/dataservice/task_service.dart';
-import 'package:productivity/dataservice/shopping_list_service.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/ingredient_service.dart';
 import 'package:productivity/dataservice/time_entry_service.dart';
 import 'package:productivity/dataservice/meal_plan_service.dart';
 import 'package:productivity/dataservice/recipe_service.dart';
 import 'package:productivity/dataservice/shop_service.dart';
-import 'package:productivity/dataservice/shopping_list_item_price_service.dart';
 import 'package:productivity/tabs/dashboard/widgets/greeting_header.dart';
 import 'package:productivity/tabs/dashboard/widgets/quick_actions.dart';
 import 'package:productivity/tabs/dashboard/widgets/today_focus_card.dart';
 import 'package:productivity/tabs/dashboard/widgets/tasks_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/pantry_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/time_widget.dart';
+import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/einkauf_service.dart';
+import 'package:productivity/dataservice/preisvergleich.dart';
 import 'package:productivity/tabs/dashboard/widgets/shopping_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/mealplan_widget.dart';
 import 'package:productivity/tabs/dashboard/widgets/journal_widget.dart';
@@ -82,14 +80,16 @@ class _DashboardContent extends StatefulWidget {
 class _DashboardContentState extends State<_DashboardContent> {
   // Data
   List<Task> _tasks = [];
-  List<ShoppingListItem> _shoppingItems = [];
+  // Der Einkauf laeuft auf dem neuen Listenmodell: mehrere Zettel, freie
+  // Positionen, Preise am Warennamen statt am Posten.
+  List<Einkaufsliste> _listen = [];
+  List<Einkaufsposition> _positionen = [];
+  Preisvergleich? _vergleich;
   List<PantryItem> _pantryItems = [];
   List<TimeEntry> _timeEntries = [];
   List<MealPlanEntry> _mealPlanEntries = [];
   List<Recipe> _recipes = [];
-  List<Shop> _shops = [];
   Map<String, Ingredient> _ingredientMap = {};
-  Map<String, List<ShoppingListItemPrice>> _pricesByItemId = {};
   List<Note> _notes = [];
   List<JournalEntry> _journalEntries = [];
   List<PlannerEntry> _plannerEntries = [];
@@ -361,7 +361,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     try {
       final results = await Future.wait([
         hole('tasks', TaskService.loadAll), // 0
-        hole('shopping', ShoppingListService.loadAll), // 1
+        hole('einkauf', EinkaufService.listen), // 1
         hole('pantry', PantryService.loadAll), // 2
         hole('ingredients', IngredientService.loadAll), // 3
         hole('time', TimeEntryService.loadAll), // 4
@@ -399,40 +399,51 @@ class _DashboardContentState extends State<_DashboardContent> {
           ? await _stillHolen(() => FeedService.witz())
           : null;
 
-      final shoppingItems = results[1] as List<ShoppingListItem>;
+      final listen = results[1] as List<Einkaufsliste>;
 
-      // Load prices for all shopping items in parallel (for cost estimation)
-      final priceMap = <String, List<ShoppingListItemPrice>>{};
-      await Future.wait(
-        shoppingItems.where((i) => !i.isBought).map((item) async {
-          try {
-            final prices = await ShoppingListItemPriceService.loadByItemId(
-              item.id,
-            );
-            priceMap[item.id] = prices;
-          } catch (_) {
-            priceMap[item.id] = [];
-          }
-        }),
-      );
+      // Nur die erste Liste: mehr als eine auf einer Kachel zu zeigen
+      // hiesse, von jeder zu wenig zu zeigen.
+      var positionen = <Einkaufsposition>[];
+      Preisvergleich? vergleich;
+      if (listen.isNotEmpty) {
+        try {
+          positionen = await EinkaufService.positionen(listen.first.id);
+        } catch (_) {
+          positionen = [];
+        }
+        final offen = positionen.where((p) => !p.erledigt).toList();
+        if (offen.isNotEmpty) {
+          // Je Bezeichnung einmal: zwei Zeilen „Milch" sollen nicht zwei
+          // Abfragen ausloesen.
+          final preise = <String, List<Warenpreis>>{};
+          await Future.wait([
+            for (final name in {
+              for (final p in offen) p.name.trim().toLowerCase(),
+            })
+              EinkaufService.preise(name).then((p) => preise[name] = p),
+          ]);
+          vergleich =
+              Preisvergleich.rechne(positionen: offen, preise: preise);
+        }
+      }
 
       if (!mounted) return;
       setState(() {
         _tasks = results[0] as List<Task>;
-        _shoppingItems = shoppingItems;
+        _listen = listen;
+        _positionen = positionen;
+        _vergleich = vergleich;
         _pantryItems = results[2] as List<PantryItem>;
         final ingredients = results[3] as List<Ingredient>;
         _ingredientMap = {for (var i in ingredients) i.id: i};
         _timeEntries = results[4] as List<TimeEntry>;
         _mealPlanEntries = results[5] as List<MealPlanEntry>;
         _recipes = results[6] as List<Recipe>;
-        _shops = results[7] as List<Shop>;
         _notes = results[8] as List<Note>;
         _journalEntries = results[9] as List<JournalEntry>;
         _plannerEntries = results[10] as List<PlannerEntry>;
         _nachrichten = nachrichten ?? const [];
         _witz = witz;
-        _pricesByItemId = priceMap;
         _sentimentStats = sentimentStats;
         _gesperrteQuellen = gesperrt;
         // Einzelne Ausfaelle lassen die uebrigen Kacheln stehen. Faellt aber
@@ -599,7 +610,6 @@ class _DashboardContentState extends State<_DashboardContent> {
         tasks: _tasks,
         timeEntries: _timeEntries,
         plannerEntries: _plannerEntries,
-        shoppingItems: _shoppingItems,
         pantryItems: _pantryItems,
         notes: _notes,
         journalEntries: _journalEntries,
@@ -697,12 +707,11 @@ class _DashboardContentState extends State<_DashboardContent> {
         activeEntry: _getActiveTimeEntry(),
       ),
       'shopping': ShoppingWidget(
-        shoppingItems: _shoppingItems,
-        ingredientMap: _ingredientMap,
-        pricesByItemId: _pricesByItemId,
-        shops: _shops,
-        estimatedCost: _getEstimatedShoppingCost(),
-        onItemBought: _onShoppingItemBought,
+        listen: _listen,
+        gezeigt: _listen.isEmpty ? null : _listen.first,
+        positionen: _positionen,
+        vergleich: _vergleich,
+        beiAbhaken: _postenAbhaken,
       ),
       'mealplan':
           MealplanWidget(mealPlanEntries: _mealPlanEntries, recipes: _recipes),
@@ -925,26 +934,20 @@ class _DashboardContentState extends State<_DashboardContent> {
         .toList();
   }
 
+  /// Was der gezeigte Zettel beim guenstigsten Laden kostet.
+  ///
+  /// Null, solange die Preise fehlen — eine ausgedachte Zahl waere hier
+  /// schlimmer als gar keine, denn die Karte heisst „Heute im Blick".
   double _getEstimatedShoppingCost() {
-    double total = 0;
-    final openItems = _shoppingItems.where((i) => !i.isBought).toList();
-    for (final item in openItems) {
-      final prices = _pricesByItemId[item.id];
-      if (prices != null && prices.isNotEmpty) {
-        // Use the lowest price across shops
-        final minPrice = prices
-            .map((p) => p.price)
-            .reduce((a, b) => a < b ? a : b);
-        total += minPrice * item.amount;
-      }
-    }
-    return total;
+    final v = _vergleich;
+    if (v == null || v.leer) return 0;
+    return v.laeden.first.summe;
   }
 
-  Future<void> _onShoppingItemBought(ShoppingListItem item) async {
+
+  Future<void> _postenAbhaken(Einkaufsposition posten) async {
     try {
-      final updated = item.copyWith(isBought: true);
-      await ShoppingListService.upsert(updated);
+      await EinkaufService.positionAendern(posten.id, erledigt: true);
       _loadData(silent: true);
     } catch (e) {
       if (mounted) {
@@ -954,6 +957,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       }
     }
   }
+
 }
 
 class _ErrorView extends StatelessWidget {

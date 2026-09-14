@@ -5,11 +5,11 @@ import 'package:productivity/provider/permission_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/task.dart';
-import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/ingredient.dart';
 import 'package:productivity/dataservice/task_service.dart';
-import 'package:productivity/dataservice/shopping_list_service.dart';
+import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/einkauf_service.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/ingredient_service.dart';
 import 'package:productivity/tabs/dashboard/custom/custom_tile_card.dart';
@@ -45,7 +45,9 @@ class _HomePageContent extends StatefulWidget {
 
 class _HomePageContentState extends State<_HomePageContent> {
   List<Task> _tasks = [];
-  List<ShoppingListItem> _shoppingItems = [];
+  // Neues Listenmodell: mehrere Zettel, freie Positionen.
+  List<Einkaufsliste> _listen = [];
+  List<Einkaufsposition> _positionen = [];
   List<PantryItem> _pantryItems = [];
   Map<String, Ingredient> _ingredientMap = {};
 
@@ -142,7 +144,6 @@ class _HomePageContentState extends State<_HomePageContent> {
 
     final daten = DashboardData(
       tasks: _tasks,
-      shoppingItems: _shoppingItems,
       pantryItems: _pantryItems,
       ingredientMap: _ingredientMap,
     );
@@ -218,15 +219,27 @@ class _HomePageContentState extends State<_HomePageContent> {
     try {
       final results = await Future.wait([
         hole('tasks', TaskService.loadAll),
-        hole('shopping', ShoppingListService.loadAll),
+        hole('einkauf', EinkaufService.listen),
         hole('pantry', PantryService.loadAll),
         hole('ingredients', IngredientService.loadAll),
       ]);
 
+      // Die Positionen der ersten Liste: sie ist die, die unten steht.
+      var positionen = <Einkaufsposition>[];
+      final listen = results[1] as List<Einkaufsliste>;
+      if (listen.isNotEmpty) {
+        try {
+          positionen = await EinkaufService.positionen(listen.first.id);
+        } catch (_) {
+          positionen = [];
+        }
+      }
+
       if (!mounted) return;
       setState(() {
+        _positionen = positionen;
         _tasks = results[0] as List<Task>;
-        _shoppingItems = results[1] as List<ShoppingListItem>;
+        _listen = results[1] as List<Einkaufsliste>;
         _pantryItems = results[2] as List<PantryItem>;
         final ingredients = results[3] as List<Ingredient>;
         _ingredientMap = {for (var i in ingredients) i.id: i};
@@ -637,16 +650,17 @@ class _HomePageContentState extends State<_HomePageContent> {
   }
 
   Widget _buildOpenShoppingItems(ColorScheme colors, TextTheme text) {
-    final openItems = _shoppingItems.where((item) => !item.isBought).toList();
+    final offen = _positionen.where((p) => !p.erledigt).toList();
+    if (offen.isEmpty) return const SizedBox.shrink();
 
-    if (openItems.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final zettel = _listen.isEmpty ? 'Einkauf' : _listen.first.name;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Noch zu kaufen: ${openItems.length}', style: text.titleMedium),
+        // Der Name des Zettels statt „Noch zu kaufen": bei mehreren Listen
+        // ist sonst nicht zu sehen, welche hier steht.
+        Text('$zettel: ${offen.length} offen', style: text.titleMedium),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(12),
@@ -657,49 +671,45 @@ class _HomePageContentState extends State<_HomePageContent> {
           ),
           child: Column(
             children: [
-              ...openItems.take(5).map((item) {
-                final ing = _ingredientMap[item.ingredientId];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: false,
-                        onChanged: (value) async {
-                          try {
-                            final updated = item.copyWith(isBought: true);
-                            await ShoppingListService.upsert(updated);
-                            _loadDashboardData();
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Fehler: $e')),
-                              );
+              ...offen.take(5).map((posten) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: false,
+                          onChanged: (_) async {
+                            try {
+                              await EinkaufService.positionAendern(
+                                  posten.id, erledigt: true);
+                              _loadDashboardData();
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Fehler: $e')),
+                                );
+                              }
                             }
-                          }
-                        },
-                      ),
-                      Expanded(
-                        child: Text(
-                          ing?.name ?? 'Unbekannt',
-                          style: text.bodySmall,
+                          },
                         ),
-                      ),
-                      Text(
-                        '${item.amount}',
-                        style: text.labelSmall?.copyWith(color: colors.outline),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-              if (openItems.length > 5)
+                        Expanded(
+                          child: Text(posten.name, style: text.bodySmall),
+                        ),
+                        Text(
+                          posten.menge == null || posten.menge == 1
+                              ? ''
+                              : '${posten.menge! % 1 == 0 ? posten.menge!.toInt() : posten.menge}',
+                          style: text.labelSmall
+                              ?.copyWith(color: colors.outline),
+                        ),
+                      ],
+                    ),
+                  )),
+              if (offen.length > 5)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    '+${openItems.length - 5} weitere',
-                    style: text.labelSmall?.copyWith(color: colors.outline),
-                  ),
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('+ ${offen.length - 5} weitere',
+                      style: text.labelSmall
+                          ?.copyWith(color: colors.outline)),
                 ),
             ],
           ),
@@ -707,6 +717,7 @@ class _HomePageContentState extends State<_HomePageContent> {
       ],
     );
   }
+
 
   Widget _buildLowPantryItems(ColorScheme colors, TextTheme text) {
     final lowItems = _pantryItems

@@ -5,7 +5,6 @@ import 'package:productivity/dataclasses/journal_entry.dart';
 import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
-import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/time_entry.dart';
 import 'package:productivity/dataservice/api_error.dart';
@@ -15,7 +14,6 @@ import 'package:productivity/dataservice/note_service.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/dataservice/rechte_zuordnung.dart';
-import 'package:productivity/dataservice/shopping_list_service.dart';
 import 'package:productivity/dataclasses/kalender.dart';
 import 'package:productivity/dataservice/calendar_service.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
@@ -134,7 +132,6 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
                 kalender: _einstellungen.kalender,
                 alle: _einstellungen.alleKalender,
               )),
-      hole('shopping', ShoppingListService.loadAll),
       hole('pantry', PantryService.loadAll),
       hole('ingredients', IngredientService.loadAll),
       hole('notes', NoteService.loadAll),
@@ -174,7 +171,7 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
         : null;
 
     if (!mounted) return;
-    final zutaten = ergebnisse[5] as List<Ingredient>;
+    final zutaten = ergebnisse[4] as List<Ingredient>;
     setState(() {
       _daten = DashboardData(
         nachrichten: nachrichten ?? const [],
@@ -186,10 +183,9 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
         tasks: ergebnisse[0] as List<Task>,
         timeEntries: ergebnisse[1] as List<TimeEntry>,
         plannerEntries: ergebnisse[2] as List<PlannerEntry>,
-        shoppingItems: ergebnisse[3] as List<ShoppingListItem>,
-        pantryItems: ergebnisse[4] as List<PantryItem>,
-        notes: ergebnisse[6] as List<Note>,
-        journalEntries: ergebnisse[7] as List<JournalEntry>,
+        pantryItems: ergebnisse[3] as List<PantryItem>,
+        notes: ergebnisse[5] as List<Note>,
+        journalEntries: ergebnisse[6] as List<JournalEntry>,
         ingredientMap: {for (final z in zutaten) z.id: z},
       );
       _fehler = (versucht > 0 && gescheitert == versucht)

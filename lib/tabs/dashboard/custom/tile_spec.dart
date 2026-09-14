@@ -297,7 +297,6 @@ class DashboardData {
   final List<dynamic> tasks;
   final List<dynamic> timeEntries;
   final List<dynamic> plannerEntries;
-  final List<dynamic> shoppingItems;
   final List<dynamic> pantryItems;
   final List<dynamic> notes;
   final List<dynamic> journalEntries;
@@ -325,7 +324,6 @@ class DashboardData {
     this.tasks = const [],
     this.timeEntries = const [],
     this.plannerEntries = const [],
-    this.shoppingItems = const [],
     this.pantryItems = const [],
     this.notes = const [],
     this.journalEntries = const [],

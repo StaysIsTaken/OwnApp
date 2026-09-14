@@ -48,28 +48,100 @@ Der Kreislauf läuft jetzt auf den neuen Listen:
   kommen als `ohneZutat` zurück und werden gemeldet, statt still
   liegenzubleiben.
 
-### Was noch auf dem alten Modell sitzt
+### Das alte Modell ist weg
 
-Ein zusammenhängendes Stück, das noch aussteht — **das Dashboard**:
+In der App restlos: `ShoppingListService`, `ShoppingListItem`,
+`ShoppingListItemPrice(Service)` und `FilterFields.einkauf` sind
+gelöscht, `DashboardData.shoppingItems` ebenso. Der Dashboard-Block, die
+Einkaufs-Sektion auf der Startseite und der Lader der Küchenansicht
+laufen auf `EinkaufService`.
 
-* `dashboard/widgets/shopping_widget.dart` — Block „Einkauf", samt
-  „günstigster Laden" aus altem Preiswissen.
-* `home.dart` — eigene Einkaufs-Sektion, hakt über
-  `ShoppingListService.upsert` ab.
-* Die drei Lader `home.dart`, `dashboard_page.dart`,
-  `tablet_seite.dart` holen alle `ShoppingListService.loadAll`.
-* `filter_fields.dart`, `shopping_list_item_price_service.dart`.
+Der „günstigste Laden" im Dashboard-Block steht damit auf besserer
+Grundlage: vorher rechnete er über `ShoppingListItemPrice` — Preise, die
+am Posten hingen und mit ihm verschwanden. Jetzt kommt er aus
+[Preisvergleich] und damit aus dem Preisgedächtnis, das an der Ware
+hängt.
 
-Das ist nicht kaputt — die alten Endpunkte stehen noch. Es ist
-**verwaist**: die alte Tabelle füttert nur noch der Bon-Scan
-(`receipt.py`). Wer den Block anfasst, stellt ihn auf
-`EinkaufService.listen()` um; die Listen bringen ihre Zahl offener
-Posten (`offen`) schon mit.
+**Im Backend lebt das alte Modell weiter**, und zwar mit gutem Grund:
+`receipt.py` (Bon-Scan) schreibt dorthin. Die App zielt beim Bon-Scan
+allerdings nur auf den Vorrat (`target: 'pantry'`) — der
+Einkaufs-Zweig ist von hier aus nicht mehr erreichbar.
 
-Der „günstigste Laden" kommt dabei nicht 1:1 mit: er rechnete über
-`ShoppingListItemPrice` (Preis am Posten). Auf dem neuen
-Preisgedächtnis (Preis an der Bezeichnung) wird er besser, weil das
-Wissen den Einkauf überlebt — aber er muss neu gebaut werden.
+### Wie Zettel, Zutat, Preis und Laden zusammenhängen
+
+Die vier Teile sind schnell erklärt. Interessant ist, **wie** sie
+verbunden sind — denn genau dort steckt die Entwurfsentscheidung.
+
+```
+                   ┌──────────────────┐
+                   │  Einkaufsliste   │   „Wocheneinkauf"
+                   │  ShoppingList    │
+                   └────────┬─────────┘
+                            │ 1:n
+                   ┌────────▼─────────┐
+                   │     Position     │   name          „Milch"   ← immer da
+                   │ ShoppingPosition │   ingredient_id  optional
+                   └───┬──────────┬───┘   amount, is_done
+                       │          │
+        über den NAME  │          │  über die ZUTAT
+      (immer möglich)  │          │  (nur wenn gesetzt)
+                       │          │
+              ┌────────▼─────┐  ┌─▼────────────┐
+              │    Preis     │  │    Vorrat    │
+              │ ArticlePrice │  │  PantryItem  │
+              └──────┬───────┘  └──────────────┘
+                     │ shop_id
+              ┌──────▼───────┐
+              │    Laden     │   „Aldi"
+              │     Shop     │
+              └──────────────┘
+```
+
+**Der Punkt: zwischen Position und Preis gibt es keinen Fremdschlüssel.**
+
+Verbunden sind sie über die **normalisierte Bezeichnung** —
+`sls.normalisiere()` macht aus „ Milch" und „MILCH" dasselbe `milch`.
+`ArticlePrice.bezeichnung` trägt diesen Schlüssel, `ShoppingPosition.name`
+wird beim Nachschlagen genauso eingeebnet.
+
+Das ist Absicht und der Grund für den ganzen Neubau. Im alten Modell hing
+der Preis am Listeneintrag (`ShoppingListItemPrice` → `ShoppingListItem`).
+Hakte man den Posten ab und räumte ihn weg, war das Preiswissen mit ihm
+verschwunden. Über den Namen überlebt es jeden Einkauf — und gilt auch
+für eine Ware, die zum ersten Mal auf diesem Zettel steht.
+
+**Die Zutat ist die zweite, unabhängige Verbindung.** Sie zeigt zum
+Vorrat, nicht zum Preis. Eine Position *kann* eine haben, muss aber
+nicht:
+
+| Position | Zutat? | Preis abfragbar? | In den Vorrat buchbar? |
+|---|---|---|---|
+| „Milch" (vom Essensplan) | ja | ja | ja |
+| „Milch" (von Hand getippt) | nein | **ja** | nein |
+| „Batterien" | nein | ja | nein |
+
+Deshalb meldet `in_den_vorrat` die Posten ohne Zutat zurück, statt sie
+still liegenzulassen — ein Vorrat führt Zutaten, keine freien Namen.
+
+**Wo die Verbindungen tatsächlich hergestellt werden:**
+
+| Stelle | Was sie tut |
+|---|---|
+| Tippen in der Liste | `EinkaufService.preise(name)` → zeigt, was bekannt ist |
+| `Preisvergleich` | offene Positionen × bekannte Preise → Summe je Laden |
+| `remember_price` (Jarvis) | schreibt `ArticlePrice` für (Name, Laden) |
+| `aus_essensplan` | setzt die **Zutat**, damit der Rückweg offensteht |
+| `in_den_vorrat` | folgt der Zutat, nicht dem Namen |
+
+### Eine Falle, die den Modellwechsel überlebt hat
+
+Ein leerer String ist keine Kennung. Beim alten Modell ging eine leere
+`unitId` als `''` mit, der Fremdschlüssel lehnte sie ab, der Server
+stürzte ab — und weil ein abgestürzter Server keine CORS-Kopfzeilen mehr
+setzt, meldete der Browser einen CORS-Fehler statt des echten Grundes.
+
+Darts `?wert` lässt nur null weg, nicht den leeren String. Deshalb gibt
+es `EinkaufService.kennung()`, und deshalb wird sie geprüft.
 
 ---
 
