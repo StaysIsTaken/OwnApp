@@ -11,6 +11,7 @@ import 'package:productivity/tabs/recipes/manage_ingredients_page.dart';
 import 'package:productivity/tabs/recipes/manage_units_page.dart';
 import 'package:productivity/tabs/register.dart';
 import 'package:productivity/tabs/settings.dart';
+import 'package:productivity/tabs/settings/stimme_page.dart';
 import 'package:productivity/tabs/recipes/recipes_page.dart';
 import 'package:productivity/tabs/pantry/pantry_page.dart';
 import 'package:productivity/dataservice/erinnerungs_abgleich.dart';
@@ -249,6 +250,7 @@ class AppRoutes {
   static const String home = '/home';
   static const String dashboard = '/dashboard';
   static const String settings = '/settings';
+  static const String stimme = '/settings/stimme';
 
   static const String recipes = '/recipes';
   static const String time = '/time';
@@ -282,6 +284,7 @@ class AppRoutes {
     home: (_) => const DashboardPage(),
     dashboard: (_) => const DashboardPage(),
     settings: (_) => const SettingsPage(),
+    stimme: (_) => const StimmePage(),
 
     recipes: (_) => const RecipesPage(),
     time: (_) => const TimePage(),

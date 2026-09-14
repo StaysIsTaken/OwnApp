@@ -969,6 +969,21 @@ class _SettingsBodyState extends State<_SettingsBody> {
               ],
             ),
           ),
+          // Die eigene Stimme -- eigene Seite, weil dort aufgenommen wird
+          // und das Mikrofon nicht nebenbei zu haben ist.
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.record_voice_over_outlined,
+                  color: colors.primary),
+              title: const Text('Deine Stimme'),
+              subtitle: const Text(
+                'Damit Jarvis „was steht bei mir an" beantworten kann, ohne '
+                'dass du deinen Namen sagst.',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.pushNamed(context, AppRoutes.stimme),
+            ),
+          ),
         ],
 
         const SizedBox(height: 16),
