@@ -91,6 +91,10 @@ class SprachProvider extends ChangeNotifier {
   static const Set<String> _ohneRueckfrage = {
     'add_shopping_item',
     'update_shopping_item',
+    // Dieselben zwei auf dem neuen Listenmodell. Ohne sie hier braeuchte
+    // „setz Milch auf die Liste" ploetzlich wieder einen Fingertipp.
+    'add_shopping_position',
+    'update_shopping_position',
     'add_pantry_item',
     'update_pantry_item',
     'create_planner_entry',

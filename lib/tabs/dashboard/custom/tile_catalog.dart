@@ -1,7 +1,6 @@
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/time_entry.dart';
-import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
 import 'package:productivity/dataclasses/note.dart';
@@ -474,22 +473,6 @@ class TileCatalog {
     ),
 
     // ── Einkauf und Vorrat ───────────────────────────────────────────────
-    TileSource(
-      key: 'shopping.open',
-      route: AppRoutes.shoppingList,
-      fields: FilterFields.einkauf,
-      label: 'Offene Einkaufsposten',
-      group: 'Einkauf',
-      shape: TileShape.scalar,
-      build: (d, p, f) => TileData.scalar(
-        applyFilters(d.shoppingItems.cast<ShoppingListItem>(), f,
-                FilterFields.einkauf)
-            .where((i) => !i.isBought)
-            .length
-            .toDouble(),
-        unit: 'Posten',
-      ),
-    ),
     TileSource(
       key: 'einkauf.liste',
       route: AppRoutes.einkauf,

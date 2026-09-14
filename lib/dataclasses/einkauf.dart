@@ -169,3 +169,52 @@ class Warenpreis {
         : '$euro / $m $einheit';
   }
 }
+
+/// Was beim Buchen in den Vorrat herauskam.
+///
+/// [ohneZutat] ist der Grund, warum das eine eigene Klasse ist und keine
+/// blosse Zahl: Positionen ohne Zutat lassen sich nicht buchen — ein Vorrat
+/// führt Zutaten, keine freien Namen. „Batterien" hat keinen Bestand, den
+/// man hochzählen könnte. Wer zehn Sachen abhakt und drei gebucht bekommt,
+/// soll erfahren warum, statt sich zu wundern.
+class VorratErgebnis {
+  /// Namen der Positionen, die im Vorrat gelandet sind.
+  final List<String> gebucht;
+
+  /// Namen der Positionen, die liegen blieben, weil keine Zutat dranhing.
+  final List<String> ohneZutat;
+
+  const VorratErgebnis({required this.gebucht, required this.ohneZutat});
+
+  int get anzahl => gebucht.length;
+
+  factory VorratErgebnis.fromJson(Map<String, dynamic> j) => VorratErgebnis(
+        gebucht: [
+          for (final e in (j['gebucht'] as List<dynamic>? ?? const []))
+            ((e as Map<String, dynamic>)['name'] as String?) ?? '',
+        ],
+        ohneZutat: [
+          for (final n in (j['ohne_zutat'] as List<dynamic>? ?? const []))
+            n as String,
+        ],
+      );
+
+  /// Ein Satz, den man einem Menschen zeigen kann.
+  String get meldung {
+    if (gebucht.isEmpty && ohneZutat.isEmpty) {
+      return 'Nichts abgehakt — nichts zu buchen.';
+    }
+    final teile = <String>[
+      if (gebucht.length == 1)
+        '1 Posten in den Vorrat'
+      else if (gebucht.isNotEmpty)
+        '${gebucht.length} Posten in den Vorrat',
+      // Nicht verschweigen: sonst sucht jemand den Rest im Vorrat.
+      if (ohneZutat.isNotEmpty)
+        '${ohneZutat.length} ohne Zutat übersprungen '
+            '(${ohneZutat.take(3).join(', ')}'
+            '${ohneZutat.length > 3 ? ' …' : ''})',
+    ];
+    return teile.join(' · ');
+  }
+}

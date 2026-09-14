@@ -5,8 +5,8 @@ import 'package:productivity/dataclasses/recipe.dart';
 import 'package:productivity/dataservice/meal_plan_service.dart';
 import 'package:productivity/dataclasses/shopping_suggestion.dart';
 import 'package:productivity/dataservice/recipe_service.dart';
-import 'package:productivity/dataservice/shopping_list_service.dart';
-import 'package:productivity/dataclasses/pantry_extras.dart';
+import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/einkauf_service.dart';
 import 'package:productivity/utils/snack.dart';
 import 'package:intl/intl.dart';
 
@@ -295,12 +295,42 @@ class _MealPlanListState extends State<_MealPlanList> {
       return;
     }
 
-    final gewaehlt = {for (final v in offen) v.ingredientId: true};
+    // Auf WELCHE Liste? Frueher gab es nur eine, die Frage stellte sich
+    // nicht. Jetzt schon — und eine falsche Wahl faellt erst im Laden auf.
+    final liste = await _listeWaehlen();
+    if (liste == null || !mounted) return;
+
+    // Was dort schon steht, wird gar nicht erst angeboten: sonst haette man
+    // nach dem zweiten Durchlauf alles doppelt. Verglichen wird ueber den
+    // Namen, nicht ueber die Zutat — wer „Milch" von Hand getippt hat, will
+    // sie nicht ein zweites Mal.
+    Set<String> vorhanden;
+    try {
+      final positionen = await EinkaufService.positionen(liste.id);
+      vorhanden = {
+        for (final p in positionen.where((p) => !p.erledigt))
+          p.name.trim().toLowerCase(),
+      };
+    } catch (e) {
+      if (mounted) showErrorSnack('Konnte „${liste.name}" nicht lesen: $e');
+      return;
+    }
+    if (!mounted) return;
+
+    final neuLage =
+        offen.where((v) => !vorhanden.contains(
+            v.ingredientName.trim().toLowerCase())).toList();
+    if (neuLage.isEmpty) {
+      showSnack('Steht schon alles auf „${liste.name}".');
+      return;
+    }
+
+    final gewaehlt = {for (final v in neuLage) v.ingredientId: true};
     final bestaetigt = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('Einkaufsliste erzeugen'),
+          title: Text('Auf „${liste.name}"'),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView(
@@ -312,7 +342,7 @@ class _MealPlanListState extends State<_MealPlanList> {
                   style: Theme.of(ctx).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 12),
-                for (final v in offen)
+                for (final v in neuLage)
                   CheckboxListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -350,17 +380,20 @@ class _MealPlanListState extends State<_MealPlanList> {
     );
     if (bestaetigt != true) return;
 
-    final zuAnlegen = offen.where((v) => gewaehlt[v.ingredientId] == true);
+    final zuAnlegen = neuLage.where((v) => gewaehlt[v.ingredientId] == true);
     var angelegt = 0;
     try {
       for (final v in zuAnlegen) {
-        await ShoppingListService.upsert(ShoppingListItem(
-          id: '',
+        // Die Zutat wandert mit. Ohne sie liesse sich der Posten spaeter
+        // nicht in den Vorrat zurueckbuchen, und der Kreislauf
+        // Essensplan -> Einkauf -> Vorrat bliebe offen.
+        await EinkaufService.positionAnlegen(
+          liste.id,
+          name: v.ingredientName,
+          menge: v.toBuy,
           ingredientId: v.ingredientId,
-          unitId: v.unitId ?? '',
-          amount: v.toBuy,
-          isBought: false,
-        ));
+          unitId: v.unitId,
+        );
         angelegt++;
       }
     } catch (e) {
@@ -369,8 +402,52 @@ class _MealPlanListState extends State<_MealPlanList> {
     }
     showSnack(
       angelegt == 1
-          ? '1 Posten auf die Einkaufsliste'
-          : '$angelegt Posten auf die Einkaufsliste',
+          ? '1 Posten auf „${liste.name}"'
+          : '$angelegt Posten auf „${liste.name}"',
+    );
+  }
+
+  /// Fragt, auf welche Einkaufsliste die Posten sollen.
+  ///
+  /// Bei genau einer Liste wird nicht gefragt — eine Rueckfrage mit einer
+  /// einzigen Antwort ist keine.
+  Future<Einkaufsliste?> _listeWaehlen() async {
+    List<Einkaufsliste> listen;
+    try {
+      listen = await EinkaufService.listen();
+    } catch (e) {
+      if (mounted) showErrorSnack('Konnte die Einkaufslisten nicht laden: $e');
+      return null;
+    }
+    if (!mounted) return null;
+
+    if (listen.isEmpty) {
+      showErrorSnack('Keine Einkaufsliste vorhanden — erst eine anlegen.');
+      return null;
+    }
+    if (listen.length == 1) return listen.first;
+
+    return showDialog<Einkaufsliste>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Auf welche Liste?'),
+        children: [
+          for (final l in listen)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, l),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.circle,
+                    color: Color(
+                        int.parse(l.color.replaceFirst('#', '0xFF')))),
+                title: Text(l.name),
+                subtitle: Text(l.offen == 1
+                    ? '1 offener Posten'
+                    : '${l.offen} offene Posten'),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

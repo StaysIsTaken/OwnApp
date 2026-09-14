@@ -3,8 +3,8 @@ import 'package:productivity/dataservice/api_client.dart';
 
 /// Einkaufslisten, Positionen und das Preisgedächtnis.
 ///
-/// Nachfolger von `ShoppingListService`. Der alte bleibt vorerst, weil
-/// Vorratsübernahme und Essensplan noch daran hängen.
+/// Nachfolger von `ShoppingListService` — und seit der Umstellung von
+/// Essensplan und Vorratsübernahme dessen vollständiger Ersatz.
 class EinkaufService {
   EinkaufService._();
 
@@ -105,6 +105,22 @@ class EinkaufService {
   static Future<int> aufraeumen(int listId) async {
     final r = await ApiClient.dio.post('$_pfad/$listId/aufraeumen');
     return ((r.data as Map)['entfernt'] as num?)?.toInt() ?? 0;
+  }
+
+  // ── Die Brücke hinaus: Einkauf → Vorrat ───────────────────────────────
+
+  /// Bucht die abgehakten Positionen in den Vorrat.
+  ///
+  /// [entfernen] räumt sie danach von der Liste — das ist der übliche Wunsch
+  /// nach dem Einkauf. Gerechnet wird auf dem Server, weil dort der Vorrat
+  /// liegt und Einheiten umgerechnet werden müssen.
+  static Future<VorratErgebnis> inDenVorrat(int listId,
+      {bool entfernen = true}) async {
+    final r = await ApiClient.dio.post(
+      '$_pfad/$listId/in-den-vorrat',
+      queryParameters: {'entfernen': entfernen},
+    );
+    return VorratErgebnis.fromJson(r.data as Map<String, dynamic>);
   }
 
   // ── Preisgedächtnis ────────────────────────────────────────────────────

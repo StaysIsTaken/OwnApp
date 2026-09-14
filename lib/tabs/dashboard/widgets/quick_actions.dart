@@ -38,7 +38,7 @@ class QuickActions extends StatelessWidget {
             label: 'Einkauf',
             colors: colors,
             text: text,
-            onTap: () => Navigator.pushNamed(context, AppRoutes.shoppingList),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.einkauf),
             backgroundColor: colors.tertiaryContainer,
             iconColor: colors.onTertiaryContainer,
           ),

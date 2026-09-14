@@ -11,7 +11,6 @@ import 'package:productivity/tabs/register.dart';
 import 'package:productivity/tabs/settings.dart';
 import 'package:productivity/tabs/recipes/recipes_page.dart';
 import 'package:productivity/tabs/pantry/pantry_page.dart';
-import 'package:productivity/tabs/pantry/shopping_list_page.dart';
 import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
 import 'package:productivity/tabs/einkauf/laeden_page.dart';
 import 'package:productivity/tabs/einkauf/preise_page.dart';
@@ -150,7 +149,6 @@ class AppRoutes {
 
   // New Modules
   static const String pantry = '/pantry';
-  static const String shoppingList = '/shopping-list';
   static const String einkauf = '/einkauf';
   static const String laeden = '/laeden';
   static const String preise = '/preise';
@@ -185,7 +183,6 @@ class AppRoutes {
 
     // New Modules
     pantry: (_) => const PantryPage(),
-    shoppingList: (_) => const ShoppingListPage(),
     einkauf: (_) => const EinkaufslistenPage(),
     laeden: (_) => const LaedenPage(),
     preise: (_) => const PreisePage(),
