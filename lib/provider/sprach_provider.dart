@@ -113,6 +113,11 @@ class SprachProvider extends ChangeNotifier {
     // „setz Milch auf die Liste" ploetzlich wieder einen Fingertipp.
     'add_shopping_position',
     'update_shopping_position',
+    // Aufgaben: anlegen und verschieben sind in zwei Sekunden rueckgaengig
+    // gemacht. `delete_task` steht bewusst nicht hier.
+    'create_task',
+    'move_task',
+    'update_task',
     'add_pantry_item',
     'update_pantry_item',
     'create_planner_entry',
