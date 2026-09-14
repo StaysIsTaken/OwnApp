@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:productivity/dataservice/timer_ton.dart';
+import 'package:productivity/provider/timer_provider.dart';
+import 'package:provider/provider.dart';
 
 /// Was die Uhr gerade tut.
 enum Uhrfunktion { uhr, timer }
@@ -62,13 +63,11 @@ class _TileClockViewState extends State<TileClockView> {
 
   Uhrfunktion _funktion = Uhrfunktion.uhr;
 
-  /// Eingestellte Dauer und was davon noch übrig ist.
-  Duration _gestellt = const Duration(minutes: 5);
-  Duration _rest = const Duration(minutes: 5);
-  bool _laeuft = false;
-
-  bool get _abgelaufen => _rest <= Duration.zero && !_laeuft && _hatGelaufen;
-  bool _hatGelaufen = false;
+  /// Der Timer selbst liegt im [TimerProvider] — er muss weiterlaufen,
+  /// während diese Kachel gar nicht zu sehen ist, und per Sprache stellbar
+  /// sein.
+  TimerProvider? _steuerung;
+  bool _liefZuletzt = false;
 
   /// Die Vorgaben bleiben — sie decken den haeufigen Fall in einem Tipp ab.
   static const _vorgaben = [1, 3, 5, 10, 15, 30];
@@ -77,85 +76,63 @@ class _TileClockViewState extends State<TileClockView> {
   ///
   /// Davon haengt nur ab, welcher Knopf hervorgehoben ist — aber ohne das
   /// saehe „7:23 eingestellt" aus wie „nichts eingestellt".
-  bool get _istVorgabe =>
-      _gestellt.inSeconds % 60 == 0 &&
-      _vorgaben.contains(_gestellt.inMinutes);
-
-  Future<void> _eigeneZeit() async {
-    final gewaehlt = await showDialog<Duration>(
-      context: context,
-      builder: (_) => _EigeneZeit(vorgabe: _gestellt),
-    );
-    if (gewaehlt != null && gewaehlt > Duration.zero) _stellen(gewaehlt);
-  }
+  bool _istVorgabe(Duration gestellt) =>
+      gestellt.inSeconds % 60 == 0 && _vorgaben.contains(gestellt.inMinutes);
 
   @override
   void initState() {
     super.initState();
-    // Ein Takt für beides: die Uhr braucht ihn ohnehin, und zwei Timer
-    // nebeneinander laufen unweigerlich auseinander.
-    _takt = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    // Eigener Takt nur noch fuer die Uhrzeit. Die Restzeit zaehlt der
+    // Provider — frueher lief beides an einem Takt, aber der sass im Widget
+    // und stand damit still, sobald man die Kachel verliess.
+    _takt = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _jetzt = DateTime.now());
+    });
   }
 
-  void _tick() {
-    if (!mounted) return;
-    setState(() {
-      _jetzt = DateTime.now();
-      if (_laeuft) {
-        final neu = _rest - const Duration(seconds: 1);
-        if (neu <= Duration.zero) {
-          _rest = Duration.zero;
-          _laeuft = false;
-          _hatGelaufen = true;
-          // Genau einmal, beim Übergang auf null. Im setState aufgerufen,
-          // aber selbst asynchron – der Ton hält die Anzeige nicht auf.
-          TimerTon.spielen();
-        } else {
-          _rest = neu;
-        }
-      }
-    });
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final gefunden = context.read<TimerProvider>();
+    if (identical(gefunden, _steuerung)) return;
+    _steuerung?.removeListener(_timerWechsel);
+    _steuerung = gefunden..addListener(_timerWechsel);
+    _liefZuletzt = gefunden.laeuft;
+  }
+
+  /// Faengt der Timer von aussen an zu laufen — per Sprache —, zeigt die
+  /// Kachel ihn auch. Wer zuruft, will das Herunterzaehlen sehen und nicht
+  /// die Uhrzeit, vor der er ohnehin steht.
+  void _timerWechsel() {
+    final laeuft = _steuerung?.laeuft ?? false;
+    if (laeuft && !_liefZuletzt && _funktion != Uhrfunktion.timer && mounted) {
+      setState(() => _funktion = Uhrfunktion.timer);
+    }
+    _liefZuletzt = laeuft;
+  }
+
+  Future<void> _eigeneZeit(TimerProvider steuerung) async {
+    final gewaehlt = await showDialog<Duration>(
+      context: context,
+      builder: (_) => _EigeneZeit(vorgabe: steuerung.gestellt),
+    );
+    if (gewaehlt != null && gewaehlt > Duration.zero) steuerung.stellen(gewaehlt);
   }
 
   @override
   void dispose() {
     _takt?.cancel();
-    // Sonst klingelt es weiter, während man längst etwas anderes ansieht.
-    TimerTon.aufhoeren();
+    // Der Ton wird hier NICHT mehr gestoppt: der Timer gehoert jetzt der
+    // App, nicht dieser Kachel. Wer weiterblaettert, waehrend er klingelt,
+    // soll ihn trotzdem hoeren.
+    _steuerung?.removeListener(_timerWechsel);
     super.dispose();
-  }
-
-  void _stellen(Duration d) {
-    TimerTon.aufhoeren();
-    setState(() {
-      _gestellt = d;
-      _rest = d;
-      _hatGelaufen = false;
-    });
-  }
-
-  void _startStopp() {
-    // Wer wieder startet, hat das Klingeln zur Kenntnis genommen.
-    TimerTon.aufhoeren();
-    setState(() {
-      if (_rest <= Duration.zero) _rest = _gestellt;
-      _hatGelaufen = false;
-      _laeuft = !_laeuft;
-    });
-  }
-
-  void _zuruecksetzen() {
-    TimerTon.aufhoeren();
-    setState(() {
-      _laeuft = false;
-      _rest = _gestellt;
-      _hatGelaufen = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final steuerung = context.watch<TimerProvider>();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -185,7 +162,7 @@ class _TileClockViewState extends State<TileClockView> {
         Expanded(
           child: _funktion == Uhrfunktion.uhr
               ? _uhr(colors)
-              : _timer(colors),
+              : _timer(colors, steuerung),
         ),
       ],
     );
@@ -223,15 +200,17 @@ class _TileClockViewState extends State<TileClockView> {
     );
   }
 
-  Widget _timer(ColorScheme colors) {
-    final fertig = _abgelaufen;
+  Widget _timer(ColorScheme colors, TimerProvider steuerung) {
+    final fertig = steuerung.abgelaufen;
+    final gestellt = steuerung.gestellt;
+    final istVorgabe = _istVorgabe(gestellt);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         FittedBox(
           child: Text(
-            dauerText(_rest),
+            dauerText(steuerung.rest),
             style: TextStyle(
               fontSize: widget.gross ? 84 : 40,
               fontWeight: FontWeight.w300,
@@ -262,14 +241,16 @@ class _TileClockViewState extends State<TileClockView> {
             for (final minuten in _vorgaben)
               ChoiceChip(
                 label: Text('$minuten min'),
-                selected: !_laeuft && _istVorgabe && _gestellt.inMinutes == minuten,
-                onSelected: (_) => _stellen(Duration(minutes: minuten)),
+                selected: !steuerung.laeuft &&
+                    istVorgabe &&
+                    gestellt.inMinutes == minuten,
+                onSelected: (_) => steuerung.stellen(Duration(minutes: minuten)),
               ),
             ChoiceChip(
               avatar: const Icon(Icons.tune_rounded, size: 18),
-              label: Text(_istVorgabe ? 'Eigene' : dauerText(_gestellt)),
-              selected: !_laeuft && !_istVorgabe,
-              onSelected: (_) => _eigeneZeit(),
+              label: Text(istVorgabe ? 'Eigene' : dauerText(gestellt)),
+              selected: !steuerung.laeuft && !istVorgabe,
+              onSelected: (_) => _eigeneZeit(steuerung),
             ),
           ],
         ),
@@ -278,15 +259,15 @@ class _TileClockViewState extends State<TileClockView> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             FilledButton.icon(
-              onPressed: _startStopp,
-              icon: Icon(_laeuft
+              onPressed: steuerung.startStopp,
+              icon: Icon(steuerung.laeuft
                   ? Icons.pause_rounded
                   : Icons.play_arrow_rounded),
-              label: Text(_laeuft ? 'Pause' : 'Start'),
+              label: Text(steuerung.laeuft ? 'Pause' : 'Start'),
             ),
             const SizedBox(width: 12),
             OutlinedButton.icon(
-              onPressed: _zuruecksetzen,
+              onPressed: steuerung.zuruecksetzen,
               icon: const Icon(Icons.replay_rounded),
               label: const Text('Zurück'),
             ),

@@ -6,6 +6,7 @@ import 'package:record/record.dart';
 import 'package:productivity/dataservice/assistant_service.dart';
 import 'package:productivity/dataservice/kalender_filter.dart';
 import 'package:productivity/dataservice/sprach_auskunft.dart';
+import 'package:productivity/dataservice/timer_befehle.dart';
 import 'package:productivity/dataservice/sprachbefehle.dart';
 import 'package:productivity/dataservice/transcription_service.dart';
 import 'package:productivity/dataservice/tts_service.dart';
@@ -13,6 +14,7 @@ import 'package:productivity/dataservice/wakeword_service.dart';
 import 'package:productivity/dataservice/wakeword_ton.dart';
 import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/provider/tablet_seiten_provider.dart';
+import 'package:productivity/provider/timer_provider.dart';
 
 enum SprachZustand { ruht, hoert, denkt, spricht }
 
@@ -44,9 +46,13 @@ enum Aufnahmeschritt {
 /// Das Fortsetzen liegt bewusst am gemeinsamen Rückweg und nicht am Ende des
 /// Erfolgsfalls: sonst wäre Jarvis nach dem ersten Fehler dauerhaft taub.
 class SprachProvider extends ChangeNotifier {
-  SprachProvider(this._seiten, this._planer);
+  SprachProvider(this._seiten, this._planer, this._timer);
 
   final TabletSeitenProvider _seiten;
+
+  /// Die Eieruhr. Liegt app-weit, nicht in der Uhrkachel — sonst liesse
+  /// sie sich nur stellen, solange man genau davorsteht.
+  final TimerProvider _timer;
 
   /// Nur für „zeige nur … Kalender an". Der Filter sitzt im Planer, weil
   /// dort die Termine liegen — die Kalenderansicht auf einer Kachel und die
@@ -444,6 +450,14 @@ class SprachProvider extends ChangeNotifier {
       return;
     }
 
+    // Der Timer ebenfalls: er läuft im Gerät, der Server weiß nichts von
+    // ihm, und „stell einen Timer für fünf Minuten" soll sofort losgehen.
+    final timerbefehl = TimerBefehle.erkenne(text);
+    if (timerbefehl != null) {
+      await _antworte(_timerAusfuehren(timerbefehl));
+      return;
+    }
+
     // Uhrzeit, Datum, Wetter weiß das Gerät selbst. Der Umweg über das Modell
     // kostete Sekunden für eine Antwort, die danebensteht — und die Uhrzeit
     // rät ein Sprachmodell ohnehin nur.
@@ -510,6 +524,37 @@ class SprachProvider extends ChangeNotifier {
         etwasGetan: etwasGetan || _offen.isNotEmpty,
       ),
     );
+  }
+
+  /// Führt den Timer-Befehl aus und liefert, was vorgelesen wird.
+  ///
+  /// Die Antwort nennt immer die Zeit, nicht nur „erledigt": wer quer durch
+  /// die Küche zuruft, hört sonst nicht, ob die fünf Minuten oder fünfzehn
+  /// geworden sind.
+  String _timerAusfuehren(Timerbefehl befehl) {
+    switch (befehl.aktion) {
+      case Timeraktion.stellen:
+        _timer.stelleUndStarte(befehl.dauer!);
+        return 'Timer läuft: ${dauerSprache(befehl.dauer!)}.';
+      case Timeraktion.starten:
+        if (_timer.laeuft) return 'Der Timer läuft schon.';
+        _timer.starten();
+        return 'Timer läuft: ${dauerSprache(_timer.rest)}.';
+      case Timeraktion.pausieren:
+        if (!_timer.laeuft) return 'Der Timer läuft gerade nicht.';
+        _timer.pausieren();
+        return 'Timer angehalten bei ${dauerSprache(_timer.rest)}.';
+      case Timeraktion.zuruecksetzen:
+        _timer.zuruecksetzen();
+        return 'Timer zurückgesetzt auf ${dauerSprache(_timer.gestellt)}.';
+      case Timeraktion.restfrage:
+        if (_timer.laeuft) {
+          return 'Noch ${dauerSprache(_timer.rest)}.';
+        }
+        if (_timer.abgelaufen) return 'Der Timer ist abgelaufen.';
+        return 'Der Timer läuft gerade nicht. '
+            'Gestellt ist er auf ${dauerSprache(_timer.gestellt)}.';
+    }
   }
 
   /// „Zeige nur den Arbeitskalender und Lisas Kalender an."

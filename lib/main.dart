@@ -11,6 +11,7 @@ import 'package:productivity/tabs/register.dart';
 import 'package:productivity/tabs/settings.dart';
 import 'package:productivity/tabs/recipes/recipes_page.dart';
 import 'package:productivity/tabs/pantry/pantry_page.dart';
+import 'package:productivity/provider/timer_provider.dart';
 import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
 import 'package:productivity/tabs/einkauf/laeden_page.dart';
 import 'package:productivity/tabs/einkauf/preise_page.dart';
@@ -64,6 +65,9 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => PermissionProvider()),
         ChangeNotifierProvider(create: (_) => TabletProvider()),
+        // App-weit, nicht an der Uhrkachel: der Timer laeuft weiter,
+        // waehrend man blaettert, und die Sprache stellt ihn von aussen.
+        ChangeNotifierProvider(create: (_) => TimerProvider()),
       ],
       child: const MyApp(),
     ),
