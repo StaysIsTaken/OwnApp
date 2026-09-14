@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/tabs/dashboard/custom/kalender_blaettern.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
+import 'package:productivity/widgets/kalender/wochenraster_teile.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 
 /// Wochenraster als Kachel.
@@ -75,20 +76,25 @@ class _TileWeekViewState extends State<TileWeekView> {
   /// sehen ist; sonst klebt "jetzt" am oberen Rand.
   void _springeZurUhrzeit(double stundenHoehe, int vonStunde, DateTime start) {
     if (_gesprungen) return;
-    _gesprungen = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Erst hier den Riegel setzen, nicht davor: war der Controller noch
+      // nicht ausgemessen, ist gar nicht gesprungen worden -- und ein
+      // verbrauchter Versuch hiesse, dass es nie mehr passiert. Genau
+      // dieser Fehler ist im Planner aufgefallen.
       if (!_rolle.hasClients) return;
+      final maximum = _rolle.position.maxScrollExtent;
+      if (maximum <= 0) return;
+      _gesprungen = true;
+
       final jetzt = DateTime.now();
-
-      // Zeigt die Ansicht eine andere Woche, sagt "jetzt" nichts ueber
-      // sie aus -- dann lieber beim Vormittag anfangen als bei Mitternacht.
-      final ende = start.add(const Duration(days: 7));
-      final inDieserWoche = !jetzt.isBefore(start) && jetzt.isBefore(ende);
-      final stunde = inDieserWoche ? jetzt.hour + jetzt.minute / 60.0 : 8.0;
-
-      final ziel = (stunde - vonStunde - 1) * stundenHoehe;
-      _rolle.jumpTo(ziel.clamp(0.0, _rolle.position.maxScrollExtent));
+      final ziel = startVersatz(
+        jetzt: jetzt,
+        wochenStart: start,
+        stundenHoehe: stundenHoehe,
+        abStunde: vonStunde,
+      );
+      _rolle.jumpTo(ziel.clamp(0.0, maximum));
     });
   }
 
@@ -107,13 +113,24 @@ class _TileWeekViewState extends State<TileWeekView> {
   /// Legt einen Termin unter einen Fingerdruck – oder laesst ihn, wie er
   /// ist, wenn es nichts zu oeffnen gibt.
   Widget _antippbar(TileScheduleItem e, Widget kind) {
-    final f = widget.kontext.terminOeffnen;
-    if (f == null || e.id == 0) return kind;
+    final f = _tippZiel(e);
+    if (f == null) return kind;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => f(e.id),
+      onTap: f,
       child: kind,
     );
+  }
+
+  /// Was beim Antippen geschehen soll — oder null.
+  ///
+  /// Null ist der Regelfall der Kuechenansicht: sie zeigt und fuehrt
+  /// nirgendwohin. Erst wenn die Seite einen Oeffnen-Weg mitgibt, wird
+  /// getippt.
+  VoidCallback? _tippZiel(TileScheduleItem e) {
+    final f = widget.kontext.terminOeffnen;
+    if (f == null || e.id == 0) return null;
+    return () => f(e.id);
   }
 
   static const List<String> _tage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -213,8 +230,25 @@ class _TileWeekViewState extends State<TileWeekView> {
                       }),
             ),
             _kopf(context, start, zeitBreite, tagBreite, grossflaechig),
-            if (ganztags.isNotEmpty)
-              _ganztagsStreifen(context, start, ganztags, zeitBreite, tagBreite),
+            // Gemeinsam mit dem Planner: dadurch zeigt auch die Kachel
+            // jetzt ALLE eines Tages statt nur des ersten, und mehrtaegige
+            // an jedem ihrer Tage statt nur am Anfangstag.
+            Ganztagsstreifen(
+              tage: [for (var i = 0; i < 7; i++) start.add(Duration(days: i))],
+              zeitBreite: zeitBreite,
+              tagBreite: tagBreite,
+              gross: grossflaechig,
+              eintraege: [
+                for (final e in ganztags)
+                  Ganztagseintrag(
+                    titel: e.title,
+                    von: e.start,
+                    bis: e.end,
+                    farbe: _farbe(context, e),
+                    beiTipp: _tippZiel(e),
+                  ),
+              ],
+            ),
             Expanded(
               child: SingleChildScrollView(
                 controller: grossflaechig ? _rolle : null,
@@ -310,49 +344,7 @@ class _TileWeekViewState extends State<TileWeekView> {
 
   /// Ganztägige Termine über dem Raster – im Raster hätten sie keine
   /// sinnvolle Höhe und würden alles andere verdecken.
-  Widget _ganztagsStreifen(BuildContext context, DateTime start,
-      List<TileScheduleItem> eintraege, double zeitBreite, double tagBreite) {
-    return SizedBox(
-      height: _ganztagsHoehe,
-      child: Row(
-        children: [
-          SizedBox(width: zeitBreite),
-          for (var i = 0; i < 7; i++)
-            SizedBox(
-              width: tagBreite,
-              child: Builder(builder: (_) {
-                final tag = start.add(Duration(days: i));
-                final heute = eintraege.where((e) =>
-                    e.start.year == tag.year &&
-                    e.start.month == tag.month &&
-                    e.start.day == tag.day);
-                if (heute.isEmpty) return const SizedBox();
-                final e = heute.first;
-                return _antippbar(
-                  e,
-                  Container(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 1, vertical: 3),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: _farbe(context, e).withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      e.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 9, color: Colors.white),
-                    ),
-                  ),
-                );
-              }),
-            ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _raster(ColorScheme colors, int vonStunde, int stunden,
       double stundenHoehe, double zeitBreite, double tagBreite, bool gross) {
