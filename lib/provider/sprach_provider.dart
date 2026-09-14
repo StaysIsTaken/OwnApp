@@ -14,6 +14,7 @@ import 'package:productivity/dataservice/listen_befehle.dart';
 import 'package:productivity/dataservice/timer_befehle.dart';
 import 'package:productivity/dataservice/sprachbefehle.dart';
 import 'package:productivity/dataservice/sprecher_frage.dart';
+import 'package:productivity/dataservice/stimm_erkennung.dart';
 import 'package:productivity/dataservice/user_service.dart';
 import 'package:productivity/dataservice/transcription_service.dart';
 import 'package:productivity/dataservice/tts_service.dart';
@@ -408,6 +409,20 @@ class SprachProvider extends ChangeNotifier {
   /// Fehler landen in [wakewordFehler] statt zu fliegen: ein fehlendes Modell
   /// oder ein verweigertes Mikrofon darf die Küchenansicht nicht verhindern —
   /// man bedient sie dann eben per Knopf, und der Grund steht daneben.
+  /// Schaltet die Stimmerkennung dazu, wenn der Server sie erlaubt.
+  ///
+  /// Am Weckwort festgemacht, weil beides zum selben Zustand gehört: ein
+  /// Gerät, das für den Raum zuhört. Schlägt es fehl, läuft alles weiter —
+  /// dann fragt Jarvis eben nach, wer spricht.
+  Future<void> stimmerkennungStarten() async {
+    await StimmErkennung.starten();
+    notifyListeners();
+  }
+
+  /// Nach dem Einlernen: die Profile neu holen, damit die frische Stimme
+  /// sofort zählt und nicht erst beim nächsten Start.
+  Future<void> stimmprofileNeuLaden() => StimmErkennung.profileNeuLaden();
+
   Future<void> wakewordEinschalten({double schwelle = 0.25}) async {
     if (_wakewordAn && WakewordService.bereit) return;
     _wakewordAn = true;
@@ -481,6 +496,11 @@ class SprachProvider extends ChangeNotifier {
       );
       _verstanden = text.trim();
       notifyListeners();
+
+      // Wer war das? Vor dem Verarbeiten, damit „was steht bei mir an"
+      // gar nicht erst in die Rückfrage läuft. Erkennt sie niemanden,
+      // fragt Jarvis gleich darauf nach — der Weg bleibt offen.
+      _sprecherAusStimme();
 
       if (_verstanden.isEmpty) {
         _abbrechenMit('Nichts verstanden.');
@@ -930,6 +950,24 @@ class SprachProvider extends ChangeNotifier {
   void verwerfe(AssistantPendingAction aktion) {
     _offen.remove(aktion);
     notifyListeners();
+  }
+
+  /// Setzt den Sprecher, wenn die Stimme jemanden trifft.
+  ///
+  /// Still, wenn nicht: die Erkennung ist der bequeme Weg, nicht der
+  /// einzige. Ist sie aus, kein Modell geladen oder die Aufnahme zu kurz,
+  /// übernimmt die Rückfrage „Wer bist du?".
+  void _sprecherAusStimme() {
+    if (_sprecher.name != null) return;
+    if (!StimmErkennung.bereit) return;
+    final pcm = TranscriptionService.letzteAufnahme;
+    if (pcm == null) return;
+
+    final name = StimmErkennung.erkenne(pcm);
+    if (name != null) {
+      _sprecher.merken(name);
+      notifyListeners();
+    }
   }
 
   /// Fragt „Wer bist du?", wenn der Satz eine Person braucht und keine

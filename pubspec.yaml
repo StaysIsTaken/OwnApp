@@ -82,3 +82,4 @@ flutter:
     # kopiert, weil die ONNX-Laufzeit echte Dateipfade braucht und kein
     # Flutter-Asset lesen kann.
     - assets/kws/
+    - assets/sprecher/

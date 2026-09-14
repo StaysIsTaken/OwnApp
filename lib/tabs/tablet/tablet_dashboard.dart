@@ -143,6 +143,10 @@ class _KuechenansichtState extends State<_Kuechenansicht> {
           await sprache.wakewordAusschalten();
         }
         await sprache.wakewordEinschalten(schwelle: settings.wakewordSchwelle);
+        // Beides gehört zum selben Zustand: ein Gerät, das für den Raum
+        // zuhört. Erlaubt der Server keine Stimmerkennung, läuft alles
+        // weiter -- dann fragt Jarvis eben nach, wer spricht.
+        await sprache.stimmerkennungStarten();
       }());
     }
   }

@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:record/record.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:path_provider/path_provider.dart';
+
+import 'package:productivity/dataservice/wav.dart';
 import 'package:productivity/dataservice/api_client.dart';
 
 /// Nimmt Audio über das Mikrofon auf und schickt es an den /transcribe-Endpunkt.
@@ -27,18 +29,67 @@ class TranscriptionService {
           [Duration intervall = const Duration(milliseconds: 200)]) =>
       _recorder.onAmplitudeChanged(intervall);
 
+  /// Die Abtastwerte der letzten Aufnahme — roh, 16 bit, 16 kHz, ein Kanal.
+  ///
+  /// Die Stimmerkennung braucht sie, und zwar **dieselben**, die auch zur
+  /// Transkription gehen: das Mikrofon gehört immer nur einem, zweimal
+  /// aufnehmen geht also nicht. Auf Web bleibt das null — dort wird in
+  /// Opus aufgenommen und nicht erkannt.
+  static Uint8List? letzteAufnahme;
+
   /// Startet die Aufnahme. Wirft, wenn kein Mikrofon-Zugriff besteht.
+  ///
+  /// Nativ wird seit der Stimmerkennung als **WAV** aufgenommen statt in
+  /// AAC. Der Grund steht in `wav.dart`: AAC lässt sich in Dart nicht ohne
+  /// weiteres aufmachen, und das Modell will Abtastwerte. Aus einer
+  /// WAV-Datei sind sie herauszuholen, ohne etwas zu dekodieren — und
+  /// Whisper liest WAV ohne Umstand.
+  ///
+  /// **Warum WAV und nicht `pcm16bits`:** beide schreiben dieselben
+  /// Abtastwerte, aber `AVAudioRecorder` auf iOS leitet das
+  /// Containerformat aus der **Dateiendung** ab. Eine Endung `.pcm` kennt
+  /// es nicht. WAV ist der Weg, den die Plattform selbst vorsieht.
+  ///
+  /// Der Preis ist die Größe: 32 kB je Sekunde statt gut 2 kB. Bei
+  /// fünfzehn Sekunden über das eigene WLAN fällt das nicht ins Gewicht.
   static Future<void> start() async {
-    // Web kann kein AAC -> Opus/WebM; native nutzt AAC (universell dekodierbar).
-    final encoder = kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc;
+    // Web kann kein WAV in eine Datei schreiben -> Opus/WebM wie bisher.
+    final encoder = kIsWeb ? AudioEncoder.opus : AudioEncoder.wav;
 
     String path = '';
     if (!kIsWeb) {
       final dir = await getTemporaryDirectory();
       final stamp = DateTime.now().millisecondsSinceEpoch;
-      path = '${dir.path}/rec_$stamp.m4a';
+      path = '${dir.path}/rec_$stamp.wav';
     }
-    await _recorder.start(RecordConfig(encoder: encoder), path: path);
+    letzteAufnahme = null;
+    await _recorder.start(
+      RecordConfig(
+        encoder: encoder,
+        // Beide Modelle -- Weckwort und Sprecher -- erwarten genau das.
+        // Eine andere Rate liefert bei beiden Unsinn, keinen Fehler.
+        sampleRate: Wav.rate,
+        numChannels: 1,
+      ),
+      path: path,
+    );
+  }
+
+  /// Stoppt die Aufnahme und gibt nur die Abtastwerte zurück.
+  ///
+  /// Für das Einlernen einer Stimme: dort wird nichts transkribiert, der
+  /// Satz ist gleichgültig — es zählt allein der Klang. Ihn trotzdem durch
+  /// Whisper zu schicken wäre Rechenzeit für nichts und ein Text, den
+  /// niemand liest.
+  ///
+  /// Null auf Web (dort wird in Opus aufgenommen) und wenn nichts lief.
+  static Future<Uint8List?> stopNurAudio() async {
+    final result = await _recorder.stop();
+    if (result == null || kIsWeb) return null;
+    final datei = await XFile(result).readAsBytes();
+    final pcm = Wav.pcmAus(datei);
+    letzteAufnahme = pcm.isEmpty ? null : pcm;
+    return letzteAufnahme;
   }
 
   /// Stoppt die Aufnahme, lädt sie hoch und liefert den Text.
@@ -62,12 +113,24 @@ class TranscriptionService {
       throw Exception('Keine Aufnahme vorhanden.');
     }
 
-    final bytes = await XFile(result).readAsBytes();
-    if (bytes.isEmpty) {
+    final roh = await XFile(result).readAsBytes();
+    if (roh.isEmpty) {
       throw Exception('Leere Aufnahme.');
     }
 
-    final filename = kIsWeb ? 'audio.webm' : 'audio.m4a';
+    // Nativ liegt hier fertiges WAV: das geht unverändert zum Server, und
+    // die Stimmerkennung hebt sich die Abtastwerte daraus ab. Auf Web
+    // bleibt alles wie bisher.
+    final Uint8List bytes = roh;
+    final String filename;
+    if (kIsWeb) {
+      filename = 'audio.webm';
+    } else {
+      filename = 'audio.wav';
+      final pcm = Wav.pcmAus(roh);
+      letzteAufnahme = pcm.isEmpty ? null : pcm;
+    }
+
     final form = FormData.fromMap({
       'file': MultipartFile.fromBytes(bytes, filename: filename),
     });
