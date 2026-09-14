@@ -1,47 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/main.dart';
-import 'package:productivity/dataclasses/pantry_extras.dart';
-import 'package:productivity/dataclasses/ingredient.dart';
-import 'package:productivity/dataclasses/shop.dart';
-import 'package:productivity/dataclasses/shopping_list_item_price.dart';
+import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/preisvergleich.dart';
 
+/// Der Einkauf auf dem Dashboard.
+///
+/// Sass bis zuletzt auf dem alten `ShoppingListItem` — einem einzigen
+/// flachen Zettel, dessen Posten an einer Zutat hingen. Der wurde
+/// zwischenzeitlich verwaist: gefuettert hat ihn nur noch der Bon-Scan,
+/// waehrend alles andere laengst auf den neuen Listen lief.
+///
+/// Der „guenstigste Laden" kommt damit auf eine bessere Grundlage. Vorher
+/// rechnete er ueber `ShoppingListItemPrice` — Preise, die am Posten
+/// hingen und mit ihm verschwanden. Jetzt kommt er aus dem
+/// Preisgedaechtnis, das an der Ware haengt und den Einkauf ueberlebt, und
+/// er rechnet auf gemeinsamer Grundlage statt Summen ueber verschiedene
+/// Warenkoerbe zu vergleichen (siehe [Preisvergleich]).
 class ShoppingWidget extends StatelessWidget {
-  final List<ShoppingListItem> shoppingItems;
-  final Map<String, Ingredient> ingredientMap;
-  final Map<String, List<ShoppingListItemPrice>> pricesByItemId;
-  final List<Shop> shops;
-  final double estimatedCost;
-  final Future<void> Function(ShoppingListItem) onItemBought;
+  /// Alle sichtbaren Listen — für die Kopfzeile „3 Zettel".
+  final List<Einkaufsliste> listen;
+
+  /// Die Liste, die gezeigt wird: die erste. Mehr als eine auf einer Kachel
+  /// zu zeigen hiesse, von jeder zu wenig zu zeigen.
+  final Einkaufsliste? gezeigt;
+
+  /// Die Positionen von [gezeigt].
+  final List<Einkaufsposition> positionen;
+
+  /// Was der Zettel wo kostet — null, solange die Preise noch laden.
+  final Preisvergleich? vergleich;
+
+  final Future<void> Function(Einkaufsposition) beiAbhaken;
 
   const ShoppingWidget({
     super.key,
-    required this.shoppingItems,
-    required this.ingredientMap,
-    required this.pricesByItemId,
-    required this.shops,
-    required this.estimatedCost,
-    required this.onItemBought,
+    required this.listen,
+    required this.gezeigt,
+    required this.positionen,
+    required this.vergleich,
+    required this.beiAbhaken,
   });
 
-  String? _getBestShop() {
-    final shopMap = {for (var s in shops) s.id: s};
-    final shopTotals = <String, double>{};
-
-    for (final item in shoppingItems.where((i) => !i.isBought)) {
-      final prices = pricesByItemId[item.id];
-      if (prices == null || prices.isEmpty) continue;
-
-      for (final price in prices) {
-        shopTotals[price.shopId] =
-            (shopTotals[price.shopId] ?? 0) + (price.price * item.amount);
-      }
-    }
-
-    if (shopTotals.isEmpty) return null;
-    final bestShopId = shopTotals.entries
-        .reduce((a, b) => a.value < b.value ? a : b)
-        .key;
-    return shopMap[bestShopId]?.name;
+  String _menge(double? menge) {
+    if (menge == null || menge == 1) return '';
+    return menge % 1 == 0 ? menge.toInt().toString() : menge.toString();
   }
 
   @override
@@ -49,8 +51,7 @@ class ShoppingWidget extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    final openItems = shoppingItems.where((i) => !i.isBought).toList();
-    final bestShop = _getBestShop();
+    final offen = positionen.where((p) => !p.erledigt).toList();
 
     return Material(
       color: colors.surfaceContainerHighest,
@@ -65,171 +66,170 @@ class ShoppingWidget extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.shopping_cart_outlined,
-                    color: colors.primary,
-                    size: 20,
-                  ),
+                  Icon(Icons.shopping_cart_outlined,
+                      color: colors.primary, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Einkauf',
+                    // Der Name des Zettels statt eines allgemeinen
+                    // „Einkauf": bei mehreren Listen ist sonst nicht zu
+                    // sehen, welche hier steht.
+                    gezeigt?.name ?? 'Einkauf',
                     style: text.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                        fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const Spacer(),
+                  if (listen.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Text('+${listen.length - 1}',
+                          style: text.labelSmall
+                              ?.copyWith(color: colors.outline)),
+                    ),
                   Icon(Icons.chevron_right_rounded, color: colors.outline),
                 ],
               ),
               const SizedBox(height: 12),
-              if (openItems.isEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.tertiaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle_rounded,
-                        color: colors.tertiary,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Einkaufsliste leer',
-                          style: text.bodySmall?.copyWith(
-                            color: colors.onTertiaryContainer,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
+
+              if (listen.isEmpty)
+                _Ruhe(text: 'Noch keine Einkaufsliste', colors: colors,
+                    textTheme: text)
+              else if (offen.isEmpty)
+                _Ruhe(text: 'Nichts mehr offen', colors: colors,
+                    textTheme: text)
+              else ...[
                 Text(
-                  '${openItems.length} ${openItems.length == 1 ? "Item" : "Items"} offen',
+                  offen.length == 1 ? '1 Posten offen'
+                                    : '${offen.length} Posten offen',
                   style: text.bodySmall?.copyWith(color: colors.outline),
                 ),
                 const SizedBox(height: 12),
-                ...openItems.take(4).map((item) {
-                  final ing = ingredientMap[item.ingredientId];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: Checkbox(
-                            value: false,
-                            onChanged: (_) => onItemBought(item),
-                            visualDensity: VisualDensity.compact,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
+                ...offen.take(4).map((p) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: false,
+                              onChanged: (_) => beiAbhaken(p),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            ing?.name ?? 'Unbekannt',
-                            style: text.bodySmall,
-                            overflow: TextOverflow.ellipsis,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(p.name,
+                                style: text.bodySmall,
+                                overflow: TextOverflow.ellipsis),
                           ),
-                        ),
-                        Text(
-                          item.amount.toStringAsFixed(
-                            item.amount == item.amount.toInt() ? 0 : 1,
-                          ),
-                          style: text.labelSmall?.copyWith(
-                            color: colors.outline,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-                if (openItems.length > 4)
+                          Text(_menge(p.menge),
+                              style: text.labelSmall
+                                  ?.copyWith(color: colors.outline)),
+                        ],
+                      ),
+                    )),
+                if (offen.length > 4)
                   Padding(
                     padding: const EdgeInsets.only(top: 4, left: 32),
-                    child: Text(
-                      '+ ${openItems.length - 4} weitere',
-                      style: text.labelSmall?.copyWith(color: colors.outline),
-                    ),
+                    child: Text('+ ${offen.length - 4} weitere',
+                        style: text.labelSmall
+                            ?.copyWith(color: colors.outline)),
                   ),
-                if (estimatedCost > 0 || bestShop != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: colors.primaryContainer.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        if (estimatedCost > 0)
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.euro_rounded,
-                                size: 14,
-                                color: colors.primary,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Geschätzt',
-                                  style: text.labelSmall?.copyWith(
-                                    color: colors.onPrimaryContainer,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '~ €${estimatedCost.toStringAsFixed(2)}',
-                                style: text.labelMedium?.copyWith(
-                                  color: colors.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        if (bestShop != null) ...[
-                          if (estimatedCost > 0) const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.storefront_outlined,
-                                size: 14,
-                                color: colors.primary,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Bester Shop',
-                                  style: text.labelSmall?.copyWith(
-                                    color: colors.onPrimaryContainer,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                bestShop,
-                                style: text.labelMedium?.copyWith(
-                                  color: colors.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+                if (vergleich != null && !vergleich!.leer)
+                  _Kosten(vergleich: vergleich!, colors: colors, text: text),
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Ruhe extends StatelessWidget {
+  final String text;
+  final ColorScheme colors;
+  final TextTheme textTheme;
+
+  const _Ruhe({required this.text, required this.colors,
+               required this.textTheme});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.tertiaryContainer.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle_rounded, color: colors.tertiary, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(text,
+                  style: textTheme.bodySmall
+                      ?.copyWith(color: colors.onTertiaryContainer)),
+            ),
+          ],
+        ),
+      );
+}
+
+/// Die Kostenzeile.
+///
+/// Nennt die Grundlage mit. Eine Summe ohne sie waere hier besonders
+/// irrefuehrend: auf einer Kachel liest man die Zahl im Vorbeigehen und
+/// hat keine Gelegenheit, nach dem Kleingedruckten zu fragen.
+class _Kosten extends StatelessWidget {
+  final Preisvergleich vergleich;
+  final ColorScheme colors;
+  final TextTheme text;
+
+  const _Kosten({required this.vergleich, required this.colors,
+                 required this.text});
+
+  String _euro(double b) => '${b.toStringAsFixed(2)} €'.replaceFirst('.', ',');
+
+  @override
+  Widget build(BuildContext context) {
+    final guenstigster = vergleich.laeden.first;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: colors.primaryContainer.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(Icons.savings_outlined, size: 14, color: colors.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(guenstigster.laden,
+                      style: text.labelSmall
+                          ?.copyWith(color: colors.onPrimaryContainer),
+                      overflow: TextOverflow.ellipsis),
+                ),
+                Text(_euro(guenstigster.summe),
+                    style: text.labelSmall?.copyWith(
+                        color: colors.primary, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'auf ${vergleich.verglichen} von ${vergleich.gesamt} Posten',
+                style: text.labelSmall?.copyWith(color: colors.outline),
+              ),
+            ),
+          ],
         ),
       ),
     );

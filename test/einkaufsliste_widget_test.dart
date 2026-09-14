@@ -4,9 +4,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
-// Die alte Einkaufsliste lebt noch – Vorratsuebernahme und Essensplan
-// haengen daran. Ihre Nutzlast wird unten weiter geprueft.
-import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_checklist_view.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
@@ -44,7 +41,6 @@ Future<void> zeichne(WidgetTester tester, TileData daten,
 }
 
 void main() {
-  nutzlast();
 
   group('Was die Quelle liefert', () {
     test('der Name steht da, so wie er getippt wurde', () {
@@ -185,34 +181,6 @@ void main() {
       await zeichne(tester,
           const TileData.checklist([], emptyHint: 'Die Liste ist leer'));
       expect(find.text('Die Liste ist leer'), findsOneWidget);
-    });
-  });
-}
-
-// Nachtrag: der leere String war der eigentliche Fehler.
-void nutzlast() {
-  group('Was zum Server geht', () {
-    test('ohne Einheit wird das Feld weggelassen', () {
-      // Ein leerer String ist keine Kennung. Der Fremdschluessel lehnt ihn
-      // ab, der Server stuerzt ab – und weil ein abgestuerzter Server keine
-      // CORS-Kopfzeilen mehr setzt, meldet der Browser einen CORS-Fehler
-      // statt des echten Grundes.
-      const p = ShoppingListItem(
-          id: '', ingredientId: 'z1', unitId: '', amount: 1);
-      expect(p.toJson().containsKey('unitId'), isFalse);
-    });
-
-    test('mit Einheit steht sie drin', () {
-      const p = ShoppingListItem(
-          id: '', ingredientId: 'z1', unitId: 'u1', amount: 1);
-      expect(p.toJson()['unitId'], 'u1');
-    });
-
-    test('eine neue Zeile schickt keine id mit', () {
-      // Die vergibt der Server.
-      const p = ShoppingListItem(
-          id: '', ingredientId: 'z1', unitId: 'u1', amount: 1);
-      expect(p.toJson().containsKey('id'), isFalse);
     });
   });
 }

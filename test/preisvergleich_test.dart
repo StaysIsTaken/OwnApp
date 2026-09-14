@@ -10,6 +10,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/einkauf_service.dart';
 import 'package:productivity/dataservice/preisvergleich.dart';
 
 Einkaufsposition posten(String name, {double? menge, bool erledigt = false}) =>
@@ -24,6 +25,8 @@ Warenpreis preis(String ware, String laden, double betrag) => Warenpreis(
     );
 
 void main() {
+  kennungen();
+
   test('zwei Laeden, drei Posten', () {
     final v = Preisvergleich.rechne(
       positionen: [posten('Milch'), posten('Butter')],
@@ -134,5 +137,29 @@ void main() {
       preise: {'milch': [preis('milch', 'Aldi', 0.89)]},
     );
     expect(v.verglichen, 1);
+  });
+}
+
+// Nachtrag, aus einem alten Fehler gelernt.
+//
+// Beim alten Modell ging eine leere `unitId` als `''` mit, der
+// Fremdschluessel lehnte sie ab, der Server stuerzte ab -- und weil ein
+// abgestuerzter Server keine CORS-Kopfzeilen mehr setzt, meldete der
+// Browser einen CORS-Fehler statt des echten Grundes. Die alte Klasse ist
+// weg, die Falle nicht: Darts `?wert` laesst nur null weg, nicht den
+// leeren String.
+void kennungen() {
+  group('Ein leerer String ist keine Kennung', () {
+    test('leer wird zu null', () {
+      expect(EinkaufService.kennung(''), isNull);
+    });
+
+    test('null bleibt null', () {
+      expect(EinkaufService.kennung(null), isNull);
+    });
+
+    test('eine echte Kennung geht durch', () {
+      expect(EinkaufService.kennung('u1'), 'u1');
+    });
   });
 }

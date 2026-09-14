@@ -48,28 +48,34 @@ Der Kreislauf läuft jetzt auf den neuen Listen:
   kommen als `ohneZutat` zurück und werden gemeldet, statt still
   liegenzubleiben.
 
-### Was noch auf dem alten Modell sitzt
+### Das alte Modell ist weg
 
-Ein zusammenhängendes Stück, das noch aussteht — **das Dashboard**:
+In der App restlos: `ShoppingListService`, `ShoppingListItem`,
+`ShoppingListItemPrice(Service)` und `FilterFields.einkauf` sind
+gelöscht, `DashboardData.shoppingItems` ebenso. Der Dashboard-Block, die
+Einkaufs-Sektion auf der Startseite und der Lader der Küchenansicht
+laufen auf `EinkaufService`.
 
-* `dashboard/widgets/shopping_widget.dart` — Block „Einkauf", samt
-  „günstigster Laden" aus altem Preiswissen.
-* `home.dart` — eigene Einkaufs-Sektion, hakt über
-  `ShoppingListService.upsert` ab.
-* Die drei Lader `home.dart`, `dashboard_page.dart`,
-  `tablet_seite.dart` holen alle `ShoppingListService.loadAll`.
-* `filter_fields.dart`, `shopping_list_item_price_service.dart`.
+Der „günstigste Laden" im Dashboard-Block steht damit auf besserer
+Grundlage: vorher rechnete er über `ShoppingListItemPrice` — Preise, die
+am Posten hingen und mit ihm verschwanden. Jetzt kommt er aus
+[Preisvergleich] und damit aus dem Preisgedächtnis, das an der Ware
+hängt.
 
-Das ist nicht kaputt — die alten Endpunkte stehen noch. Es ist
-**verwaist**: die alte Tabelle füttert nur noch der Bon-Scan
-(`receipt.py`). Wer den Block anfasst, stellt ihn auf
-`EinkaufService.listen()` um; die Listen bringen ihre Zahl offener
-Posten (`offen`) schon mit.
+**Im Backend lebt das alte Modell weiter**, und zwar mit gutem Grund:
+`receipt.py` (Bon-Scan) schreibt dorthin. Die App zielt beim Bon-Scan
+allerdings nur auf den Vorrat (`target: 'pantry'`) — der
+Einkaufs-Zweig ist von hier aus nicht mehr erreichbar.
 
-Der „günstigste Laden" kommt dabei nicht 1:1 mit: er rechnete über
-`ShoppingListItemPrice` (Preis am Posten). Auf dem neuen
-Preisgedächtnis (Preis an der Bezeichnung) wird er besser, weil das
-Wissen den Einkauf überlebt — aber er muss neu gebaut werden.
+### Eine Falle, die den Modellwechsel überlebt hat
+
+Ein leerer String ist keine Kennung. Beim alten Modell ging eine leere
+`unitId` als `''` mit, der Fremdschlüssel lehnte sie ab, der Server
+stürzte ab — und weil ein abgestürzter Server keine CORS-Kopfzeilen mehr
+setzt, meldete der Browser einen CORS-Fehler statt des echten Grundes.
+
+Darts `?wert` lässt nur null weg, nicht den leeren String. Deshalb gibt
+es `EinkaufService.kennung()`, und deshalb wird sie geprüft.
 
 ---
 

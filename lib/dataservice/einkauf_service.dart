@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
 import 'package:productivity/dataservice/api_client.dart';
 
@@ -64,6 +65,18 @@ class EinkaufService {
         .toList();
   }
 
+  /// Ein leerer String ist keine Kennung.
+  ///
+  /// Das kostete beim alten Modell einmal einen halben Tag Suche: eine
+  /// leere `unitId` ging als `''` mit, der Fremdschlüssel lehnte sie ab,
+  /// der Server stürzte ab — und weil ein abgestürzter Server keine
+  /// CORS-Kopfzeilen mehr setzt, meldete der Browser einen CORS-Fehler
+  /// statt des echten Grundes. `?wert` lässt nur null weg, nicht den
+  /// leeren String; deshalb hier.
+  @visibleForTesting
+  static String? kennung(String? wert) =>
+      (wert == null || wert.isEmpty) ? null : wert;
+
   static Future<Einkaufsposition> positionAnlegen(
     int listId, {
     required String name,
@@ -75,8 +88,8 @@ class EinkaufService {
     final r = await ApiClient.dio.post('$_pfad/$listId/positionen', data: {
       'name': name,
       'amount': ?menge,
-      'ingredient_id': ?ingredientId,
-      'unit_id': ?unitId,
+      'ingredient_id': ?kennung(ingredientId),
+      'unit_id': ?kennung(unitId),
       'note': ?notiz,
     });
     return Einkaufsposition.fromJson(r.data as Map<String, dynamic>);

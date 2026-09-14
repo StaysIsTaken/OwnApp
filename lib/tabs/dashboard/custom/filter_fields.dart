@@ -1,5 +1,4 @@
 import 'package:productivity/dataclasses/note.dart';
-import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
 import 'package:productivity/dataclasses/task.dart';
@@ -112,20 +111,6 @@ class FilterFields {
   ]);
 
   // ── Einkaufsliste ────────────────────────────────────────────────────────
-  static final einkauf = _map([
-    FilterField(
-      key: 'amount', label: 'Menge', type: FieldType.number,
-      read: (e) => (e as ShoppingListItem).amount,
-    ),
-    FilterField(
-      key: 'isBought', label: 'Gekauft', type: FieldType.boolean,
-      read: (e) => (e as ShoppingListItem).isBought,
-    ),
-    FilterField(
-      key: 'note', label: 'Notiz', type: FieldType.text,
-      read: (e) => (e as ShoppingListItem).note,
-    ),
-  ]);
 
   // ── Notizen ──────────────────────────────────────────────────────────────
   static final notizen = _map([
