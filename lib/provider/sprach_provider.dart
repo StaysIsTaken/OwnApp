@@ -6,6 +6,9 @@ import 'package:record/record.dart';
 import 'package:productivity/dataservice/assistant_service.dart';
 import 'package:productivity/dataservice/kalender_filter.dart';
 import 'package:productivity/dataservice/sprach_auskunft.dart';
+import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataservice/einkauf_service.dart';
+import 'package:productivity/dataservice/listen_befehle.dart';
 import 'package:productivity/dataservice/timer_befehle.dart';
 import 'package:productivity/dataservice/sprachbefehle.dart';
 import 'package:productivity/dataservice/transcription_service.dart';
@@ -53,6 +56,15 @@ class SprachProvider extends ChangeNotifier {
   /// Die Eieruhr. Liegt app-weit, nicht in der Uhrkachel — sonst liesse
   /// sie sich nur stellen, solange man genau davorsteht.
   final TimerProvider _timer;
+
+  /// Was zuletzt zur Auswahl stand („welche Liste?").
+  ///
+  /// Ohne das endet die Rückfrage in einer Sackgasse: die einzige Antwort,
+  /// die ankäme, wäre der vollständige Name.
+  final Listengedaechtnis _listen = Listengedaechtnis();
+
+  @visibleForTesting
+  Listengedaechtnis get listengedaechtnis => _listen;
 
   /// Nur für „zeige nur … Kalender an". Der Filter sitzt im Planer, weil
   /// dort die Termine liegen — die Kalenderansicht auf einer Kachel und die
@@ -458,6 +470,19 @@ class SprachProvider extends ChangeNotifier {
       return;
     }
 
+    // Eine Antwort auf „welche Liste?" — vor allem anderen, denn „die
+    // zweite" ist für sich genommen kein Satz, mit dem irgendetwas
+    // anzufangen wäre.
+    if (await _listenauswahl(text)) return;
+
+    // Die Einkaufsliste liest das Gerät selbst vor. Das Modell würde sie
+    // nacherzählen: Posten zusammenfassen, umsortieren, weglassen. Wer
+    // eine Einkaufsliste hört, will sie vollständig und der Reihe nach.
+    if (ListenBefehle.istVorlesen(text)) {
+      await _vorlesen();
+      return;
+    }
+
     // Uhrzeit, Datum, Wetter weiß das Gerät selbst. Der Umweg über das Modell
     // kostete Sekunden für eine Antwort, die danebensteht — und die Uhrzeit
     // rät ein Sprachmodell ohnehin nur.
@@ -557,7 +582,84 @@ class SprachProvider extends ChangeNotifier {
     }
   }
 
-  /// „Zeige nur den Arbeitskalender und Lisas Kalender an."
+  /// Liest die Einkaufsliste vor.
+  ///
+  /// Gibt es mehrere, wird gefragt — und die Antwort darauf fängt
+  /// [_listenauswahl] ab.
+  Future<void> _vorlesen({String? name}) async {
+    List<Einkaufsliste> listen;
+    try {
+      listen = await EinkaufService.listen();
+    } catch (e) {
+      await _antworte('Ich komme gerade nicht an die Listen.');
+      return;
+    }
+
+    if (listen.isEmpty) {
+      await _antworte('Es gibt noch keine Einkaufsliste.');
+      return;
+    }
+
+    var gemeint = listen.first;
+    if (name != null) {
+      gemeint = listen.firstWhere((l) => l.name == name,
+          orElse: () => listen.first);
+    } else if (listen.length > 1) {
+      // Merken, BEVOR gefragt wird: die Antwort kommt sofort danach, und
+      // ohne das Gemerkte wäre sie nicht zu deuten.
+      _listen.merken([for (final l in listen) l.name]);
+      await _antworte(
+        'Welche Liste? ${_aufzaehlung([for (final l in listen) l.name])}.',
+        weiterhoeren: true,
+      );
+      return;
+    }
+
+    _listen.vergessen();
+    List<Einkaufsposition> positionen;
+    try {
+      positionen = await EinkaufService.positionen(gemeint.id);
+    } catch (e) {
+      await _antworte('Ich komme gerade nicht an „${gemeint.name}".');
+      return;
+    }
+
+    // Nur das Offene: was abgehakt ist, muss niemand mehr kaufen.
+    final offen = positionen.where((p) => !p.erledigt).toList();
+    if (offen.isEmpty) {
+      await _antworte('Auf „${gemeint.name}" steht nichts mehr.');
+      return;
+    }
+
+    // Mit Menge, wo eine dasteht — „zwei Milch" ist etwas anderes als
+    // „Milch".
+    final teile = [
+      for (final p in offen)
+        p.menge == null || p.menge == 1
+            ? p.name
+            : '${p.menge! % 1 == 0 ? p.menge!.toInt() : p.menge} ${p.name}',
+    ];
+    await _antworte(
+      offen.length == 1
+          ? 'Auf „${gemeint.name}" steht nur ${teile.first}.'
+          : '„${gemeint.name}", ${offen.length} Posten: '
+              '${_aufzaehlung(teile)}.',
+    );
+  }
+
+  /// Fängt „die zweite" oder „die vom Baumarkt" ab.
+  ///
+  /// Liefert true, wenn der Satz eine Antwort auf eine offene Rückfrage
+  /// war — dann ist der Ablauf hier zu Ende und geht nicht ans Modell.
+  Future<bool> _listenauswahl(String text) async {
+    final gewaehlt = _listen.aufloesen(text);
+    if (gewaehlt == null) return false;
+    _listen.vergessen();
+    await _vorlesen(name: gewaehlt);
+    return true;
+  }
+
+  /// „Zeige nur den Arbeitskalender und Lisas Kalender an.""
   ///
   /// Liefert true, wenn der Satz eine Kalenderauswahl war und beantwortet
   /// wurde — dann ist der Ablauf hier zu Ende.
