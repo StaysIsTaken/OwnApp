@@ -15,6 +15,22 @@ class WeekView extends StatefulWidget {
   State<WeekView> createState() => _WeekViewState();
 }
 
+/// Welche Stunde beim Öffnen oben stehen soll.
+///
+/// Eigene Funktion, damit sie sich prüfen lässt: das Springen selbst
+/// braucht einen Scroll-Controller mit echter Ausdehnung, die Entscheidung
+/// dahinter ist reine Rechnung.
+///
+/// Zeigt die Ansicht eine andere Woche, sagt „jetzt" nichts über sie aus —
+/// dann lieber beim Vormittag anfangen als bei Mitternacht. Mitternacht
+/// wäre die schlechtere Antwort: man sähe sechs leere Stunden und müsste
+/// erst scrollen.
+double zielStunde({required DateTime jetzt, required DateTime wochenStart}) {
+  final ende = wochenStart.add(const Duration(days: 7));
+  final inDieserWoche = !jetzt.isBefore(wochenStart) && jetzt.isBefore(ende);
+  return inDieserWoche ? jetzt.hour + jetzt.minute / 60.0 : 8.0;
+}
+
 class _WeekViewState extends State<WeekView> {
   static const double _hourHeight = 64.0;
   static const double _timeColumnWidth = 54.0;
@@ -25,19 +41,48 @@ class _WeekViewState extends State<WeekView> {
   final ScrollController _scrollController = ScrollController();
   final List<GlobalKey> _dayKeys = List.generate(7, (_) => GlobalKey());
 
+  /// Ob schon einmal zur passenden Stelle gesprungen wurde.
+  ///
+  /// Nur beim ersten Zeichnen: wer danach scrollt, will dort bleiben. Eine
+  /// Ansicht, die beim naechsten Neuzeichnen zur Uhrzeit zurueckspringt,
+  /// waere unbenutzbar.
+  bool _gesprungen = false;
+
   @override
   void initState() {
     super.initState();
     _weekStart = _getWeekStart(widget.selectedDate);
+  }
+
+  /// Springt so, dass die aktuelle Stunde im Blick ist.
+  ///
+  /// Vorher stand hier eine feste 7 — und selbst die kam meist nicht an:
+  /// der Sprung lag in `initState`, und im `TabBarView` hat der
+  /// Scroll-Controller beim ersten Frame oft noch keine Ausdehnung.
+  /// `maxScrollExtent` war dann 0, das `clamp` machte daraus 0, und die
+  /// Ansicht begann bei Mitternacht. Deshalb steht der Aufruf jetzt in
+  /// `build`: dort kommt er bei jedem Neuzeichnen wieder vorbei, bis er
+  /// einmal geglueckt ist.
+  ///
+  /// Eine Stunde Vorlauf, damit auch der eben vergangene Termin noch zu
+  /// sehen ist; sonst klebt „jetzt" am oberen Rand.
+  void _springeZurUhrzeit() {
+    if (_gesprungen) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(
-          (7 * _hourHeight).clamp(
-            0.0,
-            _scrollController.position.maxScrollExtent,
-          ),
-        );
-      }
+      if (!_scrollController.hasClients) return;
+      final maximum = _scrollController.position.maxScrollExtent;
+      // Noch nicht ausgemessen: beim naechsten Zeichnen erneut versuchen,
+      // statt den Versuch zu verbrauchen.
+      if (maximum <= 0) return;
+      _gesprungen = true;
+
+      final stunde =
+          zielStunde(jetzt: DateTime.now(), wochenStart: _weekStart);
+
+      _scrollController.jumpTo(
+        ((stunde - 1) * _hourHeight).clamp(0.0, maximum),
+      );
     });
   }
 
@@ -74,6 +119,8 @@ class _WeekViewState extends State<WeekView> {
         final use24h = settingsProvider.use24hFormat;
         final weekEnd = _weekStart.add(const Duration(days: 6));
         final now = DateTime.now();
+
+        _springeZurUhrzeit();
 
         return Column(
           children: [
