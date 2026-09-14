@@ -9,7 +9,6 @@ import 'package:productivity/dataservice/wakeword_service.dart';
 import 'package:productivity/dataservice/wav.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/provider/permission_provider.dart';
-import 'package:productivity/provider/sprach_provider.dart';
 import 'package:provider/provider.dart';
 
 /// Die eigene Stimme einlernen — und der Schalter für den ganzen Haushalt.
@@ -210,9 +209,13 @@ class _InhaltState extends State<_Inhalt> {
       _uhr?.cancel();
     });
 
-    final sprache = context.read<SprachProvider>();
     var angehalten = false;
 
+    // AB HIER ALLES IM try. Was davor wirft, wird von niemandem gefangen:
+    // `finally` läuft nicht, `_nimmtAuf` bleibt stehen, und das Rad dreht
+    // für immer. Genau das passierte mit einem `context.read` vor dem
+    // Block -- den SprachProvider gibt es nur im Tablet-Baum, diese Seite
+    // hängt aber an der normalen Route.
     try {
       // ── Modell ──────────────────────────────────────────────────
       // Beim ersten Mal werden 28 MB ausgepackt und die ONNX-Laufzeit
@@ -291,7 +294,9 @@ class _InhaltState extends State<_Inhalt> {
       await _zeige('Wird gespeichert …');
       await StimmService.probeAnlegen(profil.toList(), label: 'Probe')
           .timeout(_geduld);
-      await sprache.stimmprofileNeuLaden();
+      // Direkt, nicht über den SprachProvider: den gibt es nur im
+      // Tablet-Baum, und diese Seite hängt an der normalen Route.
+      await StimmErkennung.profileNeuLaden();
 
       if (!mounted) return;
       setState(() => _satzNummer = (_satzNummer + 1) % _saetze.length);
@@ -338,10 +343,9 @@ class _InhaltState extends State<_Inhalt> {
       ),
     );
     if (ok != true || !mounted) return;
-    final sprache = context.read<SprachProvider>();
     try {
       final anzahl = await StimmService.eigeneVergessen();
-      await sprache.stimmprofileNeuLaden();
+      await StimmErkennung.profileNeuLaden();
       _melde('$anzahl ${anzahl == 1 ? "Probe" : "Proben"} gelöscht.');
       await _laden();
     } catch (e) {
@@ -552,12 +556,9 @@ class _InhaltState extends State<_Inhalt> {
                       icon: Icon(Icons.delete_outline, color: colors.error),
                       tooltip: 'Diese Probe löschen',
                       onPressed: () async {
-                        // Den Provider VOR dem await greifen: danach ist
-                        // nicht sicher, ob dieses Widget noch steht.
-                        final sprache = context.read<SprachProvider>();
                         try {
                           await StimmService.probeLoeschen(p.id);
-                          await sprache.stimmprofileNeuLaden();
+                          await StimmErkennung.profileNeuLaden();
                           await _laden();
                         } catch (e) {
                           _melde(ApiFehler.text(e));
