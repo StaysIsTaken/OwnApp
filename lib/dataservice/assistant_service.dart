@@ -106,8 +106,10 @@ class AssistantService {
   }
 
   /// Führt eine vom Nutzer bestätigte Aktion serverseitig aus.
-  /// Gibt 'affects' zurück (z.B. 'planner'), damit die App neu laden kann.
-  static Future<String?> execute(
+  ///
+  /// Gibt zurück, was die App neu laden soll — und wie sich das Getane
+  /// zurücknehmen lässt, sofern es sich exakt umkehren lässt.
+  static Future<Ausgefuehrt> execute(
       String kind, Map<String, dynamic> params) async {
     try {
       final response = await ApiClient.dio.post('$_path/execute', data: {
@@ -115,9 +117,37 @@ class AssistantService {
         'params': params,
       });
       final data = Map<String, dynamic>.from(response.data as Map);
-      return data['affects'] as String?;
+      final zurueck = data['rueckgaengig'];
+      return Ausgefuehrt(
+        affects: data['affects'] as String?,
+        // Ohne die Kennung des eben Angelegten wüsste die App beim „nimm
+        // das zurück" nicht, was sie löschen soll.
+        rueckgaengig: zurueck is Map
+            ? AssistantPendingAction(
+                kind: zurueck['kind']?.toString() ?? '',
+                label: 'Zurücknehmen',
+                params: Map<String, dynamic>.from(
+                    zurueck['params'] as Map? ?? const {}),
+              )
+            : null,
+      );
     } catch (e) {
       throw Exception('Fehler beim Ausführen: $e');
     }
   }
+}
+
+
+/// Was eine ausgeführte Aktion hinterlässt.
+class Ausgefuehrt {
+  /// Welcher Bereich neu geladen werden soll, z.B. `planner`.
+  final String? affects;
+
+  /// Wie sich die Aktion zurücknehmen lässt — null, wenn sie sich nicht
+  /// exakt umkehren lässt. Ehrlich nichts anzubieten ist besser als etwas
+  /// Halbrichtiges: wer eine geänderte Menge blind auf 1 zurücksetzte,
+  /// machte aus einer Korrektur einen zweiten Fehler.
+  final AssistantPendingAction? rueckgaengig;
+
+  const Ausgefuehrt({this.affects, this.rueckgaengig});
 }

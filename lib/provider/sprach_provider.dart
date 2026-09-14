@@ -8,6 +8,7 @@ import 'package:productivity/dataservice/kalender_filter.dart';
 import 'package:productivity/dataservice/sprach_auskunft.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
 import 'package:productivity/dataservice/bestaetigung.dart';
+import 'package:productivity/dataservice/korrektur.dart';
 import 'package:productivity/dataservice/einkauf_service.dart';
 import 'package:productivity/dataservice/listen_befehle.dart';
 import 'package:productivity/dataservice/timer_befehle.dart';
@@ -63,6 +64,12 @@ class SprachProvider extends ChangeNotifier {
   /// Ohne das endet die Rückfrage in einer Sackgasse: die einzige Antwort,
   /// die ankäme, wäre der vollständige Name.
   final Auswahlgedaechtnis _listen = Auswahlgedaechtnis();
+
+  /// Was zuletzt getan wurde — zehn Sekunden lang korrigierbar.
+  final Korrekturfenster _korrektur = Korrekturfenster();
+
+  @visibleForTesting
+  Korrekturfenster get korrekturfenster => _korrektur;
 
   @visibleForTesting
   Auswahlgedaechtnis get listengedaechtnis => _listen;
@@ -454,6 +461,12 @@ class SprachProvider extends ChangeNotifier {
     // sonst schluckte ein beiläufiges „ja klar" den nächsten Befehl.
     if (_offen.isNotEmpty && await _bestaetigungAbfangen(text)) return;
 
+    // Dann die Korrektur. Die Bremse steckt in
+    // Korrekturbefehle.erkenne: im offenen Fenster wird NICHT auf
+    // alles reagiert, sondern nur auf Saetze, die wie eine Korrektur
+    // aussehen. Alles andere faellt durch und geht den normalen Weg.
+    if (_korrektur.offen && await _korrekturAbfangen(text)) return;
+
     // Die Kalenderauswahl steht vor allem anderen, weil sie mit demselben
     // Wort anfängt wie ein Seitenwechsel: „zeige nur den Arbeitskalender an"
     // wäre sonst die Suche nach einer Seite dieses Namens.
@@ -527,14 +540,17 @@ class SprachProvider extends ChangeNotifier {
         continue;
       }
       try {
-        await AssistantService.execute(aktion.kind, aktion.params);
+        final ergebnis =
+            await AssistantService.execute(aktion.kind, aktion.params);
         erledigt.add(aktion.label);
         etwasGetan = true;
+        _merkeRuecknahme(aktion.label, ergebnis);
       } catch (e) {
         _fehler = 'Konnte "${aktion.label}" nicht ausführen: $e';
       }
     }
     if (etwasGetan) _seiten.neuLaden();
+    _fensterOeffnen(erledigt);
 
     // Was ausgeführt wurde, wird vorgelesen — nicht die Erzählung des Modells
     // darüber. Wer zuruft, will die Bestätigung hören, nicht die Begründung.
@@ -557,10 +573,87 @@ class SprachProvider extends ChangeNotifier {
     // Wort — also muss das Mikrofon offen bleiben.
     await _antworte(
       teile.join(' '),
+      // Auch wenn etwas getan wurde: die zehn Sekunden danach gehören der
+      // Korrektur. Die Bremse sitzt nicht hier, sondern beim Deuten —
+      // reagiert wird nur auf Sätze, die wie eine Korrektur aussehen.
       weiterhoeren: _offen.isNotEmpty ||
+          _korrektur.offen ||
           istRueckfrage(ergebnis.reply, etwasGetan: etwasGetan),
     );
   }
+
+  /// Sammelt, was sich an der eben ausgeführten Aktion zurücknehmen lässt.
+  final List<AusgefuehrteAktion> _ruecknahmen = [];
+
+  void _merkeRuecknahme(String label, Ausgefuehrt ergebnis) {
+    final zurueck = ergebnis.rueckgaengig;
+    // Null heißt: lässt sich nicht exakt umkehren. Dann wird nichts
+    // gemerkt — ehrlich nichts anzubieten ist besser als etwas
+    // Halbrichtiges.
+    if (zurueck == null || zurueck.kind.isEmpty) return;
+    _ruecknahmen.add(AusgefuehrteAktion(
+      label: label, rueckKind: zurueck.kind, rueckParams: zurueck.params,
+    ));
+  }
+
+  /// Öffnet das Korrekturfenster, sofern etwas geschehen ist.
+  void _fensterOeffnen(List<String> erledigt) {
+    if (erledigt.isEmpty) {
+      _ruecknahmen.clear();
+      return;
+    }
+    _korrektur.merken(erledigt.join('. '), List.of(_ruecknahmen));
+    _ruecknahmen.clear();
+  }
+
+  /// Faengt eine Korrektur der letzten Aktion ab.
+  ///
+  /// Liefert true, wenn der Satz eine war. Eine Ruecknahme erledigt das
+  /// Geraet selbst — sie ist exakt und braucht kein Modell. Eine
+  /// Nachbesserung geht ans Modell, das den Verlauf hat und weiss, was
+  /// eben geschah.
+  Future<bool> _korrekturAbfangen(String text) async {
+    final art = Korrekturbefehle.erkenne(text);
+    if (art == null) return false;
+
+    if (art == Korrekturart.nachbesserung) {
+      // Nicht selbst raten, was eine Nachbesserung bedeutet. Das Fenster
+      // wird aber geschlossen: sonst liefe die Antwort des Modells gleich
+      // wieder in eine Korrektur.
+      _korrektur.schliessen();
+      return false;
+    }
+
+    final zurueck = _korrektur.ruecknahmen;
+    _korrektur.schliessen();
+    if (zurueck.isEmpty) {
+      await _antworte('Das kann ich nicht zurücknehmen.');
+      return true;
+    }
+
+    final weg = <String>[];
+    final blieb = <String>[];
+    for (final a in zurueck) {
+      try {
+        await AssistantService.execute(a.rueckKind, a.rueckParams);
+        weg.add(a.label);
+      } catch (e) {
+        blieb.add(a.label);
+      }
+    }
+    if (weg.isNotEmpty) _seiten.neuLaden();
+
+    await _antworte([
+      if (weg.isNotEmpty)
+        weg.length == 1
+            ? 'Zurückgenommen: ${weg.first}.'
+            : '${weg.length} zurückgenommen.',
+      if (blieb.isNotEmpty)
+        'Nicht zurücknehmen konnte ich: ${blieb.join(", ")}.',
+    ].join(' '));
+    return true;
+  }
+
 
   /// Fängt „ja" oder „nein" auf eine offene Rückfrage ab.
   ///
@@ -590,14 +683,16 @@ class SprachProvider extends ChangeNotifier {
     final gescheitert = <String>[];
     for (final a in wartend) {
       try {
-        await AssistantService.execute(a.kind, a.params);
+        final ergebnis = await AssistantService.execute(a.kind, a.params);
         _offen.remove(a);
         erledigt.add(a.label);
+        _merkeRuecknahme(a.label, ergebnis);
       } catch (e) {
         gescheitert.add(a.label);
       }
     }
     if (erledigt.isNotEmpty) _seiten.neuLaden();
+    _fensterOeffnen(erledigt);
     notifyListeners();
 
     // Was schiefging, wird genannt. Ein „erledigt", das nur für die Hälfte
