@@ -131,4 +131,57 @@ void main() {
 
     expect(rolle.offset, 0.0);
   });
+
+  testWidgets('auch nach dem Laden, nicht nur davor', (tester) async {
+    // DER gemeldete Fehler. In der Kuechenansicht kommen die Termine als
+    // Parameter -- dort gibt es keinen Ladezustand. Die Drawer-Ansicht laedt
+    // selbst, und `loadEntries()` setzt `_isLoading = true`. Der Consumer
+    // zeigt dann einen Fortschrittskreis, und damit verschwindet die
+    // Scroll-Ansicht aus dem Baum. Ihre Position wird verworfen.
+    //
+    // Kommt sie zurueck, faengt sie bei null an -- und ein einmaliger
+    // Riegel im State hat sein Pulver laengst verschossen. Ergebnis: die
+    // Ansicht steht bei Mitternacht, obwohl vorher richtig gesprungen wurde.
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(800, 500);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final planer = PlannerProvider();
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: planer),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+      ],
+      child: MaterialApp(
+          home: Scaffold(body: WeekView(selectedDate: DateTime.now()))),
+    ));
+    await tester.pumpAndSettle();
+
+    double offset() => tester
+        .widgetList<SingleChildScrollView>(find.byType(SingleChildScrollView))
+        .firstWhere((s) => s.controller != null)
+        .controller!
+        .offset;
+
+    final vorher = offset();
+    expect(vorher, greaterThan(0.0), reason: 'Vorbedingung: es sprang schon');
+
+    // Genau das, was `loadEntries()` in der Oberflaeche ausloest: hoch,
+    // und wieder herunter. Der echte Aufruf braeuchte einen Server und
+    // wartet im Test minutenlang ins Leere.
+    planer.setzeLadend(true);
+    // Einzeln pumpen, nicht settle: der Fortschrittskreis dreht sich
+    // endlos, und `pumpAndSettle` wartet darauf, dass er aufhoert.
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget,
+        reason: 'Vorbedingung: das Raster ist waehrenddessen weg');
+
+    planer.setzeLadend(false);
+    await tester.pumpAndSettle();
+
+    expect(offset(), closeTo(vorher, 1.0),
+        reason: 'Nach dem Laden steht die Ansicht wieder bei '
+            '${offset() / stundenHoehe + 1} Uhr');
+  });
 }
