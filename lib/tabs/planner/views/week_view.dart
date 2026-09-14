@@ -9,7 +9,19 @@ import 'package:productivity/tabs/planner/widgets/planner_edit_dialog.dart';
 class WeekView extends StatefulWidget {
   final DateTime selectedDate;
 
-  const WeekView({super.key, required this.selectedDate});
+  /// Termin, der nach einem Tipp auf die Mitteilung hervorgehoben wird.
+  final int? hervorgehoben;
+
+  /// Wird gerufen, sobald der Nutzer selbst etwas antippt — dann hat die
+  /// Hervorhebung ihren Zweck erfüllt.
+  final VoidCallback? beiAuswahl;
+
+  const WeekView({
+    super.key,
+    required this.selectedDate,
+    this.hervorgehoben,
+    this.beiAuswahl,
+  });
 
   @override
   State<WeekView> createState() => _WeekViewState();
@@ -52,6 +64,17 @@ class _WeekViewState extends State<WeekView> {
   void initState() {
     super.initState();
     _weekStart = _getWeekStart(widget.selectedDate);
+  }
+
+  @override
+  void didUpdateWidget(WeekView alt) {
+    super.didUpdateWidget(alt);
+    // Kommt das Datum von aussen (Tipp auf eine Mitteilung), muss die
+    // Ansicht mitwandern -- und dort auch wieder zur Uhrzeit springen.
+    if (alt.selectedDate != widget.selectedDate) {
+      _weekStart = _getWeekStart(widget.selectedDate);
+      _gesprungen = false;
+    }
   }
 
   /// Springt so, dass die aktuelle Stunde im Blick ist.
@@ -497,14 +520,22 @@ class _WeekViewState extends State<WeekView> {
     final showIcons = width > 36;
     final hPad = width < 26 ? 2.0 : 6.0;
 
+    // Nach einem Tipp auf die Mitteilung: der gemeinte Termin bekommt einen
+    // Rahmen ringsum. Der farbige Balken links traegt schon den Kalender --
+    // ihn nur dicker zu machen waere zu leise, um den Blick zu lenken.
+    final gesucht = widget.hervorgehoben != null &&
+        entry.id == widget.hervorgehoben;
+
     final cardContent = Container(
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: isChild ? 0.16 : 0.22),
+        color: color.withValues(alpha: gesucht ? 0.42 : (isChild ? 0.16 : 0.22)),
         borderRadius: BorderRadius.circular(7),
-        border: Border(
-          left: BorderSide(color: color, width: isChild ? 2.5 : 3.5),
-        ),
+        border: gesucht
+            ? Border.all(color: theme.colorScheme.primary, width: 2.5)
+            : Border(
+                left: BorderSide(color: color, width: isChild ? 2.5 : 3.5),
+              ),
       ),
       padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 3),
       child: Column(
@@ -582,7 +613,11 @@ class _WeekViewState extends State<WeekView> {
         ),
         childWhenDragging: Opacity(opacity: 0.3, child: cardContent),
         child: GestureDetector(
-          onTap: () => _showEditEntryDialog(context, entry),
+          onTap: () {
+            // Wer selbst etwas antippt, braucht den Wegweiser nicht mehr.
+            widget.beiAuswahl?.call();
+            _showEditEntryDialog(context, entry);
+          },
           child: cardContent,
         ),
       ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:productivity/dataservice/mitteilungs_ziel.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
@@ -56,6 +57,9 @@ void main() async {
   // Initialize local notifications (works on iOS/Android, no-op on web)
   if (!kIsWeb) {
     await LocalNotificationManager().init();
+    // Beim Kaltstart feuert der Tipp-Rueckruf nicht: die App lief nicht,
+    // als getippt wurde. Der Grund steht nur hier.
+    await LocalNotificationManager().startgrundPruefen();
   }
 
   runApp(
@@ -71,7 +75,9 @@ void main() async {
         // waehrend man blaettert, und die Sprache stellt ihn von aussen.
         ChangeNotifierProvider(create: (_) => TimerProvider()),
       ],
-      child: const _ErinnerungenNachziehen(child: MyApp()),
+      child: const _ErinnerungenNachziehen(
+        child: _MitteilungsSpringer(child: MyApp()),
+      ),
     ),
   );
 
@@ -138,6 +144,51 @@ class _ErinnerungenNachziehenState extends State<_ErinnerungenNachziehen> {
   Widget build(BuildContext context) => widget.child;
 }
 
+/// Springt zu dem, was in der angetippten Mitteilung stand.
+///
+/// Getrennt vom Merken (siehe [MitteilungsZiel]), weil das Ziel zu einem
+/// Zeitpunkt eintreffen kann, zu dem es noch keinen Navigator gibt: beim
+/// Kaltstart steht der Grund fest, bevor das erste Bild gezeichnet ist.
+class _MitteilungsSpringer extends StatefulWidget {
+  final Widget child;
+
+  const _MitteilungsSpringer({required this.child});
+
+  @override
+  State<_MitteilungsSpringer> createState() => _MitteilungsSpringerState();
+}
+
+class _MitteilungsSpringerState extends State<_MitteilungsSpringer> {
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) return;
+    MitteilungsZiel.beiNeuemZiel = _springen;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _springen());
+  }
+
+  @override
+  void dispose() {
+    MitteilungsZiel.beiNeuemZiel = null;
+    super.dispose();
+  }
+
+  void _springen() {
+    final termin = MitteilungsZiel.terminAus(MitteilungsZiel.abholen());
+    if (termin == null) return;
+    // Nach dem Frame: beim Kaltstart steht der Navigator hier noch nicht.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      MitteilungsZiel.navigator.currentState?.pushNamed(
+        AppRoutes.planner,
+        arguments: PlannerZiel(entryId: termin),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -148,6 +199,9 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'Productivity App',
           scaffoldMessengerKey: NotificationService.messengerKey,
+          // Aus dem statischen Rueckruf des Mitteilungs-Plugins gibt es
+          // keinen BuildContext — der Schluessel ist der Weg dorthin.
+          navigatorKey: MitteilungsZiel.navigator,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,

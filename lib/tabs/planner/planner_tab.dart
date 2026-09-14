@@ -9,6 +9,15 @@ import 'package:productivity/tabs/planner/widgets/kalender_filter_dialog.dart';
 import 'package:productivity/tabs/planner/widgets/planner_import_dialog.dart';
 import 'package:productivity/widgets/drawer.dart';
 
+/// Welchen Termin der Kalender beim Öffnen zeigen soll.
+///
+/// Kommt als Route-Argument, wenn jemand eine Mitteilung angetippt hat.
+class PlannerZiel {
+  final int entryId;
+
+  const PlannerZiel({required this.entryId});
+}
+
 class PlannerTab extends StatefulWidget {
   const PlannerTab({super.key});
 
@@ -21,16 +30,50 @@ class _PlannerTabState extends State<PlannerTab>
   late TabController _tabController;
   late DateTime _selectedDate;
 
+  /// Der Termin aus der angetippten Mitteilung, solange er hervorgehoben
+  /// wird. Wird beim ersten Antippen im Kalender wieder vergessen — die
+  /// Hervorhebung soll den Blick lenken, nicht dauerhaft bleiben.
+  int? _hervorgehoben;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _selectedDate = DateTime.now();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PlannerProvider>().loadEntries();
-      context.read<PlannerProvider>().loadTypes();
-      context.read<PlannerProvider>().loadKalender(alle: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = context.read<PlannerProvider>();
+      await provider.loadEntries();
+      if (!mounted) return;
+      provider.loadTypes();
+      provider.loadKalender(alle: true);
+      _zielAnsteuern();
     });
+  }
+
+  /// Springt auf die Woche des gemeinten Termins.
+  ///
+  /// Erst NACH dem Laden: vorher kennt der Provider den Termin nicht und
+  /// wir wüssten nicht, auf welchen Tag zu springen ist. Findet sich der
+  /// Termin nicht (gelöscht, oder ein anderes Konto), bleibt der Kalender
+  /// einfach auf heute stehen — eine Fehlermeldung hülfe niemandem.
+  void _zielAnsteuern() {
+    final ziel = ModalRoute.of(context)?.settings.arguments;
+    if (ziel is! PlannerZiel) return;
+
+    final termin = context
+        .read<PlannerProvider>()
+        .entries
+        .where((e) => e.id == ziel.entryId)
+        .firstOrNull;
+    if (termin == null) return;
+
+    setState(() {
+      _selectedDate = termin.scheduledAt;
+      _hervorgehoben = termin.id;
+    });
+    // Die Wochenansicht ist der Standard, aber nicht garantiert — wer aus
+    // einer Mitteilung kommt, soll den Termin im Raster sehen.
+    _tabController.animateTo(0);
   }
 
   @override
@@ -80,7 +123,11 @@ class _PlannerTabState extends State<PlannerTab>
       body: TabBarView(
         controller: _tabController,
         children: [
-          WeekView(selectedDate: _selectedDate),
+          WeekView(
+            selectedDate: _selectedDate,
+            hervorgehoben: _hervorgehoben,
+            beiAuswahl: () => setState(() => _hervorgehoben = null),
+          ),
           MonthView(selectedDate: _selectedDate),
           DayView(selectedDate: _selectedDate),
         ],
