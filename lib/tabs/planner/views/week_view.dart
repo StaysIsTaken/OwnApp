@@ -50,7 +50,9 @@ class _WeekViewState extends State<WeekView> {
   static const int _snapMinutes = 15;
 
   late DateTime _weekStart;
-  final ScrollController _scrollController = ScrollController();
+  /// Wird in [initState] mit dem Zielversatz erzeugt — siehe dort, warum
+  /// das nicht dasselbe ist wie „einmal hinspringen".
+  late final ScrollController _scrollController;
   final List<GlobalKey> _dayKeys = List.generate(7, (_) => GlobalKey());
 
   /// Ob schon einmal zur passenden Stelle gesprungen wurde.
@@ -60,10 +62,33 @@ class _WeekViewState extends State<WeekView> {
   /// waere unbenutzbar.
   bool _gesprungen = false;
 
+  /// Wo die Ansicht beginnen soll, in Pixeln.
+  ///
+  /// Eine Stunde Vorlauf, damit auch der eben vergangene Termin noch zu
+  /// sehen ist; sonst klebt „jetzt" am oberen Rand.
+  double _startVersatz() =>
+      ((zielStunde(jetzt: DateTime.now(), wochenStart: _weekStart) - 1) *
+              _hourHeight)
+          .clamp(0.0, double.infinity);
+
   @override
   void initState() {
     super.initState();
     _weekStart = _getWeekStart(widget.selectedDate);
+    // Der Versatz gehört an den Controller, nicht in einen einmaligen
+    // Sprung. Grund: der Consumer tauscht das Raster gegen einen
+    // Fortschrittskreis, sobald `loadEntries()` läuft — und damit
+    // verschwindet die Scroll-Ansicht aus dem Baum. Ihre Position wird
+    // verworfen, die nächste beginnt bei null.
+    //
+    // Ein Riegel im State hat sein Pulver dann längst verschossen: es wurde
+    // ja gesprungen, nur ist das Ergebnis mit der alten Position gestorben.
+    // Genau das war der gemeldete Fehler, und genau deshalb trat er in der
+    // Küchenansicht nicht auf: die bekommt ihre Termine als Parameter und
+    // kennt keinen Ladezustand.
+    //
+    // `initialScrollOffset` gilt dagegen für JEDE neu erzeugte Position.
+    _scrollController = ScrollController(initialScrollOffset: _startVersatz());
   }
 
   @override
@@ -89,6 +114,13 @@ class _WeekViewState extends State<WeekView> {
   ///
   /// Eine Stunde Vorlauf, damit auch der eben vergangene Termin noch zu
   /// sehen ist; sonst klebt „jetzt" am oberen Rand.
+  /// Springt, wenn das Datum von aussen gewechselt hat.
+  ///
+  /// Den Normalfall erledigt `initialScrollOffset` (siehe [initState]).
+  /// Hier geht es nur um den Wechsel im laufenden Betrieb — etwa nach
+  /// einem Tipp auf eine Terminbenachrichtigung, der auf eine andere Woche
+  /// führt. Dabei bleibt die Position bestehen, also muss von Hand
+  /// gesprungen werden.
   void _springeZurUhrzeit() {
     if (_gesprungen) return;
 
@@ -99,13 +131,7 @@ class _WeekViewState extends State<WeekView> {
       // statt den Versuch zu verbrauchen.
       if (maximum <= 0) return;
       _gesprungen = true;
-
-      final stunde =
-          zielStunde(jetzt: DateTime.now(), wochenStart: _weekStart);
-
-      _scrollController.jumpTo(
-        ((stunde - 1) * _hourHeight).clamp(0.0, maximum),
-      );
+      _scrollController.jumpTo(_startVersatz().clamp(0.0, maximum));
     });
   }
 

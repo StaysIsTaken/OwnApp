@@ -128,6 +128,20 @@ class PlannerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Den Ladezustand von Hand setzen — nur fuer Tests.
+  ///
+  /// Ohne diese Naht liesse sich nicht pruefen, was beim Laden mit der
+  /// Oberflaeche geschieht: der Consumer tauscht das Raster gegen einen
+  /// Fortschrittskreis, und dabei verschwindet die Scroll-Ansicht samt
+  /// ihrer Position aus dem Baum. Genau dort sass ein Fehler, den man
+  /// sonst nur auf dem Geraet sieht — `loadEntries()` selbst braucht einen
+  /// Server und wartet im Test minutenlang ins Leere.
+  @visibleForTesting
+  void setzeLadend(bool laedt) {
+    _isLoading = laedt;
+    notifyListeners();
+  }
+
   @visibleForTesting
   void setzeKalender(List<Kalender> kalender) {
     _kalender = [...kalender];
