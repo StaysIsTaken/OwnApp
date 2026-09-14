@@ -24,6 +24,11 @@ dependencies:
   table_calendar: ^3.2.1
   file_picker: ^12.2.0
   record: ^6.2.1
+
+  # Damit sich Zeit in Tests stellen laesst. `DateTime.now()` laesst sich
+  # nicht faelschen, und ein Gueltigkeitsfenster, das sich nicht ablaufen
+  # laesst, ist ein ungeprueftes Fenster.
+  clock: ^1.1.1
   path_provider: ^2.1.4
   cross_file: ^0.3.5+5
   mobile_scanner: ^7.4.0

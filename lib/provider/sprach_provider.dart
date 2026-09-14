@@ -13,6 +13,8 @@ import 'package:productivity/dataservice/einkauf_service.dart';
 import 'package:productivity/dataservice/listen_befehle.dart';
 import 'package:productivity/dataservice/timer_befehle.dart';
 import 'package:productivity/dataservice/sprachbefehle.dart';
+import 'package:productivity/dataservice/sprecher_frage.dart';
+import 'package:productivity/dataservice/user_service.dart';
 import 'package:productivity/dataservice/transcription_service.dart';
 import 'package:productivity/dataservice/tts_service.dart';
 import 'package:productivity/dataservice/wakeword_service.dart';
@@ -68,11 +70,46 @@ class SprachProvider extends ChangeNotifier {
   /// Was zuletzt getan wurde — zehn Sekunden lang korrigierbar.
   final Korrekturfenster _korrektur = Korrekturfenster();
 
+  /// Wer gerade spricht. Am Küchentablet steht kein Konto vor dem Gerät,
+  /// sondern ein Mensch — und „was steht bei mir an" hat ohne ihn keine
+  /// Antwort.
+  final Sprechergedaechtnis _sprecher = Sprechergedaechtnis();
+
+  /// Der Satz, der auf eine Antwort auf „Wer bist du?" wartet.
+  ///
+  /// Er wird aufgehoben, statt den Nutzer alles wiederholen zu lassen:
+  /// nach der Antwort läuft genau dieser Satz weiter, nur mit Sprecher.
+  String? _wartetAufSprecher;
+
+  /// Die Namen im Haushalt, einmal geholt.
+  ///
+  /// Gesucht wird unter ihnen, statt aus der Antwort einen Namen zu raten:
+  /// wer nicht im Haushalt ist, hat auch keinen Kalender.
+  List<String> _haushalt = const [];
+
   @visibleForTesting
   Korrekturfenster get korrekturfenster => _korrektur;
 
   @visibleForTesting
   Auswahlgedaechtnis get listengedaechtnis => _listen;
+
+  @visibleForTesting
+  Sprechergedaechtnis get sprechergedaechtnis => _sprecher;
+
+  /// Für Tests und für das Einlernen: den Haushalt setzen, ohne ihn zu
+  /// holen. Ohne diese Naht liefe jeder Test ins Netz-Timeout.
+  @visibleForTesting
+  void setzeHaushalt(List<String> namen) => _haushalt = List.of(namen);
+
+  /// Wer gerade spricht — für die Anzeige („Jarvis hört Lisa").
+  String? get sprecher => _sprecher.name;
+
+  /// Sagt Jarvis, wer spricht. Von der Stimmerkennung gerufen, sobald sie
+  /// jemanden zuordnet.
+  void sprecherErkannt(String name) {
+    _sprecher.merken(name);
+    notifyListeners();
+  }
 
   /// Nur für „zeige nur … Kalender an". Der Filter sitzt im Planer, weil
   /// dort die Termine liegen — die Kalenderansicht auf einer Kachel und die
@@ -467,6 +504,11 @@ class SprachProvider extends ChangeNotifier {
     // aussehen. Alles andere faellt durch und geht den normalen Weg.
     if (_korrektur.offen && await _korrekturAbfangen(text)) return;
 
+    // Wartet eine Antwort auf „Wer bist du?", ist der ganze Satz diese
+    // Antwort — vor allem anderen, denn „Lisa" allein ist kein Befehl,
+    // mit dem sonst irgendetwas anzufangen wäre.
+    if (_wartetAufSprecher != null && await _sprecherAntwort(text)) return;
+
     // Die Kalenderauswahl steht vor allem anderen, weil sie mit demselben
     // Wort anfängt wie ein Seitenwechsel: „zeige nur den Arbeitskalender an"
     // wäre sonst die Suche nach einer Seite dieses Namens.
@@ -521,7 +563,18 @@ class SprachProvider extends ChangeNotifier {
       return;
     }
 
-    _verlauf.add({'role': 'user', 'content': text});
+    // Erst jetzt, kurz vor dem Modell: alles davor beantwortet das Gerät
+    // selbst und braucht keinen Sprecher. „Stell einen Timer" soll nicht
+    // an einer Rückfrage hängenbleiben.
+    if (await _sprecherFehlt(text)) return;
+
+    // Weiß Jarvis, wer spricht, sagt er es dem Modell. Der Assistent kennt
+    // den Parameter `person` schon — von „was steht bei Lisa an".
+    final sprecher = _sprecher.name;
+    final anDasModell =
+        sprecher == null ? text : 'Ich bin $sprecher. $text';
+
+    _verlauf.add({'role': 'user', 'content': anDasModell});
     while (_verlauf.length > _verlaufLaenge) {
       _verlauf.removeAt(0);
     }
@@ -877,6 +930,68 @@ class SprachProvider extends ChangeNotifier {
   void verwerfe(AssistantPendingAction aktion) {
     _offen.remove(aktion);
     notifyListeners();
+  }
+
+  /// Fragt „Wer bist du?", wenn der Satz eine Person braucht und keine
+  /// bekannt ist. Gibt true zurück, wenn gefragt wurde.
+  ///
+  /// Die Stimmerkennung setzt den Sprecher, bevor es hierher kommt — ist
+  /// sie aus oder erkennt sie niemanden, ist das hier der Auffangweg. Er
+  /// funktioniert deshalb auch ganz ohne sie.
+  Future<bool> _sprecherFehlt(String text) async {
+    if (_sprecher.name != null) return false;
+    if (!SprecherFrage.brauchtSprecher(text)) return false;
+
+    // Ohne Namen gäbe es nichts, wogegen sich die Antwort deuten ließe —
+    // dann lieber gar nicht fragen und das Modell versuchen lassen.
+    await _haushaltLaden();
+    if (_haushalt.isEmpty) return false;
+
+    _wartetAufSprecher = text;
+    await _antworte(SprecherFrage.frage, weiterhoeren: true);
+    return true;
+  }
+
+  /// Deutet die Antwort auf „Wer bist du?".
+  ///
+  /// Passt sie zu niemandem, sagt Jarvis, **was der Nutzer stattdessen tun
+  /// kann** — den Satz nochmal mit dem Namen darin. Ein blosses „habe ich
+  /// nicht verstanden" liesse ihn ratlos vor dem Gerät stehen.
+  Future<bool> _sprecherAntwort(String text) async {
+    final satz = _wartetAufSprecher;
+    _wartetAufSprecher = null;
+    if (satz == null) return false;
+
+    final name = SprecherFrage.deute(text, _haushalt);
+    if (name == null) {
+      await _antworte(SprecherFrage.nichtGefunden);
+      return true;
+    }
+
+    _sprecher.merken(name);
+    notifyListeners();
+    // Denselben Satz weiterlaufen lassen, nur mit Sprecher. Wer schon
+    // einmal gefragt hat, soll nicht alles wiederholen müssen.
+    await _verarbeite(satz);
+    return true;
+  }
+
+  Future<void> _haushaltLaden() async {
+    if (_haushalt.isNotEmpty) return;
+    try {
+      final leute = await UserService.getAllUsers();
+      _haushalt = [
+        for (final u in leute)
+          if ('${u.firstname} ${u.lastname}'.trim().isNotEmpty)
+            '${u.firstname} ${u.lastname}'.trim()
+          else
+            u.username,
+      ];
+    } catch (_) {
+      // Kein Netz: dann wird nicht gefragt, statt eine Frage zu stellen,
+      // deren Antwort ohnehin nirgends ankäme.
+      _haushalt = const [];
+    }
   }
 
   Future<void> _antworte(String text, {bool weiterhoeren = false}) async {
