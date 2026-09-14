@@ -71,9 +71,29 @@ class _InhaltState extends State<_Inhalt> {
   /// niemand, ob er warten oder neu anfangen soll.
   String _schritt = '';
 
+  /// Was die letzte Aufnahme der Reihe nach getan hat. Bleibt nach einem
+  /// Fehlschlag stehen: eine Meldung, die nach vier Sekunden verschwindet,
+  /// hilft niemandem, der gerade aufs Gerät schaut.
+  final List<String> _protokoll = [];
+
+  /// Woran der letzte Versuch gescheitert ist — sichtbar, bis der nächste
+  /// beginnt.
+  String? _letzterFehler;
+
   /// Sekunden, die noch aufgenommen werden. 0 heißt: läuft gerade nicht.
   int _rest = 0;
   Timer? _uhr;
+
+  /// Bricht den Vorgang ab, egal woran er hängt.
+  ///
+  /// Die einzelnen Schritte haben eigene Obergrenzen, aber nur für das,
+  /// woran man gedacht hat. Dieser Wächter fängt den Rest: er sitzt über
+  /// allem und macht aus einem endlos drehenden Rad eine Meldung.
+  Timer? _waechter;
+
+  /// Ein Ablauf aus Vorlauf, Aufnahme und zwei Serveranfragen. Vierzig
+  /// Sekunden sind großzügig; alles darüber ist kaputt, nicht langsam.
+  static const Duration _abbruchNach = Duration(seconds: 40);
 
   @override
   void initState() {
@@ -84,11 +104,27 @@ class _InhaltState extends State<_Inhalt> {
   @override
   void dispose() {
     _uhr?.cancel();
+    _waechter?.cancel();
     super.dispose();
   }
 
-  void _zeige(String was) {
-    if (mounted) setState(() => _schritt = was);
+  /// Sagt, was gerade läuft — und lässt die Oberfläche es auch zeichnen.
+  ///
+  /// `setState` fordert nur einen Frame an. Blockiert der nächste Schritt
+  /// den Hauptstrang (das Laden eines 28-MB-Modells tut genau das), kommt
+  /// dieser Frame nie, und der Text bleibt unsichtbar — man sieht ein Rad
+  /// und sonst nichts. Das kurze Warten gibt dem Zeichnen die Runde, die
+  /// es dafür braucht.
+  Future<void> _zeige(String was) async {
+    if (!mounted) return;
+    setState(() {
+      _schritt = was;
+      _protokoll.add(
+          '${DateTime.now().toIso8601String().substring(11, 19)}  $was');
+    });
+    // Zwei Runden: eine für den Aufbau, eine fürs Zeichnen.
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(const Duration(milliseconds: 16));
   }
 
   Future<void> _laden() async {
@@ -120,6 +156,17 @@ class _InhaltState extends State<_Inhalt> {
         .showSnackBar(SnackBar(content: Text(text)));
   }
 
+  /// Wie [_melde], aber die Meldung bleibt auf der Seite stehen.
+  ///
+  /// Ein Schnipsel, der nach vier Sekunden verschwindet, ist bei einem
+  /// Ablauf, der zwanzig Sekunden dauern kann, die falsche Form: wer
+  /// zwischendurch wegschaut, erfährt nie, woran es lag.
+  void _scheitert(String text) {
+    if (!mounted) return;
+    setState(() => _letzterFehler = text);
+    _melde(text);
+  }
+
   Future<void> _schalten(bool an) async {
     try {
       final neu = await StimmService.setzen(aktiv: an);
@@ -144,8 +191,23 @@ class _InhaltState extends State<_Inhalt> {
     if (_nimmtAuf) return;
     setState(() {
       _nimmtAuf = true;
-      _schritt = '';
+      _schritt = 'Los geht\'s …';
       _rest = 0;
+      _protokoll.clear();
+      _letzterFehler = null;
+    });
+
+    _waechter?.cancel();
+    _waechter = Timer(_abbruchNach, () {
+      if (!mounted || !_nimmtAuf) return;
+      setState(() {
+        _nimmtAuf = false;
+        _rest = 0;
+        _letzterFehler = 'Abgebrochen nach ${_abbruchNach.inSeconds} '
+            'Sekunden. Steckengeblieben bei: '
+            '${_schritt.isEmpty ? "(noch nichts)" : _schritt}';
+      });
+      _uhr?.cancel();
     });
 
     final sprache = context.read<SprachProvider>();
@@ -156,13 +218,13 @@ class _InhaltState extends State<_Inhalt> {
       // Beim ersten Mal werden 28 MB ausgepackt und die ONNX-Laufzeit
       // hochgefahren. Das dauert, und ohne Text sieht es nach Absturz aus.
       if (!StimmErkennung.bereit) {
-        _zeige('Spracherkennung wird vorbereitet …');
+        await _zeige('Spracherkennung wird vorbereitet …');
         final ok = await StimmErkennung.modellLaden().timeout(
           _geduld,
           onTimeout: () => false,
         );
         if (!ok) {
-          _melde(StimmErkennung.fehler ??
+          _scheitert(StimmErkennung.fehler ??
               'Die Spracherkennung ließ sich nicht vorbereiten. '
                   'Erreichst du den Server?');
           return;
@@ -170,14 +232,14 @@ class _InhaltState extends State<_Inhalt> {
       }
 
       if (WakewordService.laeuft) {
-        _zeige('Weckwort wird kurz angehalten …');
+        await _zeige('Weckwort wird kurz angehalten …');
         await WakewordService.anhalten();
         angehalten = true;
       }
 
-      _zeige('Mikrofon …');
+      await _zeige('Mikrofon …');
       if (!await TranscriptionService.hasPermission()) {
-        _melde('Ohne Mikrofon geht es nicht.');
+        _scheitert('Ohne Mikrofon geht es nicht.');
         return;
       }
 
@@ -185,7 +247,7 @@ class _InhaltState extends State<_Inhalt> {
       // Eine Sekunde Vorlauf: wer erst das Gerät zum Mund führt, verliert
       // sonst den Anfang -- und bekommt "das war zu kurz" für etwas, das
       // er richtig gemacht hat.
-      _zeige('Gleich geht es los …');
+      await _zeige('Gleich geht es los …');
       await Future<void>.delayed(const Duration(seconds: 1));
 
       await TranscriptionService.start();
@@ -205,28 +267,28 @@ class _InhaltState extends State<_Inhalt> {
       await Future<void>.delayed(const Duration(seconds: _probensekunden));
       _uhr?.cancel();
 
-      _zeige('Wird ausgewertet …');
+      await _zeige('Wird ausgewertet …');
       final pcm = await TranscriptionService.stopNurAudio();
 
       if (pcm == null || pcm.isEmpty) {
-        _melde('Es kam kein Ton an. Ist das Mikrofon belegt?');
+        _scheitert('Es kam kein Ton an. Ist das Mikrofon belegt?');
         return;
       }
       final dauer = Wav.dauer(pcm);
       if (dauer < StimmErkennung.mindestdauer) {
-        _melde('Nur ${(dauer.inMilliseconds / 1000).toStringAsFixed(1)} '
+        _scheitert('Nur ${(dauer.inMilliseconds / 1000).toStringAsFixed(1)} '
             'Sekunden angekommen. Nochmal, und sprich durch.');
         return;
       }
 
       final profil = StimmErkennung.embedding(pcm);
       if (profil == null) {
-        _melde('Daraus ließ sich kein Stimmprofil rechnen.');
+        _scheitert('Daraus ließ sich kein Stimmprofil rechnen.');
         return;
       }
 
       // ── Speichern ───────────────────────────────────────────────
-      _zeige('Wird gespeichert …');
+      await _zeige('Wird gespeichert …');
       await StimmService.probeAnlegen(profil.toList(), label: 'Probe')
           .timeout(_geduld);
       await sprache.stimmprofileNeuLaden();
@@ -234,13 +296,14 @@ class _InhaltState extends State<_Inhalt> {
       if (!mounted) return;
       setState(() => _satzNummer = (_satzNummer + 1) % _saetze.length);
       await _laden();
-      _melde('Probe gespeichert — ${profil.length} Werte.');
+      _scheitert('Probe gespeichert — ${profil.length} Werte.');
     } on TimeoutException {
-      _melde('Der Server hat nicht geantwortet. Nochmal versuchen?');
+      _scheitert('Der Server hat nicht geantwortet. Nochmal versuchen?');
     } catch (e) {
-      _melde(ApiFehler.text(e));
+      _scheitert(ApiFehler.text(e));
     } finally {
       _uhr?.cancel();
+      _waechter?.cancel();
       if (angehalten) {
         unawaited(WakewordService.fortsetzen());
       }
@@ -249,6 +312,7 @@ class _InhaltState extends State<_Inhalt> {
           _nimmtAuf = false;
           _schritt = '';
           _rest = 0;
+          if (_letzterFehler == null) _protokoll.clear();
         });
       }
     }
@@ -428,6 +492,52 @@ class _InhaltState extends State<_Inhalt> {
                 ),
               ),
             ),
+
+            // ── Wenn etwas schiefging ───────────────────────────────
+            // Steht hier und nicht nur als Schnipsel unten: bei einem
+            // Ablauf, der zwanzig Sekunden dauern kann, schaut man
+            // zwischendurch weg.
+            if (_letzterFehler != null) ...[
+              const SizedBox(height: 16),
+              Card(
+                color: colors.errorContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.error_outline,
+                              color: colors.onErrorContainer),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _letzterFehler!,
+                              style: text.bodyMedium?.copyWith(
+                                  color: colors.onErrorContainer),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_protokoll.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text('Was bis dahin lief:',
+                            style: text.labelSmall?.copyWith(
+                                color: colors.onErrorContainer)),
+                        const SizedBox(height: 4),
+                        for (final zeile in _protokoll)
+                          Text(zeile,
+                              style: text.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                color: colors.onErrorContainer,
+                              )),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
 
             // ── Was hinterlegt ist ──────────────────────────────────
             if (_meine.isNotEmpty) ...[
