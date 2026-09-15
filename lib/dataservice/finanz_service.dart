@@ -183,6 +183,141 @@ class FinanzService {
   static Future<void> buchungLoeschen(int id) =>
       ApiClient.dio.delete('$_pfad/buchungen/$id');
 
+  // ── Daueraufträge ──────────────────────────────────────────────────────
+
+  static Future<List<Dauerauftrag>> serien({int? kasse}) async {
+    final r = await ApiClient.dio.get('$_pfad/serien', queryParameters: {
+      'kasse': ?kasse,
+    });
+    return (r.data as List<dynamic>)
+        .map((e) => Dauerauftrag.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// [cents] ist der **erste Betrag** und wird zur Stufe ab [start].
+  ///
+  /// Zusammen und nicht nacheinander: eine Regel ohne Betrag könnte das
+  /// Nachbuchen nur überspringen.
+  static Future<Dauerauftrag> serieAnlegen({
+    required int kasseId,
+    required String titel,
+    required DateTime start,
+    required int cents,
+    String freq = 'MONTHLY',
+    int intervall = 1,
+    String? wochentage,
+    int? monatstag,
+    DateTime? ende,
+    int? kategorieId,
+    String? notiz,
+  }) async {
+    final r = await ApiClient.dio.post('$_pfad/serien', data: {
+      'account_id': kasseId,
+      'title': titel,
+      'start_on': Finanzrechnung.alsIso(start),
+      'amount_cents': cents,
+      'freq': freq,
+      'interval_n': intervall,
+      'byweekday': ?kennung(wochentage),
+      'bymonthday': ?monatstag,
+      'end_on': ?(ende == null ? null : Finanzrechnung.alsIso(ende)),
+      'category_id': ?kategorieId,
+      'note': ?kennung(notiz),
+    });
+    return Dauerauftrag.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// Zum Aussetzen: `aktiv: false` kommt durch.
+  ///
+  /// Der `?`-Marker lässt nur **null** weg, nicht `false` — ein
+  /// ausdrücklich gesetztes `false` geht also mit. Verwechselt man das
+  /// mit einer Prüfung auf „leer", baut man sich ein Aussetzen, das
+  /// stillschweigend nichts tut.
+  static Future<Dauerauftrag> serieAendern(
+    int id, {
+    String? titel,
+    String? freq,
+    int? intervall,
+    String? wochentage,
+    int? monatstag,
+    DateTime? start,
+    DateTime? ende,
+    bool? aktiv,
+    int? kategorieId,
+    String? notiz,
+  }) async {
+    final r = await ApiClient.dio.put('$_pfad/serien/$id', data: {
+      'title': ?titel,
+      'freq': ?freq,
+      'interval_n': ?intervall,
+      'byweekday': ?kennung(wochentage),
+      'bymonthday': ?monatstag,
+      'start_on': ?(start == null ? null : Finanzrechnung.alsIso(start)),
+      'end_on': ?(ende == null ? null : Finanzrechnung.alsIso(ende)),
+      'active': ?aktiv,
+      'category_id': ?kategorieId,
+      'note': ?kennung(notiz),
+    });
+    return Dauerauftrag.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  static Future<void> serieLoeschen(int id) =>
+      ApiClient.dio.delete('$_pfad/serien/$id');
+
+  /// „Ab April kostet der Abschlag 94,50."
+  ///
+  /// Zweimal derselbe Stichtag ist eine Korrektur, keine zweite Stufe.
+  static Future<Betragsstufe> stufeSetzen(
+    int serieId, {
+    required DateTime gueltigAb,
+    required int cents,
+    String? notiz,
+  }) async {
+    final r = await ApiClient.dio.post('$_pfad/serien/$serieId/betrag', data: {
+      'gueltig_ab': Finanzrechnung.alsIso(gueltigAb),
+      'amount_cents': cents,
+      'note': ?kennung(notiz),
+    });
+    return Betragsstufe.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  static Future<void> stufeLoeschen(int serieId, int stufeId) =>
+      ApiClient.dio.delete('$_pfad/serien/$serieId/betrag/$stufeId');
+
+  // ── Vorschau und Nachbuchen ────────────────────────────────────────────
+
+  /// Was im Zeitraum fällig ist und noch nicht gebucht wurde.
+  ///
+  /// Steht nirgends in der Datenbank — jeder Aufruf rechnet neu.
+  static Future<List<Geplant>> vorschau({
+    required DateTime von,
+    required DateTime bis,
+    int? kasse,
+  }) async {
+    final r = await ApiClient.dio.get('$_pfad/vorschau', queryParameters: {
+      'von': Finanzrechnung.alsIso(von),
+      'bis': Finanzrechnung.alsIso(bis),
+      'kasse': ?kasse,
+    });
+    return (r.data as List<dynamic>)
+        .map((e) => Geplant.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Trägt nach, was bis heute fällig war. Gibt zurück, wie viele.
+  ///
+  /// Wird beim Öffnen des Haushaltsbuchs gerufen, obwohl der Server das
+  /// nachts ohnehin tut. Kein Übereifer: ein ausgefallener
+  /// Hintergrundlauf darf nicht bedeuten, dass die Miete im Kassenbuch
+  /// fehlt — dieselbe Überlegung wie bei [ErinnerungsAbgleich].
+  ///
+  /// Doppelt buchen kann das nicht; darüber wacht ein Unique-Index in
+  /// der Datenbank.
+  static Future<int> nachbuchen() async {
+    final r = await ApiClient.dio.post('$_pfad/nachbuchen');
+    return ((r.data as Map<String, dynamic>)['gebucht'] as num?)?.toInt() ?? 0;
+  }
+
   // ── Auswertung ─────────────────────────────────────────────────────────
 
   static Future<Auswertung> auswertung({

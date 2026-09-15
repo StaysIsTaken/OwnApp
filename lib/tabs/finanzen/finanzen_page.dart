@@ -6,6 +6,7 @@ import 'package:productivity/dataservice/finanz_service.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/tabs/finanzen/buchung_dialog.dart';
 import 'package:productivity/tabs/finanzen/kassen_page.dart';
+import 'package:productivity/tabs/finanzen/serien_page.dart';
 
 /// Das Haushaltsbuch, Monat für Monat.
 ///
@@ -14,8 +15,10 @@ import 'package:productivity/tabs/finanzen/kassen_page.dart';
 /// Abschläge laufen — eine Wochenansicht wäre hier so nützlich wie ein
 /// Tageskalender für die Jahresplanung.
 ///
-/// **Daueraufträge fehlen noch.** Was hier steht, ist von Hand gebucht;
-/// die Vorschau auf Kommendes bringt ein späterer Schritt mit.
+/// Unter den Buchungen steht, **was noch kommt** — Fälligkeiten aus
+/// Daueraufträgen, die es noch nicht gibt. Sie sehen absichtlich anders
+/// aus als Buchungen und lassen sich nicht antippen: sie stehen
+/// nirgends, sie werden gerechnet.
 class FinanzenPage extends BasePage {
   const FinanzenPage({super.key}) : super(title: 'Haushaltsbuch');
 
@@ -36,6 +39,7 @@ class _MonatsansichtState extends State<_Monatsansicht> {
   List<Kasse> _kassen = [];
   List<Finanzkategorie> _kategorien = [];
   List<Buchung> _buchungen = [];
+  List<Geplant> _geplant = [];
   Auswertung? _auswertung;
 
   /// Welche Kasse gezeigt wird — `null` heißt „alle sichtbaren".
@@ -60,15 +64,30 @@ class _MonatsansichtState extends State<_Monatsansicht> {
     final bis = Finanzrechnung.monatsende(_monat);
 
     try {
+      // Erst nachtragen, dann laden. Der Server tut das nachts ohnehin —
+      // aber ein Hintergrundlauf, der einmal ausfiel, darf nicht
+      // bedeuten, dass die Miete im Kassenbuch fehlt. Dieselbe
+      // Überlegung, aus der `ErinnerungsAbgleich` vier Auslöser hat.
+      //
+      // Darf scheitern: wer nur lesen darf, bekommt hier ein 403 und
+      // soll trotzdem sein Kassenbuch sehen.
+      try {
+        await FinanzService.nachbuchen();
+      } catch (_) {
+        // absichtlich verschluckt
+      }
+
       // Bewusst nacheinander und nicht in einem Future.wait: die
       // Auswertung braucht dieselben Rechte wie die Buchungen, und wenn
       // eines fehlt, soll die Meldung dazu kommen — nicht die von
-      // irgendeinem der vier Aufrufe.
+      // irgendeinem der Aufrufe.
       final kassen = await FinanzService.kassen();
       final kategorien = await FinanzService.kategorien();
       final buchungen = await FinanzService.buchungen(
           kasse: _kasse, von: von, bis: bis);
       final auswertung = await FinanzService.auswertung(
+          von: von, bis: bis, kasse: _kasse);
+      final geplant = await FinanzService.vorschau(
           von: von, bis: bis, kasse: _kasse);
 
       if (!mounted) return;
@@ -76,6 +95,7 @@ class _MonatsansichtState extends State<_Monatsansicht> {
         _kassen = kassen;
         _kategorien = kategorien;
         _buchungen = buchungen;
+        _geplant = geplant;
         _auswertung = auswertung;
         _laedt = false;
       });
@@ -196,6 +216,14 @@ class _MonatsansichtState extends State<_Monatsansicht> {
     if (ok == true && mounted) await _kassenOeffnen();
   }
 
+  Future<void> _serienOeffnen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SerienPage()),
+    );
+    if (mounted) await _laden();
+  }
+
   Future<void> _kassenOeffnen() async {
     await Navigator.push(
       context,
@@ -232,7 +260,7 @@ class _MonatsansichtState extends State<_Monatsansicht> {
             ),
             const SizedBox(height: 12),
             if (_kassen.length > 1) _kassenwahl(),
-            if (gruppen.isEmpty)
+            if (gruppen.isEmpty && _geplant.isEmpty)
               _leer()
             else
               for (final gruppe in gruppen) ...[
@@ -246,6 +274,12 @@ class _MonatsansichtState extends State<_Monatsansicht> {
                     onLoeschen: () => _loeschen(b),
                   ),
               ],
+            if (_geplant.isNotEmpty)
+              _Vorschau(
+                geplant: _geplant,
+                kategorien: _kategorien,
+                onSerien: _serienOeffnen,
+              ),
           ],
         ),
       ),
@@ -601,6 +635,112 @@ class _Buchungszeile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// „Was noch kommt" — Fälligkeiten, die es noch nicht gibt.
+///
+/// Absichtlich anders gezeichnet als eine Buchung: gestrichelter Rand,
+/// blasser, nicht antippbar. Eine Vorschauzeile hat keine `id`, sie
+/// steht nirgends. Sähe sie aus wie eine Buchung, würde jemand sie
+/// ändern wollen — und die Änderung wäre beim nächsten Laden weg.
+class _Vorschau extends StatelessWidget {
+  final List<Geplant> geplant;
+  final List<Finanzkategorie> kategorien;
+  final VoidCallback onSerien;
+
+  const _Vorschau({
+    required this.geplant,
+    required this.kategorien,
+    required this.onSerien,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final summe = Finanzrechnung.summeGeplant(geplant);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 24, 4, 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.schedule_rounded,
+                      size: 16, color: colors.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Text('Was noch kommt',
+                      style: text.labelLarge
+                          ?.copyWith(color: colors.onSurfaceVariant)),
+                ],
+              ),
+              Text(Finanzrechnung.alsText(summe),
+                  style: text.labelLarge
+                      ?.copyWith(color: colors.onSurfaceVariant)),
+            ],
+          ),
+        ),
+        for (final g in geplant)
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.repeat_rounded, size: 16, color: colors.outline),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(g.titel,
+                          style: text.titleSmall
+                              ?.copyWith(color: colors.onSurfaceVariant),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          Finanzrechnung.alsDatum(g.tag),
+                          _kategorieName(g.kategorieId),
+                        ].where((e) => e != null).join(' · '),
+                        style: text.bodySmall
+                            ?.copyWith(color: colors.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(Finanzrechnung.alsText(g.cents),
+                    style: text.titleSmall
+                        ?.copyWith(color: colors.onSurfaceVariant)),
+              ],
+            ),
+          ),
+        const SizedBox(height: 4),
+        TextButton.icon(
+          onPressed: onSerien,
+          icon: const Icon(Icons.repeat_rounded, size: 18),
+          label: const Text('Daueraufträge verwalten'),
+        ),
+      ],
+    );
+  }
+
+  String? _kategorieName(int? id) {
+    if (id == null) return null;
+    for (final k in kategorien) {
+      if (k.id == id) return k.name;
+    }
+    return null;
   }
 }
 

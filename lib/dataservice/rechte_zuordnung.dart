@@ -33,6 +33,7 @@ const Map<String, String> rechtJeRoute = {
   '/journal': 'journal:read',
   '/finanzen': 'finance:read',
   '/finanzen/kassen': 'finance:read',
+  '/finanzen/serien': 'finance:read',
 };
 
 /// Dashboard-Kachel → Recht. Deckt beide Übersichtsseiten ab.
