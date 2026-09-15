@@ -1,22 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:productivity/dataclasses/haushalt.dart';
+import 'package:productivity/provider/haushalt_provider.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:productivity/widgets/drawer.dart';
 import 'package:provider/provider.dart';
 
 /// Baut den Drawer mit genau diesen Rechten.
-Future<void> _zeige(WidgetTester tester, Set<String> rechte) async {
+///
+/// [haushalt] und [einladungen] entscheiden ueber den Haushaltsabschnitt,
+/// und zwar unabhaengig von den Rechten: er haengt nicht daran, was
+/// jemand darf, sondern daran, ob es ueberhaupt einen Haushalt gibt.
+Future<void> _zeige(
+  WidgetTester tester,
+  Set<String> rechte, {
+  Haushalt? haushalt,
+  List<Einladung> einladungen = const [],
+}) async {
   // Der Drawer ist hoeher als die Standard-Testflaeche von 800x600.
   tester.view.physicalSize = const Size(1200, 2400);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
   final p = PermissionProvider()..uebernehmen(rechte);
+  final h = HaushaltProvider()
+    ..uebernehmen(haushalt, einladungen: einladungen);
   await tester.pumpWidget(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<PermissionProvider>.value(value: p),
+        ChangeNotifierProvider<HaushaltProvider>.value(value: h),
         // Der Kopf des Drawers zeigt den angemeldeten Nutzer an.
         ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider()),
       ],
@@ -92,5 +106,50 @@ void main() {
   testWidgets('Einstellungen bleiben immer erreichbar', (tester) async {
     await _zeige(tester, {});
     expect(find.text('Einstellungen'), findsOneWidget);
+  });
+
+  // ── Der Haushaltsabschnitt ────────────────────────────────────────────
+
+  testWidgets('ohne Haushalt gibt es keinen Haushaltsabschnitt',
+      (tester) async {
+    // Das Leitprinzip an der sichtbarsten Stelle: wer in keinem Haushalt
+    // ist, soll vom ganzen Bereich nichts merken -- auch keine
+    // Ueberschrift ueber nichts und keinen ausgegrauten Punkt.
+    await _zeige(tester, {'*'});
+    expect(find.text('HAUSHALT'), findsNothing);
+    expect(find.text('Haushalt'), findsNothing);
+  });
+
+  testWidgets('im Haushalt steht er im Menü', (tester) async {
+    await _zeige(tester, {'*'},
+        haushalt: const Haushalt(id: 1, name: 'Zuhause'));
+    expect(find.text('HAUSHALT'), findsOneWidget);
+    expect(find.text('Haushalt'), findsOneWidget);
+  });
+
+  testWidgets('eine offene Einladung bringt den Abschnitt auch',
+      (tester) async {
+    // Sonst kaeme sie nirgends an: es gaebe keinen Ort, sie zu
+    // beantworten.
+    await _zeige(tester, {'*'}, einladungen: const [
+      Einladung(
+        id: 1,
+        haushaltId: 1,
+        haushaltName: 'Zuhause',
+        userId: 'u2',
+        userName: 'Bob',
+        vonId: 'u1',
+        vonName: 'Alice',
+      ),
+    ]);
+    expect(find.text('HAUSHALT'), findsOneWidget);
+  });
+
+  testWidgets('der Abschnitt haengt nicht an einem Recht', (tester) async {
+    // Wer eingeladen wurde, hat `household:manage` vielleicht nicht --
+    // seinen eigenen Haushalt sehen muss er trotzdem koennen.
+    await _zeige(tester, {'notes:read'},
+        haushalt: const Haushalt(id: 1, name: 'Zuhause'));
+    expect(find.text('Haushalt'), findsOneWidget);
   });
 }

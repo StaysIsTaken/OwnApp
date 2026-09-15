@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/main.dart';
+import 'package:productivity/dataservice/haushalt_sicht.dart';
 import 'package:productivity/dataservice/rechte_zuordnung.dart';
+import 'package:productivity/provider/haushalt_provider.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:provider/provider.dart';
 import 'drawer/drawer_header.dart';
@@ -122,6 +124,21 @@ class _DrawerWidgetState extends State<DrawerWidget>
     ),
   ];
 
+  // Kein fester Abschnitt, sondern einer, der VERSCHWINDET.
+  //
+  // Das ist das Leitprinzip an der sichtbarsten Stelle: wer in keinem
+  // Haushalt ist und in keinen eingeladen wurde, sieht hier gar nichts --
+  // keinen ausgegrauten Punkt und keine Ueberschrift ueber nichts. Wer
+  // einen anlegen will, findet ihn in den Einstellungen.
+  static const _haushaltItems = [
+    NavItem(
+      icon: Icons.home_work_outlined,
+      iconActive: Icons.home_work_rounded,
+      label: 'Haushalt',
+      route: AppRoutes.haushalt,
+    ),
+  ];
+
   static const _knowledgeItems = [
     NavItem(
       icon: Icons.note_outlined,
@@ -221,6 +238,11 @@ class _DrawerWidgetState extends State<DrawerWidget>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentRoute = _currentRoute(context);
     final rechte = context.watch<PermissionProvider>();
+    final haushalt = context.watch<HaushaltProvider>();
+    final zeigtHaushalt = Haushaltssicht.zeigtMenue(
+      haushalt: haushalt.haushalt,
+      offeneEinladungen: haushalt.einladungen.length,
+    );
 
     return Drawer(
       width: 285,
@@ -248,6 +270,10 @@ class _DrawerWidgetState extends State<DrawerWidget>
 
                   ..._abschnitt('HAUSHALTSBUCH', _finanzItems, currentRoute,
                       scheme, isDark, rechte),
+
+                  if (zeigtHaushalt)
+                    ..._abschnitt('HAUSHALT', _haushaltItems, currentRoute,
+                        scheme, isDark, rechte),
 
                   ..._abschnitt('VERWALTUNG', _managementItems, currentRoute,
                       scheme, isDark, rechte),

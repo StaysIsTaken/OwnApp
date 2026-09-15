@@ -34,6 +34,14 @@ const Map<String, String> rechtJeRoute = {
   '/finanzen': 'finance:read',
   '/finanzen/kassen': 'finance:read',
   '/finanzen/serien': 'finance:read',
+  // `/haushalt` steht hier ABSICHTLICH nicht.
+  //
+  // Den eigenen Haushalt sehen darf jeder Angemeldete -- auch wer
+  // `household:manage` nicht hat, denn sonst könnte ein eingeladenes
+  // Mitglied seinen eigenen Haushalt nicht öffnen. Was Verwaltung ist,
+  // prüft die Seite selbst und das Backend ohnehin. Ob der Menüpunkt
+  // erscheint, entscheidet nicht ein Recht, sondern ob es überhaupt einen
+  // Haushalt gibt (siehe `haushalt_sicht.dart`).
 };
 
 /// Dashboard-Kachel → Recht. Deckt beide Übersichtsseiten ab.
