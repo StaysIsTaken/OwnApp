@@ -17,6 +17,8 @@ import 'package:productivity/tabs/pantry/pantry_page.dart';
 import 'package:productivity/dataservice/erinnerungs_abgleich.dart';
 import 'package:productivity/provider/timer_provider.dart';
 import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
+import 'package:productivity/tabs/finanzen/finanzen_page.dart';
+import 'package:productivity/tabs/finanzen/kassen_page.dart';
 import 'package:productivity/tabs/einkauf/laeden_page.dart';
 import 'package:productivity/tabs/einkauf/preise_page.dart';
 import 'package:productivity/tabs/pantry/meal_plan_page.dart';
@@ -268,6 +270,12 @@ class AppRoutes {
   static const String chat = '/chat';
   static const String storageLocations = '/storage-locations';
 
+  // Haushaltsbuch. Der Pfad heisst `/finanzen`, die Seite
+  // „Haushaltsbuch" -- „Finanzen" klingt nach Vermoegensverwaltung,
+  // und das ist es nicht.
+  static const String finanzen = '/finanzen';
+  static const String kassen = '/finanzen/kassen';
+
   // Knowledge Management
   static const String notes = '/notes';
   static const String journal = '/journal';
@@ -296,6 +304,8 @@ class AppRoutes {
 
     // New Modules
     pantry: (_) => const PantryPage(),
+    finanzen: (_) => const FinanzenPage(),
+    kassen: (_) => const KassenPage(),
     einkauf: (_) => const EinkaufslistenPage(),
     laeden: (_) => const LaedenPage(),
     preise: (_) => const PreisePage(),

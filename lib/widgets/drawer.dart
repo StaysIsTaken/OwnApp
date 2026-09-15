@@ -98,6 +98,24 @@ class _DrawerWidgetState extends State<DrawerWidget>
     ),
   ];
 
+  // Eigener Abschnitt und NICHT bei den Vorraeten: ein Haushaltsbuch
+  // hat mit Einkaufen zu tun, aber wer seine Ausgaben sucht, sucht sie
+  // nicht unter „Vorraete".
+  static const _finanzItems = [
+    NavItem(
+      icon: Icons.account_balance_wallet_outlined,
+      iconActive: Icons.account_balance_wallet_rounded,
+      label: 'Haushaltsbuch',
+      route: AppRoutes.finanzen,
+    ),
+    NavItem(
+      icon: Icons.savings_outlined,
+      iconActive: Icons.savings_rounded,
+      label: 'Kassen',
+      route: AppRoutes.kassen,
+    ),
+  ];
+
   static const _knowledgeItems = [
     NavItem(
       icon: Icons.note_outlined,
@@ -220,6 +238,9 @@ class _DrawerWidgetState extends State<DrawerWidget>
                       currentRoute, scheme, isDark, rechte),
 
                   ..._abschnitt('VORRÄTE', _pantryItems, currentRoute,
+                      scheme, isDark, rechte),
+
+                  ..._abschnitt('HAUSHALTSBUCH', _finanzItems, currentRoute,
                       scheme, isDark, rechte),
 
                   ..._abschnitt('VERWALTUNG', _managementItems, currentRoute,
