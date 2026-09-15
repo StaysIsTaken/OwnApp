@@ -79,6 +79,28 @@ class Haushaltssicht {
     return haushalt.mitglieder.length <= 1;
   }
 
+  /// „2 von 3 Mitgliedern rechnen mit."
+  ///
+  /// **Der wichtigste Satz der Finanzübersicht.** Ohne ihn hält jemand
+  /// eine unvollständige Summe für die Wahrheit — derselbe Gedanke wie
+  /// bei `ohne_preis` und `ohne_zutat`: lieber ehrlich sagen, was nicht
+  /// verrechnet werden konnte, als eine Zahl zeigen, die vollständig
+  /// aussieht.
+  ///
+  /// Rechnen alle mit, gibt es nichts zu sagen — dann ist der Satz leer,
+  /// und die Seite zeigt keine Zeile. Eine Beruhigung („alle rechnen
+  /// mit") wäre eine Zeile, die man nach dem dritten Mal nicht mehr
+  /// liest, und dann übersieht man auch die Warnung.
+  static String mitrechnenSatz(HaushaltsFinanzen finanzen) {
+    if (!finanzen.unvollstaendig) return '';
+    final fehlen = finanzen.fehlende;
+    final wer = fehlen.length == 1
+        ? '${fehlen.first} zeigt seine Zahlen nicht.'
+        : '${fehlen.join(', ')} zeigen ihre Zahlen nicht.';
+    return '${finanzen.rechnenMit} von ${finanzen.mitgliederGesamt} '
+        'Mitgliedern rechnen mit — $wer';
+  }
+
   /// Der Satz, der erklärt, warum der Knopf nicht geht.
   static const String warumNichtGehen =
       'Du führst diesen Haushalt. Übergib ihn erst an jemand anderen.';
