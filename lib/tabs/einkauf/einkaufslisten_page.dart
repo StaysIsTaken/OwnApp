@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
 import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/dataservice/einkauf_service.dart';
+import 'package:productivity/dataservice/haushalt_sicht.dart';
+import 'package:productivity/provider/haushalt_provider.dart';
+import 'package:productivity/widgets/bereich_umschalter.dart';
+import 'package:provider/provider.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/tabs/einkauf/einkaufsliste_page.dart';
 import 'package:productivity/widgets/color_picker_dialog.dart';
@@ -33,6 +37,9 @@ class _UebersichtState extends State<_Uebersicht> {
   bool _laedt = true;
   String? _fehler;
 
+  /// „Alles / Meins / Unseres". Ohne Haushalt nicht zu sehen.
+  Bereich _bereich = Bereich.alles;
+
   @override
   void initState() {
     super.initState();
@@ -45,7 +52,7 @@ class _UebersichtState extends State<_Uebersicht> {
       _fehler = null;
     });
     try {
-      final listen = await EinkaufService.listen();
+      final listen = await EinkaufService.listen(bereich: _bereich);
       if (!mounted) return;
       setState(() {
         _listen = listen;
@@ -69,7 +76,12 @@ class _UebersichtState extends State<_Uebersicht> {
     );
     if (name == null || name.trim().isEmpty) return;
     try {
-      final liste = await EinkaufService.listeAnlegen(name.trim());
+      // Wer auf „Unseres" steht und einen Zettel anlegt, meint den
+      // Haushalt. Sonst persönlich — teilen lässt er sich hinterher.
+      final liste = await EinkaufService.listeAnlegen(
+        name.trim(),
+        unseres: _bereich.legtFuerHaushaltAn,
+      );
       if (!mounted) return;
       await _oeffnen(liste);
       await _laden();
@@ -145,29 +157,60 @@ class _UebersichtState extends State<_Uebersicht> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  /// „Dieser Zettel gehört ab jetzt uns." Oder wieder mir.
+  Future<void> _zuordnen(Einkaufsliste liste) async {
+    try {
+      await EinkaufService.listeZuordnen(liste.id, !liste.istUnseres);
+      await _laden();
+    } catch (e) {
+      if (mounted) _melde(ApiFehler.text(e));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_laedt) return const Center(child: CircularProgressIndicator());
     if (_fehler != null) return _Hinweis(text: _fehler!, onNochmal: _laden);
 
+    final imHaushalt = Haushaltssicht.zeigtUmschaltung(
+        context.watch<HaushaltProvider>().haushalt);
+
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _laden,
-        child: _listen.isEmpty
-            ? _leer()
-            : ListView.builder(
-                // Unten Luft für den Knopf – sonst verdeckt er die letzte
-                // Liste, und die erreicht man dann nie.
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
-                itemCount: _listen.length,
-                itemBuilder: (_, i) => _Karte(
-                  liste: _listen[i],
-                  onOeffnen: () => _oeffnen(_listen[i]),
-                  onUmbenennen: () => _umbenennen(_listen[i]),
-                  onFarbe: () => _farbe(_listen[i]),
-                  onLoeschen: () => _loeschen(_listen[i]),
-                ),
-              ),
+      body: Column(
+        children: [
+          BereichsUmschalter(
+            bereich: _bereich,
+            onWechsel: (b) {
+              setState(() {
+                _bereich = b;
+                _laedt = true;
+              });
+              _laden();
+            },
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _laden,
+              child: _listen.isEmpty
+                  ? _leer()
+                  : ListView.builder(
+                      // Unten Luft für den Knopf – sonst verdeckt er die
+                      // letzte Liste, und die erreicht man dann nie.
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+                      itemCount: _listen.length,
+                      itemBuilder: (_, i) => _Karte(
+                        liste: _listen[i],
+                        onOeffnen: () => _oeffnen(_listen[i]),
+                        onUmbenennen: () => _umbenennen(_listen[i]),
+                        onFarbe: () => _farbe(_listen[i]),
+                        onLoeschen: () => _loeschen(_listen[i]),
+                        onZuordnen:
+                            imHaushalt ? () => _zuordnen(_listen[i]) : null,
+                      ),
+                    ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _anlegen,
@@ -203,12 +246,17 @@ class _Karte extends StatelessWidget {
   final VoidCallback onFarbe;
   final VoidCallback onLoeschen;
 
+  /// Null, wenn es keinen Haushalt gibt — dann gibt es auch nichts zu
+  /// verschieben, und der Menüpunkt fehlt.
+  final VoidCallback? onZuordnen;
+
   const _Karte({
     required this.liste,
     required this.onOeffnen,
     required this.onUmbenennen,
     required this.onFarbe,
     required this.onLoeschen,
+    this.onZuordnen,
   });
 
   @override
@@ -273,13 +321,23 @@ class _Karte extends StatelessWidget {
                 onSelected: (wahl) => switch (wahl) {
                   'umbenennen' => onUmbenennen(),
                   'farbe' => onFarbe(),
+                  'haushalt' => onZuordnen?.call(),
                   _ => onLoeschen(),
                 },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'umbenennen', child: Text('Umbenennen')),
-                  PopupMenuItem(value: 'farbe', child: Text('Farbe')),
-                  PopupMenuDivider(),
-                  PopupMenuItem(value: 'loeschen', child: Text('Löschen')),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                      value: 'umbenennen', child: Text('Umbenennen')),
+                  const PopupMenuItem(value: 'farbe', child: Text('Farbe')),
+                  if (onZuordnen != null)
+                    PopupMenuItem(
+                      value: 'haushalt',
+                      child: Text(liste.istUnseres
+                          ? 'Wieder nur meiner'
+                          : 'Dem Haushalt geben'),
+                    ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                      value: 'loeschen', child: Text('Löschen')),
                 ],
               ),
             ],
@@ -290,8 +348,12 @@ class _Karte extends StatelessWidget {
   }
 
   String _untertitel() {
-    if (liste.offen == 0 && liste.erledigt == 0) return 'leer';
+    // „Unser Zettel" steht vorn: auf „Alles" stehen beide nebeneinander,
+    // und dann muss man sie unterscheiden können.
+    final vorn = liste.istUnseres ? 'unserer · ' : '';
+    if (liste.offen == 0 && liste.erledigt == 0) return '${vorn}leer';
     final teile = <String>[];
+    if (vorn.isNotEmpty) teile.add('unserer');
     if (liste.offen > 0) {
       teile.add('${liste.offen} offen');
     } else {

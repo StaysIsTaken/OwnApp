@@ -18,7 +18,12 @@ class RecipeFormPage extends StatefulWidget {
   /// Pass an existing recipe to edit it; null to create a new one.
   final Recipe? recipe;
 
-  const RecipeFormPage({super.key, this.recipe});
+  /// Vorbelegung für „gehört dem Haushalt" beim Anlegen — kommt aus der
+  /// Umschaltung der Liste: wer auf „Unseres" steht und etwas anlegt,
+  /// meint den Haushalt.
+  final bool unseres;
+
+  const RecipeFormPage({super.key, this.recipe, this.unseres = false});
 
   @override
   State<RecipeFormPage> createState() => _RecipeFormPageState();
@@ -120,7 +125,7 @@ class _RecipeFormPageState extends State<RecipeFormPage> {
           .toList(),
     );
 
-    await RecipeService.upsert(recipe);
+    await RecipeService.upsert(recipe, unseres: widget.unseres);
     if (mounted) Navigator.pop(context, true);
   }
 

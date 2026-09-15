@@ -5,7 +5,9 @@ import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/pantry_extras.dart';
 import 'package:productivity/dataclasses/ingredient.dart';
 import 'package:productivity/dataclasses/unit.dart';
+import 'package:productivity/dataservice/haushalt_sicht.dart';
 import 'package:productivity/dataservice/pantry_service.dart';
+import 'package:productivity/widgets/bereich_umschalter.dart';
 import 'package:productivity/dataservice/ingredient_service.dart';
 import 'package:productivity/dataservice/unit_service.dart';
 import 'package:productivity/dataservice/barcode_service.dart';
@@ -44,6 +46,9 @@ class _PantryListState extends State<_PantryList> {
   String? _filterLocationId;
   bool _loading = true;
 
+  /// „Alles / Meins / Unseres". Ohne Haushalt nicht zu sehen.
+  Bereich _bereich = Bereich.alles;
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +59,7 @@ class _PantryListState extends State<_PantryList> {
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
-        PantryService.loadAll(),
+        PantryService.loadAll(bereich: _bereich),
         PantryService.loadLocations(),
         IngredientService.loadAll(),
         UnitService.loadAll(),
@@ -483,7 +488,14 @@ class _PantryListState extends State<_PantryList> {
                           minAmount: double.tryParse(minQtyCtrl.text) ?? 0,
                           expiryDate: selExpiry,
                         );
-                        await PantryService.upsert(newItem);
+                        // Wer auf „Unseres" steht und etwas einträgt,
+                        // meint den gemeinsamen Schrank. Gilt nur beim
+                        // Anlegen — wohin ein vorhandener Posten gehört,
+                        // entscheidet die Verschiebe-Aktion.
+                        await PantryService.upsert(
+                          newItem,
+                          unseres: _bereich.legtFuerHaushaltAn,
+                        );
                         nav.pop();
                         _load();
                       },
@@ -538,6 +550,17 @@ class _PantryListState extends State<_PantryList> {
       ),
       body: Column(
         children: [
+          BereichsUmschalter(
+            bereich: _bereich,
+            onWechsel: (b) {
+              setState(() {
+                _bereich = b;
+                _loading = true;
+              });
+              _load();
+            },
+          ),
+
           // --- Search & Filter ---
           Padding(
             padding: const EdgeInsets.all(16.0),

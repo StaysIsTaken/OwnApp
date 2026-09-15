@@ -1,27 +1,42 @@
 import 'package:productivity/dataclasses/meal_plan.dart';
 import 'package:productivity/dataclasses/shopping_suggestion.dart';
 import 'package:productivity/dataservice/api_client.dart';
+import 'package:productivity/dataservice/haushalt_sicht.dart';
 
 class MealPlanService {
   MealPlanService._();
 
   static const String _path = '/meal-plan';
 
-  static Future<List<MealPlanEntry>> loadAll() async {
-    final response = await ApiClient.dio.get(_path);
+  /// [bereich] ist die Umschaltung „Alles / Meins / Unseres".
+  static Future<List<MealPlanEntry>> loadAll(
+      {Bereich bereich = Bereich.alles}) async {
+    final response = await ApiClient.dio.get(
+      _path,
+      queryParameters: bereich.abfrage.isEmpty ? null : bereich.abfrage,
+    );
     // API returns {"total": X, "items": [...]}
     final list = response.data['items'] as List<dynamic>;
     return list.map((e) => MealPlanEntry.fromJson(e)).toList();
   }
 
-  static Future<MealPlanEntry> upsert(MealPlanEntry entry) async {
+  static Future<MealPlanEntry> upsert(MealPlanEntry entry,
+      {bool unseres = false}) async {
     if (entry.id.isEmpty) {
-      final response = await ApiClient.dio.post(_path, data: entry.toJson());
+      final response = await ApiClient.dio
+          .post(_path, data: {...entry.toJson(), 'unseres': unseres});
       return MealPlanEntry.fromJson(response.data);
     } else {
       final response = await ApiClient.dio.put('$_path/${entry.id}', data: entry.toJson());
       return MealPlanEntry.fromJson(response.data);
     }
+  }
+
+  /// „Das planen wir gemeinsam." Oder eben doch nicht.
+  static Future<MealPlanEntry> zuordnen(String id, bool unseres) async {
+    final r = await ApiClient.dio
+        .put('$_path/$id/haushalt', data: {'unseres': unseres});
+    return MealPlanEntry.fromJson(r.data);
   }
 
   static Future<void> delete(String id) async {

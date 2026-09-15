@@ -8,13 +8,22 @@ class MealPlanEntry {
   final String? mealType;
   final int servings;
 
+  /// Gesetzt: der Eintrag gehört dem Haushalt, nicht einer Person.
+  final int? householdId;
+  final String? ownerId;
+
   const MealPlanEntry({
     required this.id,
     required this.recipeId,
     required this.date,
     this.mealType,
     this.servings = 2,
+    this.householdId,
+    this.ownerId,
   });
+
+  /// Ob er dem Haushalt gehört und nicht einer Person.
+  bool get istUnseres => householdId != null;
 
   Map<String, dynamic> toJson() => {
     if (id.isNotEmpty) 'id': id,
@@ -30,6 +39,8 @@ class MealPlanEntry {
     date: DateTime.tryParse(j['date']?.toString() ?? '') ?? DateTime.now(),
     mealType: j['mealType']?.toString(),
     servings: j['servings'] as int? ?? 2,
+    householdId: (j['household_id'] as num?)?.toInt(),
+    ownerId: j['owner_id']?.toString(),
   );
 }
 
