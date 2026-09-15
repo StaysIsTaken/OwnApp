@@ -41,12 +41,27 @@ class BuchungDialog extends StatefulWidget {
   /// Womit der Dialog aufgeht, wenn nichts vorgegeben ist.
   final int? kasseVorgabe;
 
+  /// Vorbelegter Betrag in Cent, ohne Vorzeichen gelesen.
+  final int? betragVorgabe;
+  final String? titelVorgabe;
+
+  /// Eine Zeile über den Feldern, die sagt, woher die Zahl kommt.
+  ///
+  /// Der Einkauf füllt das mit „Geschätzt aus 7 Preisen. 2 Posten ohne
+  /// Preis: …". Ohne diesen Satz sähe der Betrag aus wie eine Tatsache —
+  /// und wer ihn ungeprüft bucht, füllt sein Kassenbuch mit plausibel
+  /// aussehender Erfindung.
+  final String? hinweis;
+
   const BuchungDialog({
     super.key,
     required this.kassen,
     required this.kategorien,
     this.vorhanden,
     this.kasseVorgabe,
+    this.betragVorgabe,
+    this.titelVorgabe,
+    this.hinweis,
   });
 
   static Future<Buchungseingabe?> zeige(
@@ -55,6 +70,9 @@ class BuchungDialog extends StatefulWidget {
     required List<Finanzkategorie> kategorien,
     Buchung? vorhanden,
     int? kasseVorgabe,
+    int? betragVorgabe,
+    String? titelVorgabe,
+    String? hinweis,
   }) =>
       showDialog<Buchungseingabe>(
         context: context,
@@ -63,6 +81,9 @@ class BuchungDialog extends StatefulWidget {
           kategorien: kategorien,
           vorhanden: vorhanden,
           kasseVorgabe: kasseVorgabe,
+          betragVorgabe: betragVorgabe,
+          titelVorgabe: titelVorgabe,
+          hinweis: hinweis,
         ),
       );
 
@@ -93,12 +114,13 @@ class _BuchungDialogState extends State<BuchungDialog> {
         (widget.kassen.isNotEmpty ? widget.kassen.first.id : null);
     _kategorieId = v?.kategorieId;
 
+    final vorgabe = v?.cents ?? widget.betragVorgabe;
     _betrag = TextEditingController(
-      text: v == null
+      text: vorgabe == null || vorgabe == 0
           ? ''
-          : Finanzrechnung.nurBetrag(v.cents).replaceAll(' €', ''),
+          : Finanzrechnung.nurBetrag(vorgabe).replaceAll(' €', ''),
     );
-    _titel = TextEditingController(text: v?.titel ?? '');
+    _titel = TextEditingController(text: v?.titel ?? widget.titelVorgabe ?? '');
     _notiz = TextEditingController(text: v?.notiz ?? '');
   }
 
@@ -178,6 +200,16 @@ class _BuchungDialogState extends State<BuchungDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.hinweis != null) ...[
+              Text(
+                widget.hinweis!,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: colors.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+            ],
             SegmentedButton<bool>(
               segments: const [
                 ButtonSegment(

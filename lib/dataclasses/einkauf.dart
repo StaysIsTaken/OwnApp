@@ -218,3 +218,47 @@ class VorratErgebnis {
     return teile.join(' · ');
   }
 }
+
+/// Was ein abgehakter Einkauf laut Preisgedächtnis gekostet hat.
+///
+/// **Eine Schätzung, kein Kassenbon.** Die Summe steht auf Preisen, die
+/// irgendwann einmal notiert wurden. Wer sie ungeprüft bucht, füllt sein
+/// Kassenbuch mit plausibel aussehender Erfindung — und erkennt sie
+/// später nicht mehr als solche. Deshalb muss der Betrag im Dialog
+/// änderbar bleiben.
+class Buchungsvorschlag {
+  final String shopId;
+  final String laden;
+  final int summeCents;
+
+  /// Wie viele Posten in die Summe eingegangen sind.
+  final int anzahl;
+
+  /// Posten, für die dieser Laden keinen Preis kennt. Sie fehlen in der
+  /// Summe — und das soll dastehen, statt eine zu kleine Zahl für
+  /// vollständig zu halten.
+  final List<String> ohnePreis;
+
+  const Buchungsvorschlag({
+    required this.shopId,
+    required this.laden,
+    required this.summeCents,
+    this.anzahl = 0,
+    this.ohnePreis = const [],
+  });
+
+  bool get leer => anzahl == 0;
+  bool get vollstaendig => ohnePreis.isEmpty;
+
+  factory Buchungsvorschlag.fromJson(Map<String, dynamic> j) =>
+      Buchungsvorschlag(
+        shopId: j['shop_id']?.toString() ?? '',
+        laden: j['laden']?.toString() ?? '',
+        summeCents: (j['summe_cents'] as num?)?.toInt() ?? 0,
+        anzahl: (j['anzahl'] as num?)?.toInt() ?? 0,
+        ohnePreis: [
+          for (final n in (j['ohne_preis'] as List<dynamic>? ?? const []))
+            n.toString(),
+        ],
+      );
+}
