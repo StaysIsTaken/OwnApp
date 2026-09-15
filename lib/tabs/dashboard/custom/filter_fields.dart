@@ -1,3 +1,4 @@
+import 'package:productivity/dataclasses/finanzen.dart';
 import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/planner_entry.dart';
@@ -37,6 +38,42 @@ class FilterFields {
     FilterField(
       key: 'running', label: 'Läuft noch', type: FieldType.boolean,
       read: (e) => (e as TimeEntry).endTime == null,
+    ),
+  ]);
+
+  // ── Haushaltsbuch ────────────────────────────────────────────────────────
+  //
+  // Die Kategorie fehlt hier mit Absicht: an einer Buchung hängt nur ihre
+  // Kennung, und `read` bekommt nur den Datensatz — den Namen könnte es
+  // gar nicht nachschlagen. Eine Kennung als Filterwert anzubieten („123")
+  // hülfe niemandem.
+  static final buchungen = _map([
+    FilterField(
+      key: 'title', label: 'Wofür', type: FieldType.text,
+      read: (e) => (e as Buchung).titel,
+    ),
+    FilterField(
+      // In Euro und ohne Vorzeichen: wer „Betrag > 50" filtert, meint die
+      // Höhe und nicht die Richtung. Die steht als eigenes Feld daneben.
+      key: 'amount', label: 'Betrag in Euro', type: FieldType.number,
+      read: (e) => (e as Buchung).cents.abs() / 100.0,
+    ),
+    FilterField(
+      key: 'direction', label: 'Richtung', type: FieldType.choice,
+      choices: const ['Ausgabe', 'Einnahme'],
+      read: (e) => (e as Buchung).istAusgabe ? 'Ausgabe' : 'Einnahme',
+    ),
+    FilterField(
+      key: 'date', label: 'Datum', type: FieldType.date,
+      read: (e) => (e as Buchung).tag,
+    ),
+    FilterField(
+      key: 'recurring', label: 'Aus Dauerauftrag', type: FieldType.boolean,
+      read: (e) => (e as Buchung).ausSerie,
+    ),
+    FilterField(
+      key: 'note', label: 'Notiz', type: FieldType.text,
+      read: (e) => (e as Buchung).notiz,
     ),
   ]);
 

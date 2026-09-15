@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/api_error.dart';
+import 'package:productivity/dataclasses/finanzen.dart';
+import 'package:productivity/dataservice/finanz_service.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_catalog.dart';
 import 'package:productivity/dataservice/rechte_zuordnung.dart';
 import 'package:productivity/provider/permission_provider.dart';
@@ -96,6 +98,9 @@ class _DashboardContentState extends State<_DashboardContent> {
   Map<String, dynamic> _sentimentStats = {};
 
   /// Von draußen geholt — nur, wenn eine Kachel danach fragt.
+  List<Buchung> _buchungen = [];
+  List<Geplant> _geplant = [];
+  Map<int, Finanzkategorie> _finanzkategorien = {};
   List<Meldung> _nachrichten = [];
   String? _witz;
 
@@ -379,6 +384,21 @@ class _DashboardContentState extends State<_DashboardContent> {
                 )), // 10
       ]);
 
+
+      // Haushaltsbuch: ein Fenster von dreizehn Monaten zurueck bis zum
+      // Ende des naechsten. Die Finanz-Kacheln duerfen nur innerhalb
+      // dieses Fensters blaettern -- sonst stuenden sie leer da, ohne dass
+      // man den Grund saehe.
+      final heuteFin = DateTime.now();
+      final finVon = DateTime(heuteFin.year, heuteFin.month - 12, 1);
+      final finBis = DateTime(heuteFin.year, heuteFin.month + 2, 0);
+      final buchungen = await hole(
+          'finanzen', () => FinanzService.buchungen(von: finVon, bis: finBis));
+      final geplant = await hole(
+          'finanzen', () => FinanzService.vorschau(von: heuteFin, bis: finBis));
+      final finanzkategorien = await hole(
+          'finanzen', FinanzService.kategorien);
+
       Map<String, dynamic> sentimentStats = {};
       try {
         final now = DateTime.now();
@@ -442,6 +462,9 @@ class _DashboardContentState extends State<_DashboardContent> {
         _notes = results[8] as List<Note>;
         _journalEntries = results[9] as List<JournalEntry>;
         _plannerEntries = results[10] as List<PlannerEntry>;
+        _buchungen = buchungen;
+        _geplant = geplant;
+        _finanzkategorien = {for (final k in finanzkategorien) k.id: k};
         _nachrichten = nachrichten ?? const [];
         _witz = witz;
         _sentimentStats = sentimentStats;
@@ -617,6 +640,9 @@ class _DashboardContentState extends State<_DashboardContent> {
         ingredientMap: _ingredientMap,
         nachrichten: _nachrichten,
         witz: _witz,
+        buchungen: _buchungen,
+        geplant: _geplant,
+        finanzkategorien: _finanzkategorien,
       );
 
   /// Holt etwas, das ausfallen darf. Ein Feed, der nicht antwortet, lässt

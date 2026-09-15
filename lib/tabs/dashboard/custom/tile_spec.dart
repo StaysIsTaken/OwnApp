@@ -315,6 +315,23 @@ class DashboardData {
   /// zeigen, ohne zweimal zu laden.
   final Map<int, List<dynamic>> einkauf;
 
+  /// Buchungen des Haushaltsbuchs im geladenen Fenster — dreizehn Monate
+  /// zurück bis zum Ende des nächsten. Weiter blättern lassen die
+  /// Finanz-Kacheln deshalb nicht: eine Kachel, die einen Monat zeigen
+  /// soll, für den nichts geladen wurde, stünde leer da, ohne dass man
+  /// den Grund sähe.
+  final List<dynamic> buchungen;
+
+  /// Fälligkeiten aus Daueraufträgen, die es noch nicht gibt.
+  ///
+  /// Getrennt von [buchungen] und nicht darunter gemischt: was geplant
+  /// ist, ist nicht gebucht, und keine Summe darf beides addieren.
+  final List<dynamic> geplant;
+
+  /// Finanzkategorie-ID → Kategorie. Die Verteilung braucht Name und
+  /// Farbe; an der Buchung hängt nur die Kennung.
+  final Map<int, dynamic> finanzkategorien;
+
   /// Kalender-ID → Farbe. Damit faerbt eine Wochenansicht ihre Termine nach
   /// dem Kalender, aus dem sie stammen — sonst sieht man zwar alle
   /// ausgewählten, kann sie aber nicht auseinanderhalten.
@@ -333,5 +350,8 @@ class DashboardData {
     this.witz,
     this.kalenderFarben = const {},
     this.einkauf = const {},
+    this.buchungen = const [],
+    this.geplant = const [],
+    this.finanzkategorien = const {},
   });
 }
