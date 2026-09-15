@@ -277,4 +277,61 @@ void main() {
       expect(FinanzService.kennung('abc'), 'abc');
     });
   });
+
+  // ── Vorzeichen, wo es eines geben muss ────────────────────────────────
+  //
+  // Ein Anfangsbestand ist keine Buchung: er hat keinen Schalter
+  // „Ausgabe / Einnahme", der die Richtung tragen könnte. Ein überzogenes
+  // Konto fängt schlicht mit einem Minus an — und genau daran ist es
+  // gescheitert.
+
+  group('alsStand', () {
+    test('ein überzogenes Konto zeigt sein Minus', () {
+      // Vorher stand hier „500,00 €" und nur die Farbe war rot. Auf einem
+      // Ausdruck, einem Bildschirmfoto oder für jemanden, der Rot nicht
+      // sieht, stand damit das Gegenteil da.
+      expect(Finanzrechnung.alsStand(-50000), '−500,00 €');
+    });
+
+    test('ein gedeckter Stand bekommt kein Plus', () {
+      // Ein Plus vor einem Kontostand liest sich wie eine Buchung.
+      expect(Finanzrechnung.alsStand(125000), '1.250,00 €');
+    });
+
+    test('null ist null', () {
+      expect(Finanzrechnung.alsStand(0), '0,00 €');
+    });
+  });
+
+  group('fuersFeld', () {
+    test('behält das Vorzeichen', () {
+      // DER Fehler: `nurBetrag` warf es weg, und wer den Dialog einer
+      // überzogenen Kasse nur öffnete und speicherte, drehte den
+      // Anfangsbestand ins Positive.
+      expect(Finanzrechnung.fuersFeld(-50000), '-500,00');
+    });
+
+    test('positiv ohne Vorzeichen', () {
+      expect(Finanzrechnung.fuersFeld(1250), '12,50');
+    });
+
+    test('ohne Währungszeichen — es steht schon am Feld', () {
+      expect(Finanzrechnung.fuersFeld(1250), isNot(contains('€')));
+    });
+
+    test('mit geradem Bindestrich, nicht mit typografischem Minus', () {
+      // Sonst stünde im Feld ein Zeichen, das auf keiner Tastatur ist:
+      // löschen ginge, neu setzen nicht.
+      expect(Finanzrechnung.fuersFeld(-1250), startsWith('-'));
+      expect(Finanzrechnung.fuersFeld(-1250), isNot(startsWith('−')));
+    });
+
+    test('was hineingeht, kommt wieder heraus', () {
+      // Der eigentliche Beweis: Feld füllen, Feld lesen, derselbe Wert.
+      for (final cents in [-50000, -1250, -1, 0, 1, 1250, 123456]) {
+        expect(Finanzrechnung.cents(Finanzrechnung.fuersFeld(cents)), cents,
+            reason: 'bei $cents');
+      }
+    });
+  });
 }
