@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/dataclasses/meal_plan.dart';
 import 'package:productivity/dataclasses/recipe.dart';
+import 'package:productivity/dataservice/haushalt_sicht.dart';
 import 'package:productivity/dataservice/meal_plan_service.dart';
+import 'package:productivity/widgets/bereich_umschalter.dart';
 import 'package:productivity/dataclasses/shopping_suggestion.dart';
 import 'package:productivity/dataservice/recipe_service.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
@@ -32,6 +34,9 @@ class _MealPlanListState extends State<_MealPlanList> {
   Map<String, Recipe> _recipeMap = {};
   bool _loading = true;
 
+  /// „Alles / Meins / Unseres". Ohne Haushalt nicht zu sehen.
+  Bereich _bereich = Bereich.alles;
+
   @override
   void initState() {
     super.initState();
@@ -42,7 +47,9 @@ class _MealPlanListState extends State<_MealPlanList> {
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
-        MealPlanService.loadAll(),
+        MealPlanService.loadAll(bereich: _bereich),
+        // Die Rezeptauswahl bleibt bewusst auf „alles": man plant auch
+        // mal ein persönliches Rezept in den gemeinsamen Plan.
         RecipeService.loadAll(),
       ]);
 
@@ -162,7 +169,10 @@ class _MealPlanListState extends State<_MealPlanList> {
                         mealType: selMealType,
                         servings: int.tryParse(servingsCtrl.text) ?? 2,
                       );
-                      await MealPlanService.upsert(newEntry);
+                      await MealPlanService.upsert(
+                        newEntry,
+                        unseres: _bereich.legtFuerHaushaltAn,
+                      );
                       nav.pop();
                       _load();
                     },
@@ -205,7 +215,20 @@ class _MealPlanListState extends State<_MealPlanList> {
           ),
         ],
       ),
-      body: _entries.isEmpty
+      body: Column(
+        children: [
+          BereichsUmschalter(
+            bereich: _bereich,
+            onWechsel: (b) {
+              setState(() {
+                _bereich = b;
+                _loading = true;
+              });
+              _load();
+            },
+          ),
+          Expanded(
+            child: _entries.isEmpty
           ? const Center(
               child: Text(
                 'Noch kein Essen geplant.\nTippe auf +, um anzufangen!',
@@ -257,7 +280,13 @@ class _MealPlanListState extends State<_MealPlanList> {
                           ),
                         ),
                         subtitle: Text(
-                          '${entry.mealType} • ${entry.servings} Personen',
+                          [
+                            entry.mealType,
+                            '${entry.servings} Personen',
+                            // Auf „Alles" stehen beide nebeneinander --
+                            // dann muss man sie unterscheiden können.
+                            if (entry.istUnseres) 'unser Plan',
+                          ].whereType<String>().join(' • '),
                         ),
                         trailing: const Icon(Icons.edit_outlined, size: 20),
                         onTap: () => _showEditDialog(entry),
@@ -267,6 +296,9 @@ class _MealPlanListState extends State<_MealPlanList> {
                 );
               },
             ),
+          ),
+        ],
+      ),
     );
   }
 

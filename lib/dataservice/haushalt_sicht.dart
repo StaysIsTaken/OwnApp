@@ -1,5 +1,37 @@
 import 'package:productivity/dataclasses/haushalt.dart';
 
+/// Welcher Ausschnitt gerade gezeigt wird.
+///
+/// Drei Werte und nicht zwei: **[alles] ist die Vorgabe**, und das ist
+/// Absicht. Wer die App aufmacht, will sehen, was da ist — nicht erst
+/// entscheiden, in welcher Hälfte er sucht. Die Umschaltung ist ein
+/// Filter, kein Modus.
+enum Bereich {
+  alles('Alles'),
+  meins('Meins'),
+  unseres('Unseres');
+
+  const Bereich(this.titel);
+
+  final String titel;
+
+  /// Was an die Abfrage gehängt wird. Für [alles] nichts — der Server
+  /// liefert dann, was man überhaupt sehen darf.
+  Map<String, dynamic> get abfrage => switch (this) {
+        Bereich.alles => const {},
+        Bereich.meins => const {'eigene': true},
+        Bereich.unseres => const {'unseres': true},
+      };
+
+  /// Gehört etwas, das gerade angelegt wird, dem Haushalt?
+  ///
+  /// Auf „Unseres" ja — wer dort etwas anlegt, meint den Haushalt. Auf
+  /// „Alles" und „Meins" nein: im Zweifel persönlich, denn das lässt
+  /// sich hinterher teilen, während sich Geteiltes nicht ungesehen
+  /// machen lässt.
+  bool get legtFuerHaushaltAn => this == Bereich.unseres;
+}
+
 /// Die Sichtbarkeitsregel der Haushalte — als reine Rechnung.
 ///
 /// Sie steht hier und nicht in den Seiten, aus demselben Grund wie

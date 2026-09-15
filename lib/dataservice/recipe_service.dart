@@ -1,6 +1,7 @@
 import 'package:productivity/dataclasses/recipe.dart';
 import 'package:productivity/dataclasses/recipe_ingredient.dart';
 import 'package:productivity/dataservice/api_client.dart';
+import 'package:productivity/dataservice/haushalt_sicht.dart';
 
 // ─────────────────────────────────────────────
 //  RecipeService – API-backed
@@ -11,8 +12,14 @@ class RecipeService {
   static const String _path = '/recipes';
 
   /// Loads only the basic recipe data (fast)
-  static Future<List<Recipe>> loadAll() async {
-    final response = await ApiClient.dio.get(_path);
+  ///
+  /// [bereich] ist die Umschaltung „Alles / Meins / Unseres". Ohne
+  /// Haushalt bleibt sie auf [Bereich.alles] und ändert nichts.
+  static Future<List<Recipe>> loadAll({Bereich bereich = Bereich.alles}) async {
+    final response = await ApiClient.dio.get(
+      _path,
+      queryParameters: bereich.abfrage.isEmpty ? null : bereich.abfrage,
+    );
     final recipesRaw = response.data['items'] as List<dynamic>;
 
     return recipesRaw
@@ -55,8 +62,10 @@ class RecipeService {
     return loadDetails(recipe);
   }
 
-  static Future<Recipe> create(Recipe recipe) async {
+  /// Legt ein Rezept an. [unseres] macht es zum Rezept des Haushalts.
+  static Future<Recipe> create(Recipe recipe, {bool unseres = false}) async {
     final data = recipe.toJson();
+    data['unseres'] = unseres;
     data.remove('category_ids');
 
     final response = await ApiClient.dio.post(_path, data: data);
@@ -69,6 +78,13 @@ class RecipeService {
 
     final response = await ApiClient.dio.put('$_path/${recipe.id}', data: data);
     return Recipe.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// „Dieses Rezept gehört ab jetzt uns." Oder wieder mir.
+  static Future<Recipe> zuordnen(String id, bool unseres) async {
+    final r = await ApiClient.dio
+        .put('$_path/$id/haushalt', data: {'unseres': unseres});
+    return Recipe.fromJson(r.data as Map<String, dynamic>);
   }
 
   static Future<void> delete(String id) async {
@@ -151,11 +167,14 @@ class RecipeService {
   }
 
   /// Synchronizes a recipe and its ingredients/categories with the backend
-  static Future<void> upsert(Recipe recipe) async {
+  /// [unseres] gilt nur beim Anlegen — wohin ein vorhandenes Rezept
+  /// gehört, entscheidet [zuordnen] und nicht ein beiläufiges Speichern.
+  static Future<void> upsert(Recipe recipe, {bool unseres = false}) async {
     // An der id entscheiden, nicht am Fehlerfall: ein Netzwerkaussetzer beim
     // Bearbeiten haette sonst still ein zweites Rezept angelegt.
-    final savedRecipe =
-        recipe.id.isEmpty ? await create(recipe) : await update(recipe);
+    final savedRecipe = recipe.id.isEmpty
+        ? await create(recipe, unseres: unseres)
+        : await update(recipe);
 
     await syncCategories(savedRecipe.id, recipe.categoryIds);
 

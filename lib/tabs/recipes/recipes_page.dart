@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/dataservice/api_error.dart';
 import 'package:productivity/dataservice/category_service.dart';
+import 'package:productivity/dataservice/haushalt_sicht.dart';
 import 'package:productivity/dataservice/ingredient_service.dart';
 import 'package:productivity/dataservice/recipe_service.dart';
 import 'package:productivity/dataservice/unit_service.dart';
@@ -13,6 +15,9 @@ import 'package:productivity/tabs/recipes/manage_ingredients_page.dart';
 import 'package:productivity/tabs/recipes/manage_units_page.dart';
 import 'package:productivity/tabs/recipes/recipe_form_page.dart';
 import 'package:productivity/utils/snack.dart';
+import 'package:productivity/provider/haushalt_provider.dart';
+import 'package:productivity/widgets/bereich_umschalter.dart';
+import 'package:provider/provider.dart';
 
 // ─────────────────────────────────────────────
 //  RecipesPage  –  main recipe list
@@ -91,6 +96,10 @@ class _RecipesPageContentState extends State<_RecipesPageContent> {
   List<String> _filterCategoryIds = []; // empty = all
   bool _loading = true;
 
+  /// „Alles / Meine Rezepte / Unsere Rezepte". Ohne Haushalt bleibt sie
+  /// auf [Bereich.alles] stehen und ist gar nicht zu sehen.
+  Bereich _bereich = Bereich.alles;
+
   @override
   void initState() {
     super.initState();
@@ -99,7 +108,7 @@ class _RecipesPageContentState extends State<_RecipesPageContent> {
 
   Future<void> _load() async {
     final results = await Future.wait([
-      RecipeService.loadAll(),
+      RecipeService.loadAll(bereich: _bereich),
       CategoryService.loadAll(),
       IngredientService.loadAll(),
       UnitService.loadAll(),
@@ -150,10 +159,30 @@ class _RecipesPageContentState extends State<_RecipesPageContent> {
     final changed = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => RecipeFormPage(recipe: recipe),
+        builder: (_) => RecipeFormPage(
+          recipe: recipe,
+          // Wer auf „Unsere Rezepte" steht und etwas anlegt, meint den
+          // Haushalt. Auf „Alles" und „Meins" nicht: im Zweifel
+          // persönlich, denn das lässt sich hinterher teilen, während
+          // sich Geteiltes nicht ungesehen machen lässt.
+          unseres: _bereich.legtFuerHaushaltAn,
+        ),
       ),
     );
     if (changed == true) await _load();
+  }
+
+  /// „Dieses Rezept gehört ab jetzt uns." Oder wieder mir.
+  Future<void> _zuordnen(Recipe rezept) async {
+    try {
+      await RecipeService.zuordnen(rezept.id, !rezept.istUnseres);
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(ApiFehler.text(e))));
+      }
+    }
   }
 
   /// Verbucht das Rezept als gekocht: Zutaten werden vom Vorrat abgezogen.
@@ -292,6 +321,19 @@ class _RecipesPageContentState extends State<_RecipesPageContent> {
                 ),
               ),
 
+            BereichsUmschalter(
+              bereich: _bereich,
+              meinsTitel: 'Meine',
+              unseresTitel: 'Unsere',
+              onWechsel: (b) {
+                setState(() {
+                  _bereich = b;
+                  _loading = true;
+                });
+                _load();
+              },
+            ),
+
             // ── Count label ───────────────────────────
             if (!_loading)
               Padding(
@@ -351,6 +393,10 @@ class _RecipesPageContentState extends State<_RecipesPageContent> {
                             unitMap: _unitMap,
                             onTap: () => _openForm(recipe: filtered[i]),
                             onCooked: () => _cook(filtered[i]),
+                            onZuordnen: Haushaltssicht.zeigtUmschaltung(
+                                    context.watch<HaushaltProvider>().haushalt)
+                                ? () => _zuordnen(filtered[i])
+                                : null,
                           ),
                         ),
             ),
@@ -420,6 +466,10 @@ class _RecipeCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onCooked;
 
+  /// „Dieses Rezept gehört ab jetzt uns." Null, wenn es keinen Haushalt
+  /// gibt — dann gibt es auch nichts zu verschieben.
+  final VoidCallback? onZuordnen;
+
   const _RecipeCard({
     required this.recipe,
     required this.categoryNames,
@@ -427,6 +477,7 @@ class _RecipeCard extends StatelessWidget {
     required this.unitMap,
     required this.onTap,
     required this.onCooked,
+    this.onZuordnen,
   });
 
   String _fmtAmount(double v) =>
@@ -498,6 +549,20 @@ class _RecipeCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // Das Häkchen „unseres" steht an der Karte und nicht
+                  // nur in der Umschaltung: auf „Alles" stehen beide
+                  // nebeneinander, und dann muss man sie unterscheiden
+                  // können.
+                  if (onZuordnen != null)
+                    IconButton(
+                      icon: Icon(recipe.istUnseres
+                          ? Icons.home_work_rounded
+                          : Icons.person_outline),
+                      tooltip: recipe.istUnseres
+                          ? 'Gehört dem Haushalt – zurücknehmen'
+                          : 'Dem Haushalt geben',
+                      onPressed: onZuordnen,
+                    ),
                   IconButton(
                     icon: const Icon(Icons.restaurant_rounded),
                     tooltip: 'Gekocht – Zutaten vom Vorrat abziehen',

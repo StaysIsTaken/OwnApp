@@ -14,6 +14,10 @@ class PantryItem {
   final double minAmount;
   final DateTime? expiryDate;
 
+  /// Gesetzt: der Posten gehört dem Haushalt, nicht einer Person.
+  final int? householdId;
+  final String? ownerId;
+
   const PantryItem({
     required this.id,
     required this.ingredientId,
@@ -22,7 +26,12 @@ class PantryItem {
     required this.amount,
     required this.minAmount,
     this.expiryDate,
+    this.householdId,
+    this.ownerId,
   });
+
+  /// Ob er dem Haushalt gehört und nicht einer Person.
+  bool get istUnseres => householdId != null;
 
   PantryItem copyWith({
     String? id,
@@ -32,6 +41,8 @@ class PantryItem {
     double? amount,
     double? minAmount,
     DateTime? expiryDate,
+    int? householdId,
+    String? ownerId,
   }) =>
       PantryItem(
         id: id ?? this.id,
@@ -41,6 +52,8 @@ class PantryItem {
         amount: amount ?? this.amount,
         minAmount: minAmount ?? this.minAmount,
         expiryDate: expiryDate ?? this.expiryDate,
+        householdId: householdId ?? this.householdId,
+        ownerId: ownerId ?? this.ownerId,
       );
 
   Map<String, dynamic> toJson() => {
@@ -62,6 +75,8 @@ class PantryItem {
       amount: (j['quantity'] as num?)?.toDouble() ?? 0.0,
       minAmount: (j['minQuantity'] as num?)?.toDouble() ?? 0.0,
       expiryDate: j['expiryDate'] != null ? DateTime.tryParse(j['expiryDate'].toString()) : null,
+      householdId: (j['household_id'] as num?)?.toInt(),
+      ownerId: j['owner_id']?.toString(),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
 import 'package:productivity/dataservice/api_client.dart';
+import 'package:productivity/dataservice/haushalt_sicht.dart';
 
 /// Einkaufslisten, Positionen und das Preisgedächtnis.
 ///
@@ -17,20 +18,25 @@ class EinkaufService {
   ///
   /// [alle] holt die der übrigen Personen dazu und verlangt
   /// `shopping:read_all` — das Küchen-Tablet setzt es, das Telefon nicht.
-  static Future<List<Einkaufsliste>> listen({bool alle = false}) async {
+  static Future<List<Einkaufsliste>> listen(
+      {bool alle = false, Bereich bereich = Bereich.alles}) async {
     final r = await ApiClient.dio.get(
       _pfad,
-      queryParameters: alle ? {'alle': true} : null,
+      queryParameters: {
+        if (alle) 'alle': true,
+        ...bereich.abfrage,
+      },
     );
     return (r.data as List<dynamic>)
         .map((e) => Einkaufsliste.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
+  /// [unseres] macht den Zettel zum Zettel des Haushalts.
   static Future<Einkaufsliste> listeAnlegen(String name,
-      {String color = '#3B82F6'}) async {
-    final r = await ApiClient.dio
-        .post(_pfad, data: {'name': name, 'color': color});
+      {String color = '#3B82F6', bool unseres = false}) async {
+    final r = await ApiClient.dio.post(
+        _pfad, data: {'name': name, 'color': color, 'unseres': unseres});
     return Einkaufsliste.fromJson(r.data as Map<String, dynamic>);
   }
 
@@ -40,6 +46,13 @@ class EinkaufService {
       'name': ?name,
       'color': ?color,
     });
+    return Einkaufsliste.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// „Dieser Zettel gehört ab jetzt uns." Oder wieder mir.
+  static Future<Einkaufsliste> listeZuordnen(int id, bool unseres) async {
+    final r = await ApiClient.dio
+        .put('$_pfad/$id/haushalt', data: {'unseres': unseres});
     return Einkaufsliste.fromJson(r.data as Map<String, dynamic>);
   }
 

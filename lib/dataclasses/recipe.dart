@@ -16,6 +16,11 @@ class Recipe {
   /// Essensplan skaliert darüber, ebenso das Verbuchen als gekocht.
   final int servings;
 
+  /// Gesetzt: das Rezept gehört dem Haushalt, nicht einer Person.
+  /// Beides leer heißt Altbestand — sichtbar für jeden mit dem Recht.
+  final int? householdId;
+  final String? ownerId;
+
   const Recipe({
     required this.id,
     required this.name,
@@ -23,7 +28,12 @@ class Recipe {
     this.description,
     this.ingredients = const [],
     this.servings = 2,
+    this.householdId,
+    this.ownerId,
   });
+
+  /// Ob es dem Haushalt gehört und nicht einer Person.
+  bool get istUnseres => householdId != null;
 
   Recipe copyWith({
     String? id,
@@ -32,6 +42,8 @@ class Recipe {
     String? description,
     List<RecipeIngredient>? ingredients,
     int? servings,
+    int? householdId,
+    String? ownerId,
   }) =>
       Recipe(
         id: id ?? this.id,
@@ -40,6 +52,8 @@ class Recipe {
         description: description ?? this.description,
         ingredients: ingredients ?? this.ingredients,
         servings: servings ?? this.servings,
+        householdId: householdId ?? this.householdId,
+        ownerId: ownerId ?? this.ownerId,
       );
 
   Map<String, dynamic> toJson() => {
@@ -66,6 +80,8 @@ class Recipe {
       categoryIds: cats,
       description: j['description']?.toString(),
       servings: (j['servings'] as num?)?.toInt() ?? 2,
+      householdId: (j['household_id'] as num?)?.toInt(),
+      ownerId: j['owner_id']?.toString(),
       ingredients: j.containsKey('ingredients')
           ? (j['ingredients'] as List<dynamic>)
               .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))

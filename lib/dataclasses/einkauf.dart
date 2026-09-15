@@ -19,6 +19,10 @@ class Einkaufsliste {
   final int offen;
   final int erledigt;
 
+  /// Gesetzt: der Zettel gehört dem Haushalt. Die Seite macht daraus die
+  /// Umschaltung und das Häkchen „unseres".
+  final int? householdId;
+
   const Einkaufsliste({
     required this.id,
     required this.ownerId,
@@ -29,9 +33,13 @@ class Einkaufsliste {
     this.memberIds = const [],
     this.offen = 0,
     this.erledigt = 0,
+    this.householdId,
   });
 
   bool gehoert(String userId) => ownerId == userId;
+
+  /// Ob er dem Haushalt gehört und nicht einer Person.
+  bool get istUnseres => householdId != null;
 
   factory Einkaufsliste.fromJson(Map<String, dynamic> j) => Einkaufsliste(
         id: (j['id'] as num).toInt(),
@@ -46,6 +54,7 @@ class Einkaufsliste {
         ],
         offen: (j['open_count'] as num?)?.toInt() ?? 0,
         erledigt: (j['done_count'] as num?)?.toInt() ?? 0,
+        householdId: (j['household_id'] as num?)?.toInt(),
       );
 }
 
