@@ -8,10 +8,31 @@ Diese Datei ist der Bauplan, nicht die Beschreibung eines fertigen
 Bereichs. Sie geht durch **beide Repos** und ist deutlich größer als der
 Ausgaben-Tracker. Gegenstück und Vorbild: `AUSGABEN-TRACKER.md`.
 
-**Der Ausgaben-Tracker sollte vorher gemergt und ausgerollt sein.** Nicht
-weil dieses Vorhaben davon abhängt, sondern weil es die Finanz-Tabellen
-gleich mit anfasst — und zwei offene Umbauten an denselben Tabellen sind
-ein Konflikt, den man sich schenken kann.
+## Voraussetzung: der Ausgaben-Tracker muss gemergt sein
+
+Nicht „sollte" — **muss**. Dieser Plan verweist auf Dinge, die es auf
+`main` erst danach gibt:
+
+* `app/db/sql/031_finanzen.sql` — die Migration hier ist die **032**.
+  Ohne 031 stimmt die Nummer nicht.
+* `finance_accounts`, an die §3.2 ein `household_id` hängt.
+* `AUSGABEN-TRACKER.md`, auf das §2.4 und §14 sich beziehen.
+
+Die neun PRs, in dieser Reihenfolge, Backend vor App:
+
+```
+OwnAPI:  #24 → #25 → #26 → #27
+OwnApp:  #85 (Bauplan), #86 → #87 → #88 → #89
+```
+
+Nach jedem Merge die Basis des nächsten PRs von seinem Vorgänger auf
+`main` umstellen und nachsehen, ob die Änderung wirklich dort steht:
+
+```bash
+gh pr view <n> --json baseRefName -q .baseRefName
+```
+
+**Wer vorher anfängt, baut auf Sand.**
 
 ---
 
@@ -440,6 +461,39 @@ Zu jedem Test die Gegenprobe.
 PR 4 ist der, bei dem es weh tut: zwei Module ohne jeden Besitzer
 bekommen zwei neue Spalten und eine neue Sichtbarkeitsregel in jedem
 Endpunkt.
+
+### Zum Stapeln — dieselbe Falle wie beim Tracker
+
+**PR 3 bis 7 hängen an PR 1** (Tabellen und Modelle) bzw. an PR 2. Von
+`main` abgezweigt lassen sie sich nicht einmal übersetzen.
+
+`SKILLS.md` §7 warnt vor gestapelten PRs, und die Warnung ist gut — sie
+meint aber **unnötiges** Stapeln. Eine echte Abhängigkeit verschwindet
+nicht dadurch, dass man von `main` abzweigt; sie wird dann nur zu einem
+PR, der nicht baut.
+
+Zwei Dinge gelten dann:
+
+**Nach dem Merge des unteren PRs die Basis umstellen** und nachprüfen
+(`gh pr view <n> --json baseRefName -q .baseRefName`).
+
+**Auf einem gestapelten PR läuft keine CI.** Beide Repos lösen ihre
+Arbeitsabläufe nur für `pull_request: branches: [main]` aus. Ein PR mit
+anderer Basis bekommt deshalb keine Häkchen — nicht weil etwas rot wäre,
+sondern weil nichts läuft. Dann **vor dem Öffnen lokal ausführen, was die
+CI ausführen würde**, und das Ergebnis in den PR-Text schreiben:
+
+```bash
+# OwnAPI – dasselbe Image wie die CI
+docker build -q -f Dockerfile.test -t ownapi-test . \
+  && docker run --rm ownapi-test pytest -q
+
+# OwnApp
+flutter analyze && flutter test
+```
+
+Das ist beim Ausgaben-Tracker jedem einzelnen PR ab dem dritten
+passiert; `AUSGABEN-TRACKER.md` §8 beschreibt es ausführlicher.
 
 ---
 
