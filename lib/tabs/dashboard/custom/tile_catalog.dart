@@ -3,6 +3,7 @@ import 'package:productivity/dataclasses/task.dart';
 import 'package:productivity/dataclasses/time_entry.dart';
 import 'package:productivity/dataclasses/pantry_item.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataclasses/finanzen.dart';
 import 'package:productivity/dataclasses/note.dart';
 import 'package:productivity/tabs/dashboard/custom/tile_data.dart';
 import 'package:productivity/main.dart';
@@ -51,6 +52,24 @@ class TileCatalog {
     key: 'limit', label: 'Wie viele anzeigen', min: 1, max: 20, standard: 5,
   );
 
+  /// Welcher Monat fuers Haushaltsbuch: 0 = dieser.
+  ///
+  /// Engerer Bereich als [_monatsversatz], und das ist kein Versehen: die
+  /// Uebersicht laedt Buchungen von dreizehn Monaten zurueck bis zum Ende
+  /// des naechsten. Wer weiter blaettern koennte, saehe eine leere Kachel
+  /// ohne erkennbaren Grund.
+  static const _finanzmonat = TileParam(
+    key: 'months',
+    label: 'Monat (0 = dieser)',
+    min: -12,
+    max: 1,
+    standard: 0,
+  );
+
+  static const _finanzmonate = TileParam(
+    key: 'span', label: 'Wie viele Monate', min: 3, max: 12, standard: 6,
+  );
+
   /// Alle Quellen: die des Rasters und die der Kopfblöcke.
   ///
   /// Getrennt gepflegt, weil ein Block ganz oben andere Sachen zeigen
@@ -58,6 +77,100 @@ class TileCatalog {
   /// Speicherung und Darstellung dieselben sind.
   static final List<TileSource> sources = [
     ...KopfQuellen.sources,
+    // ── Haushaltsbuch ────────────────────────────────────────────────────
+    //
+    // Alle vier rechnen aus dem, was die Uebersicht ohnehin geladen hat.
+    // Ausgaben werden dabei durchweg als POSITIVE Zahl gezeigt: eine
+    // Torte kann mit negativen Werten nichts anfangen, und "Lebensmittel:
+    // -320" liest sich in einer Liste von Ausgaben auch nicht besser.
+    TileSource(
+      key: 'finanzen.saldo',
+      route: AppRoutes.finanzen,
+      fields: FilterFields.buchungen,
+      label: 'Saldo des Monats',
+      group: 'Haushaltsbuch',
+      shape: TileShape.scalar,
+      params: const [_finanzmonat],
+      build: (d, p, f) {
+        final monat = _monatsfenster(_int(p, 'months', 0));
+        final posten = _buchungenIm(d, f, monat);
+        final saldo = posten.fold<int>(0, (sum, b) => sum + b.cents);
+        return TileData.scalar(saldo / 100.0, unit: '€');
+      },
+    ),
+    TileSource(
+      key: 'finanzen.kategorien',
+      route: AppRoutes.finanzen,
+      fields: FilterFields.buchungen,
+      label: 'Ausgaben nach Kategorie',
+      group: 'Haushaltsbuch',
+      shape: TileShape.distribution,
+      params: const [_finanzmonat],
+      build: (d, p, f) {
+        final monat = _monatsfenster(_int(p, 'months', 0));
+        final je = <String, double>{};
+        for (final b in _buchungenIm(d, f, monat)) {
+          if (b.cents >= 0) continue;
+          final kategorie = d.finanzkategorien[b.kategorieId];
+          final name = kategorie is Finanzkategorie
+              ? kategorie.name
+              : 'Ohne Kategorie';
+          je[name] = (je[name] ?? 0) + b.cents.abs() / 100.0;
+        }
+        final sortiert = je.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        return TileData.distribution(
+          {for (final e in sortiert) e.key: e.value},
+          emptyHint: 'Keine Ausgaben in diesem Monat',
+        );
+      },
+    ),
+    TileSource(
+      key: 'finanzen.verlauf',
+      route: AppRoutes.finanzen,
+      fields: FilterFields.buchungen,
+      label: 'Ausgaben je Monat',
+      group: 'Haushaltsbuch',
+      shape: TileShape.series,
+      params: const [_finanzmonate],
+      build: (d, p, f) {
+        final monate = _int(p, 'span', 6);
+        final werte = <String, double>{};
+        for (var i = monate - 1; i >= 0; i--) {
+          final fenster = _monatsfenster(-i);
+          final summe = _buchungenIm(d, f, fenster)
+              .where((b) => b.cents < 0)
+              .fold<int>(0, (sum, b) => sum + b.cents.abs());
+          werte[_monatskuerzel(fenster.von)] = summe / 100.0;
+        }
+        return TileData.series(werte, emptyHint: 'Noch nichts gebucht');
+      },
+    ),
+    TileSource(
+      key: 'finanzen.faellig',
+      route: AppRoutes.finanzen,
+      fields: FilterFields.buchungen,
+      label: 'Was noch kommt',
+      group: 'Haushaltsbuch',
+      shape: TileShape.list,
+      params: const [_anzahl],
+      build: (d, p, f) {
+        // Aus der Vorschau, nicht aus den Buchungen: was hier steht, gibt
+        // es noch nicht. Filter greifen hier bewusst NICHT -- sie sind
+        // fuer Buchungen gebaut, und eine Vorschauzeile ist keine.
+        final geplant = d.geplant.cast<Geplant>().toList()
+          ..sort((a, b) => a.tag.compareTo(b.tag));
+        return TileData.list(
+          geplant.take(_int(p, 'limit', 5)).map((g) => TileListItem(
+                g.titel,
+                subtitle: '${_tagKurz(g.tag)} · '
+                    '${(g.cents.abs() / 100).toStringAsFixed(2)} €',
+              )).toList(),
+          emptyHint: 'Nichts Wiederkehrendes fällig',
+        );
+      },
+    ),
+
     // ── Termine ──────────────────────────────────────────────────────────
     TileSource(
       key: 'planner.upcoming',
@@ -585,6 +698,17 @@ class TileCatalog {
   static bool zeigtTermine(Iterable<CustomTile> kacheln) => kacheln.any(
       (k) => byKey(k.source)?.shape == TileShape.schedule);
 
+  /// Fragt eine dieser Kacheln nach dem Haushaltsbuch?
+  ///
+  /// Gleicher Gedanke wie bei Nachrichten und Witz: die Finanzdaten
+  /// brauchen drei zusaetzliche Abfragen, und eine Seite ohne eine solche
+  /// Kachel soll sie nicht ausloesen. Auf dem Kuechen-Tablet kommt ein
+  /// zweiter Grund dazu -- es haengt an der Wand und wird von jedem
+  /// gelesen. Kontostaende sollen dort nur landen, wenn jemand sie
+  /// ausdruecklich hingelegt hat.
+  static bool zeigtFinanzen(Iterable<CustomTile> kacheln) => kacheln.any(
+      (k) => byKey(k.source)?.group == 'Haushaltsbuch');
+
   static TileSource? byKey(String key) {
     for (final s in sources) {
       if (s.key == key) return s;
@@ -610,6 +734,44 @@ class TileCatalog {
   }
 
   static DateTime _tagesbeginn(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  // ── Hilfen fuers Haushaltsbuch ───────────────────────────────────────────
+
+  static const _monatskuerzelNamen = [
+    'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
+  ];
+
+  /// Erster und letzter Tag eines Monats, [versatz] Monate von heute aus.
+  ///
+  /// Gerechnet ueber den Monatsersten und "Tag 0 des Folgemonats" -- so
+  /// rechnen sich Februar und Schaltjahr selbst aus, und ein Blaettern vom
+  /// 31. Januar landet nicht im Maerz.
+  static _Monatsfenster _monatsfenster(int versatz) {
+    final heute = DateTime.now();
+    final von = DateTime(heute.year, heute.month + versatz, 1);
+    final bis = DateTime(von.year, von.month + 1, 0);
+    return _Monatsfenster(von, bis);
+  }
+
+  /// Gefilterte Buchungen des Fensters.
+  ///
+  /// Die Filter laufen VOR der Zeiteingrenzung -- sie sollen sich auf die
+  /// Buchung beziehen, nicht auf den Ausschnitt.
+  static List<Buchung> _buchungenIm(
+      DashboardData d, List<FilterRule> f, _Monatsfenster fenster) {
+    return applyFilters(d.buchungen.cast<Buchung>(), f, FilterFields.buchungen)
+        .where((b) =>
+            !b.tag.isBefore(fenster.von) &&
+            !b.tag.isAfter(fenster.bis))
+        .toList();
+  }
+
+  static String _monatskuerzel(DateTime d) =>
+      _monatskuerzelNamen[d.month - 1];
+
+  static String _tagKurz(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.';
 
   static String _kurzTag(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}';
@@ -647,4 +809,12 @@ Map<String, double> _grosseZuerst(Map<String, double> werte, int wieViele) {
   final rest = sortiert.skip(wieViele).fold<double>(0, (a, e) => a + e.value);
   if (rest > 0) ergebnis['Sonstige'] = rest;
   return ergebnis;
+}
+
+/// Erster und letzter Tag eines Monats.
+class _Monatsfenster {
+  final DateTime von;
+  final DateTime bis;
+
+  const _Monatsfenster(this.von, this.bis);
 }

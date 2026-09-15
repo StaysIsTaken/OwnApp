@@ -17,6 +17,8 @@ import 'package:productivity/dataservice/rechte_zuordnung.dart';
 import 'package:productivity/dataclasses/kalender.dart';
 import 'package:productivity/dataservice/calendar_service.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
+import 'package:productivity/dataclasses/finanzen.dart';
+import 'package:productivity/dataservice/finanz_service.dart';
 import 'package:productivity/dataservice/einkauf_service.dart';
 import 'package:productivity/dataservice/feed_service.dart';
 import 'package:productivity/dataservice/task_service.dart';
@@ -170,6 +172,27 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
         ? await _stillHolen(() => FeedService.witz())
         : null;
 
+    // Das Haushaltsbuch nur, wenn eine Kachel danach fragt. Das Tablet
+    // haengt an der Wand und wird von jedem gelesen -- Kontostaende
+    // sollen dort nur landen, wenn jemand sie ausdruecklich hingelegt
+    // hat.
+    var buchungen = const <Buchung>[];
+    var geplant = const <Geplant>[];
+    var finanzkategorien = const <Finanzkategorie>[];
+    if (TileCatalog.zeigtFinanzen(_kacheln)) {
+      final heute = DateTime.now();
+      final finVon = DateTime(heute.year, heute.month - 12, 1);
+      final finBis = DateTime(heute.year, heute.month + 2, 0);
+      buchungen = await _stillHolen(
+              () => FinanzService.buchungen(von: finVon, bis: finBis)) ??
+          const [];
+      geplant = await _stillHolen(
+              () => FinanzService.vorschau(von: heute, bis: finBis)) ??
+          const [];
+      finanzkategorien =
+          await _stillHolen(FinanzService.kategorien) ?? const [];
+    }
+
     if (!mounted) return;
     final zutaten = ergebnisse[4] as List<Ingredient>;
     setState(() {
@@ -187,6 +210,9 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
         notes: ergebnisse[5] as List<Note>,
         journalEntries: ergebnisse[6] as List<JournalEntry>,
         ingredientMap: {for (final z in zutaten) z.id: z},
+        buchungen: buchungen,
+        geplant: geplant,
+        finanzkategorien: {for (final k in finanzkategorien) k.id: k},
       );
       _fehler = (versucht > 0 && gescheitert == versucht)
           ? 'Der Server ist gerade nicht erreichbar.'
