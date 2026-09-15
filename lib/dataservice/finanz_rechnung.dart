@@ -28,6 +28,32 @@ class Finanzrechnung {
     return '$zeichen${nurBetrag(cents)}';
   }
 
+  /// Ein Kontostand: „−500,00 €" oder „1.250,00 €".
+  ///
+  /// Anders als [alsText] **ohne Plus** — ein Plus vor einem Kontostand
+  /// liest sich wie eine Buchung. Und anders als [nurBetrag] **mit
+  /// Minus**: ein überzogenes Konto als „500,00 €" anzuzeigen und sich
+  /// dabei auf die rote Farbe zu verlassen, ist keine Anzeige, sondern
+  /// eine Falle — auf einem Ausdruck, einem Bildschirmfoto oder für
+  /// jemanden, der Rot nicht sieht, steht dann das Gegenteil da.
+  static String alsStand(int cents) =>
+      '${cents < 0 ? '−' : ''}${nurBetrag(cents)}';
+
+  /// Der Betrag so, wie er in ein Eingabefeld gehört: „12,50" oder
+  /// „-12,50", ohne Währungszeichen.
+  ///
+  /// **Mit Vorzeichen, und zwar einem geraden Bindestrich.** Das Feld
+  /// soll weitergetippt werden können, und ein typografisches Minus
+  /// (`−`) steht auf keiner Tastatur — [cents] versteht zwar beide,
+  /// aber wer es löschen und neu setzen will, käme nicht daran.
+  ///
+  /// Dass es das überhaupt gibt: [nurBetrag] wirft das Vorzeichen weg.
+  /// Zum Vorbelegen eines Feldes, dessen Wert negativ sein darf, ist das
+  /// falsch — der Anfangsbestand einer überzogenen Kasse wurde dabei
+  /// still positiv, sobald jemand den Dialog nur öffnete und speicherte.
+  static String fuersFeld(int cents) =>
+      '${cents < 0 ? '-' : ''}${nurBetrag(cents).replaceAll(' €', '')}';
+
   /// „47,83 €" — ohne Vorzeichen, für Summen, deren Richtung schon
   /// danebensteht („Ausgaben: 320,00 €").
   static String nurBetrag(int cents) {

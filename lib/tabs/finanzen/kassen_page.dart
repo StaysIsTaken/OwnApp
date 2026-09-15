@@ -305,7 +305,7 @@ class _Karte extends StatelessWidget {
               ),
             ),
             Text(
-              Finanzrechnung.nurBetrag(kasse.saldoCents),
+              Finanzrechnung.alsStand(kasse.saldoCents),
               style: text.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: kasse.saldoCents < 0 ? colors.error : null,
@@ -372,7 +372,7 @@ class _KasseDialogState extends State<_KasseDialog> {
     _start = TextEditingController(
       text: v == null || v.startCents == 0
           ? ''
-          : Finanzrechnung.nurBetrag(v.startCents).replaceAll(' €', ''),
+          : Finanzrechnung.fuersFeld(v.startCents),
     );
     _art = v?.art ?? 'giro';
   }
@@ -415,12 +415,18 @@ class _KasseDialogState extends State<_KasseDialog> {
             const SizedBox(height: 12),
             TextField(
               controller: _start,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              // `signed: true` ist hier Pflicht und nicht Zierrat: ohne
+              // das zeigt die Zifferntastatur auf dem Telefon kein
+              // Minus, und ein ueberzogenes Konto liesse sich gar nicht
+              // eintragen. Bei Buchungen braucht es das nicht -- dort
+              // traegt der Schalter "Ausgabe / Einnahme" die Richtung.
+              keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true, signed: true),
               decoration: const InputDecoration(
                 labelText: 'Anfangsbestand',
                 suffixText: '€',
-                helperText: 'Was jetzt drauf ist. Später nicht mehr nötig.',
+                helperText: 'Was jetzt drauf ist — überzogen mit Minus. '
+                    'Später nicht mehr nötig.',
               ),
             ),
           ],
