@@ -730,25 +730,68 @@ billige Vorstufe, die schon ohne KI funktioniert.
 
 ## 8. Reihenfolge
 
-Sieben PRs. **Jeder von `main` abzweigen**, nicht aufeinander stapeln —
-wird der unterste gemergt, zeigen die darüber ins Leere.
+Sieben PRs.
 
-| # | Repo | Inhalt | Danach benutzbar? | Stand |
-|---|---|---|---|---|
-| 1 | OwnAPI | Migration, Modelle, Rechte, Kassen + Kategorien + Buchungen, Tests | — | **PR #24** |
-| 2 | OwnApp | Datenklassen, Dienst, Kassen- und Monatsseite, Route, Drawer, Rechte | **ja** — Buchen von Hand geht | |
-| 3 | OwnAPI | Serien, Staffel, Vorschau, `nachbuchen`, Scheduler-Job, Tests | — | |
-| 4 | OwnApp | Serienseite, Staffel-Editor, Vorschau in der Monatsansicht | **ja** — vollständig | |
-| 5 | OwnApp | vier Kacheln, `FilterFields.finanzen`, `DashboardData` an drei Stellen | | |
-| 6 | OwnAPI | Assistent: Werkzeuge + **neue** Aktions-`kind`s | | |
-| 7 | beide | Brücke Einkaufsliste → Buchung (§7) | | |
+| # | Repo | Inhalt | Basis | Danach benutzbar? | Stand |
+|---|---|---|---|---|---|
+| 1 | OwnAPI | Migration, Modelle, Rechte, Kassen + Kategorien + Buchungen | `main` | — | **#24** |
+| 2 | OwnApp | Datenklassen, Dienst, Kassen- und Monatsseite, Route, Drawer, Rechte | `main` | **ja** — Buchen von Hand | **#86** |
+| 3 | OwnAPI | Serien, Staffel, Vorschau, `nachbuchen`, Scheduler-Job | **PR 1** | — | **#25** |
+| 4 | OwnApp | Serienseite, Staffel-Editor, Vorschau in der Monatsansicht | **PR 2** | **ja** — vollständig | |
+| 5 | OwnApp | vier Kacheln, `FilterFields.finanzen`, `DashboardData` an drei Stellen | PR 4 | | |
+| 6 | OwnAPI | Assistent: Werkzeuge + **neue** Aktions-`kind`s | PR 3 | | |
+| 7 | beide | Brücke Einkaufsliste → Buchung (§7) | PR 1 + 2 | | |
 
 Nach PR 4 ist das Projekt fachlich fertig. 5, 6 und 7 sind Zugaben.
 
-**PR 7 hängt nur an 1 und 2**, nicht an den Serien. Er lässt sich also
-vorziehen, sobald die App buchen kann — und sollte es vielleicht auch:
-er ist der einzige Teil, bei dem Ausgabedaten entstehen, ohne dass sie
-jemand tippt.
+### Zum Stapeln — hier stand erst etwas Falsches
+
+Ursprünglich stand an dieser Stelle „jeder von `main` abzweigen, nicht
+aufeinander stapeln". Das ist die Regel aus `SKILLS.md` §7, und sie ist
+gut — **aber sie lässt sich hier nicht auf jeden PR anwenden.** PR 3
+braucht die Modelle und die Migration aus PR 1; auf `main` gibt es die
+noch nicht, und ein Branch von dort lässt sich nicht einmal übersetzen.
+
+Der Unterschied, um den es geht:
+
+* Die Regel warnt vor **unnötigem** Stapeln — zwei unabhängige Änderungen
+  aufeinanderzusetzen, nur weil man gerade auf dem einen Branch stand.
+* Eine **echte** Abhängigkeit verschwindet nicht dadurch, dass man von
+  `main` abzweigt. Sie wird dann nur zu einem PR, der nicht baut.
+
+Also: wo die Basis-Spalte oben `main` sagt, von `main` abzweigen. Wo sie
+einen PR nennt, von dessen Branch — und dann gelten zwei Dinge:
+
+**Nach dem Merge des unteren PRs die Basis umstellen.** GitHub bietet
+das an; nachher prüfen, ob die Änderung wirklich in `main` steht:
+
+```bash
+gh pr view <n> --json baseRefName -q .baseRefName
+```
+
+**Auf einem gestapelten PR läuft keine CI.** Beide Repos lösen ihre
+Arbeitsabläufe nur für `pull_request: branches: [main]` aus. Ein PR mit
+anderer Basis bekommt deshalb keine Häkchen — nicht weil etwas rot wäre,
+sondern weil nichts läuft. Dann **vor dem Öffnen lokal genau das
+ausführen, was die CI ausführen würde**, und das Ergebnis in den PR-Text
+schreiben:
+
+```bash
+# OwnAPI – dasselbe Image wie die CI
+docker build -q -f Dockerfile.test -t ownapi-test . \
+  && docker run --rm ownapi-test pytest -q
+
+# OwnApp
+flutter analyze && flutter test
+```
+
+Sobald die Basis auf `main` steht, läuft die CI von selbst nach.
+
+**PR 7 hängt nur an 1 und 2**, nicht an den Serien — er lässt sich
+vorziehen, sobald die App buchen kann. Nötig ist es nicht: er fasst
+`einkaufsliste_page.dart` und das `einkauf`-Modul an, PR 4 die
+Finanzseiten. Die beiden berühren sich nirgends, also wird keiner von
+beiden schwieriger, wenn der andere zuerst kommt.
 
 **Zu PR 6, weil das die Falle dieses Backends ist:** ein `kind` gehört
 nicht dem Werkzeug, das es erzeugt. Die neuen Aktionen heißen
