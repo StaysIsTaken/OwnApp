@@ -31,6 +31,8 @@ const Map<String, String> rechtJeRoute = {
   '/meal-plan': 'mealplan:read',
   '/notes': 'notes:read',
   '/journal': 'journal:read',
+  '/finanzen': 'finance:read',
+  '/finanzen/kassen': 'finance:read',
 };
 
 /// Dashboard-Kachel → Recht. Deckt beide Übersichtsseiten ab.
@@ -44,6 +46,7 @@ const Map<String, String> rechtJeKachel = {
   'mealplan': 'mealplan:read',
   'journal': 'journal:read',
   'notes': 'notes:read',
+  'finanzen': 'finance:read',
 };
 
 /// Datenquelle des Dashboards → Recht. Die Schlüssel sind dieselben, die
@@ -61,6 +64,7 @@ const Map<String, String> rechtJeQuelle = {
   'notes': 'notes:read',
   'journal': 'journal:read',
   'planner': 'planner:read',
+  'finanzen': 'finance:read',
 };
 
 /// Kachel → Datenquelle. Zwei Kacheln koennen aus derselben Quelle kommen
@@ -76,4 +80,5 @@ const Map<String, String> quelleJeKachel = {
   'mealplan': 'mealplan',
   'journal': 'journal',
   'notes': 'notes',
+  'finanzen': 'finanzen',
 };
