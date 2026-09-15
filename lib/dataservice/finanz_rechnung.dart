@@ -170,10 +170,67 @@ class Finanzrechnung {
 
   static String _zwei(int n) => n.toString().padLeft(2, '0');
 
+  // ── Daueraufträge in Worten ────────────────────────────────────────────
+
+  static const _kurzeTage = {
+    'MO': 'Mo', 'TU': 'Di', 'WE': 'Mi', 'TH': 'Do',
+    'FR': 'Fr', 'SA': 'Sa', 'SU': 'So',
+  };
+
+  /// „monatlich am 1." · „alle 3 Monate am Monatsletzten" · „wöchentlich Mo, Fr"
+  ///
+  /// Der Punkt dabei ist die Ehrlichkeit beim 31.: das Backend kürzt auf
+  /// den Monatsletzten, damit der Februar nicht ausfällt. Stünde hier
+  /// „am 31.", erwartete der Nutzer im Februar nichts — und bekäme am
+  /// 28. doch eine Buchung.
+  static String takt(Dauerauftrag serie) {
+    final n = serie.intervall;
+    switch (serie.freq) {
+      case 'DAILY':
+        return n == 1 ? 'täglich' : 'alle $n Tage';
+      case 'WEEKLY':
+        final basis = n == 1 ? 'wöchentlich' : 'alle $n Wochen';
+        final tage = _tageText(serie.wochentage);
+        return tage == null ? basis : '$basis $tage';
+      case 'YEARLY':
+        final basis = n == 1 ? 'jährlich' : 'alle $n Jahre';
+        return '$basis am ${serie.start.day}. ${_monate[serie.start.month - 1]}';
+      case 'MONTHLY':
+      default:
+        final basis = n == 1 ? 'monatlich' : 'alle $n Monate';
+        return '$basis ${_amTag(serie.monatstag ?? serie.start.day)}';
+    }
+  }
+
+  static String _amTag(int tag) =>
+      tag >= 31 ? 'am Monatsletzten' : 'am $tag.';
+
+  static String? _tageText(String? wochentage) {
+    if (wochentage == null || wochentage.trim().isEmpty) return null;
+    final namen = [
+      for (final t in wochentage.split(','))
+        if (_kurzeTage[t.trim().toUpperCase()] != null)
+          _kurzeTage[t.trim().toUpperCase()]!,
+    ];
+    return namen.isEmpty ? null : namen.join(', ');
+  }
+
+  /// „89,00 € seit 01.01.2026" — was eine Stufe aussagt.
+  static String stufenText(Betragsstufe stufe) =>
+      '${nurBetrag(stufe.cents)} ab ${alsDatum(stufe.gueltigAb)}';
+
   // ── Summen ─────────────────────────────────────────────────────────────
 
   static int summe(Iterable<Buchung> buchungen) =>
       buchungen.fold(0, (s, b) => s + b.cents);
+
+  /// Was laut Vorschau noch kommt — dieselbe Rechnung, andere Herkunft.
+  ///
+  /// Bewusst getrennt von [summe] statt über eine gemeinsame
+  /// Schnittstelle: eine Vorschauzeile und eine Buchung dürfen sich in
+  /// der Rechnung nicht vermischen. Was geplant ist, ist nicht gebucht.
+  static int summeGeplant(Iterable<Geplant> geplant) =>
+      geplant.fold(0, (s, g) => s + g.cents);
 
   /// Buchungen nach Tag gebündelt, neuester Tag zuerst.
   ///

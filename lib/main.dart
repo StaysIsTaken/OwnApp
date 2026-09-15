@@ -19,6 +19,7 @@ import 'package:productivity/provider/timer_provider.dart';
 import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
 import 'package:productivity/tabs/finanzen/finanzen_page.dart';
 import 'package:productivity/tabs/finanzen/kassen_page.dart';
+import 'package:productivity/tabs/finanzen/serien_page.dart';
 import 'package:productivity/tabs/einkauf/laeden_page.dart';
 import 'package:productivity/tabs/einkauf/preise_page.dart';
 import 'package:productivity/tabs/pantry/meal_plan_page.dart';
@@ -275,6 +276,7 @@ class AppRoutes {
   // und das ist es nicht.
   static const String finanzen = '/finanzen';
   static const String kassen = '/finanzen/kassen';
+  static const String finanzSerien = '/finanzen/serien';
 
   // Knowledge Management
   static const String notes = '/notes';
@@ -306,6 +308,7 @@ class AppRoutes {
     pantry: (_) => const PantryPage(),
     finanzen: (_) => const FinanzenPage(),
     kassen: (_) => const KassenPage(),
+    finanzSerien: (_) => const SerienPage(),
     einkauf: (_) => const EinkaufslistenPage(),
     laeden: (_) => const LaedenPage(),
     preise: (_) => const PreisePage(),

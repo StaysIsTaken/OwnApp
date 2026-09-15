@@ -216,3 +216,157 @@ class Kategoriesumme {
         cents: (j['cents'] as num?)?.toInt() ?? 0,
       );
 }
+
+/// Ein Dauerauftrag: die Regel, nach der etwas wiederkehrt.
+///
+/// Der **Betrag steht nicht hier**, sondern in [staffel] — eine Stufe je
+/// Stichtag. Ändert sich der Abschlag im April, bleibt der Januar bei
+/// seinem alten Wert; ein einzelnes Betragsfeld wäre genau der Fehler,
+/// den das alte Preismodell gemacht hat.
+class Dauerauftrag {
+  final int id;
+  final int kasseId;
+  final int? kategorieId;
+  final String titel;
+
+  /// `DAILY`, `WEEKLY`, `MONTHLY` oder `YEARLY`.
+  ///
+  /// Kein `QUARTERLY` — das ist `MONTHLY` mit [intervall] 3.
+  final String freq;
+
+  final int intervall;
+
+  /// `MO,FR` — nur bei `WEEKLY`.
+  final String? wochentage;
+
+  /// 1–31, nur bei `MONTHLY` und `YEARLY`. **31 heisst „am letzten"**:
+  /// das Backend kürzt auf den Monatsletzten, damit der Februar nicht
+  /// ausfällt.
+  final int? monatstag;
+
+  final DateTime start;
+  final DateTime? ende;
+
+  /// Ausgesetzt statt gelöscht — eine gekündigte Versicherung hört auf
+  /// zu buchen, ohne dass ihre Vergangenheit ihre Regel verliert.
+  final bool aktiv;
+
+  final String? notiz;
+  final List<Betragsstufe> staffel;
+
+  /// Was heute gilt und wann es das nächste Mal fällig wird. Beides
+  /// gerechnet, nicht gespeichert.
+  final int? aktuellerBetragCents;
+  final DateTime? naechsteFaelligkeit;
+
+  const Dauerauftrag({
+    required this.id,
+    required this.kasseId,
+    required this.titel,
+    required this.freq,
+    required this.start,
+    this.kategorieId,
+    this.intervall = 1,
+    this.wochentage,
+    this.monatstag,
+    this.ende,
+    this.aktiv = true,
+    this.notiz,
+    this.staffel = const [],
+    this.aktuellerBetragCents,
+    this.naechsteFaelligkeit,
+  });
+
+  bool get istAusgabe => (aktuellerBetragCents ?? 0) < 0;
+
+  factory Dauerauftrag.fromJson(Map<String, dynamic> j) => Dauerauftrag(
+        id: (j['id'] as num).toInt(),
+        kasseId: (j['account_id'] as num).toInt(),
+        kategorieId: (j['category_id'] as num?)?.toInt(),
+        titel: j['title']?.toString() ?? '',
+        freq: j['freq']?.toString() ?? 'MONTHLY',
+        intervall: (j['interval_n'] as num?)?.toInt() ?? 1,
+        wochentage: j['byweekday']?.toString(),
+        monatstag: (j['bymonthday'] as num?)?.toInt(),
+        start: DateTime.parse(j['start_on'].toString()),
+        ende: j['end_on'] == null
+            ? null
+            : DateTime.parse(j['end_on'].toString()),
+        aktiv: j['active'] != false,
+        notiz: j['note']?.toString(),
+        staffel: [
+          for (final e in (j['staffel'] as List<dynamic>? ?? const []))
+            Betragsstufe.fromJson(e as Map<String, dynamic>),
+        ],
+        aktuellerBetragCents: (j['aktueller_betrag_cents'] as num?)?.toInt(),
+        naechsteFaelligkeit: j['naechste_faelligkeit'] == null
+            ? null
+            : DateTime.parse(j['naechste_faelligkeit'].toString()),
+      );
+}
+
+/// Was ein Dauerauftrag ab einem Stichtag kostet.
+///
+/// Es gibt keine Gültigkeit *bis* — die nächste Stufe beendet die
+/// vorhergehende. Zwei Felder, die dasselbe sagen müssen, driften
+/// irgendwann auseinander.
+class Betragsstufe {
+  final int id;
+  final int serieId;
+  final DateTime gueltigAb;
+  final int cents;
+  final String? notiz;
+
+  const Betragsstufe({
+    required this.id,
+    required this.serieId,
+    required this.gueltigAb,
+    required this.cents,
+    this.notiz,
+  });
+
+  factory Betragsstufe.fromJson(Map<String, dynamic> j) => Betragsstufe(
+        id: (j['id'] as num).toInt(),
+        serieId: (j['series_id'] as num).toInt(),
+        gueltigAb: DateTime.parse(j['gueltig_ab'].toString()),
+        cents: (j['amount_cents'] as num).toInt(),
+        notiz: j['note']?.toString(),
+      );
+}
+
+/// Eine Fälligkeit, die es noch nicht gibt.
+///
+/// **Ohne `id`, und das ist keine Nachlässigkeit** — sie steht nirgends.
+/// Die Zukunft wird gerechnet und nicht gespeichert; ändert sich eine
+/// Betragsstufe, ändert sich diese Zeile beim nächsten Laden von selbst.
+///
+/// Deshalb lässt sie sich auch nicht antippen und ändern. Wer das will,
+/// wartet, bis sie gebucht ist — oder ändert die Regel.
+class Geplant {
+  final int serieId;
+  final int kasseId;
+  final int? kategorieId;
+  final DateTime tag;
+  final int cents;
+  final String titel;
+
+  const Geplant({
+    required this.serieId,
+    required this.kasseId,
+    required this.tag,
+    required this.cents,
+    required this.titel,
+    this.kategorieId,
+  });
+
+  bool get istAusgabe => cents < 0;
+
+  factory Geplant.fromJson(Map<String, dynamic> j) => Geplant(
+        serieId: (j['series_id'] as num).toInt(),
+        kasseId: (j['account_id'] as num).toInt(),
+        kategorieId: (j['category_id'] as num?)?.toInt(),
+        tag: DateTime.parse(j['booked_on'].toString()),
+        cents: (j['amount_cents'] as num).toInt(),
+        titel: j['title']?.toString() ?? '',
+      );
+}

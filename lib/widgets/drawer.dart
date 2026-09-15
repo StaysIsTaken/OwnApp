@@ -109,6 +109,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
       route: AppRoutes.finanzen,
     ),
     NavItem(
+      icon: Icons.repeat_outlined,
+      iconActive: Icons.repeat_rounded,
+      label: 'Daueraufträge',
+      route: AppRoutes.finanzSerien,
+    ),
+    NavItem(
       icon: Icons.savings_outlined,
       iconActive: Icons.savings_rounded,
       label: 'Kassen',
