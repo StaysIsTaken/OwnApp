@@ -15,6 +15,8 @@ import 'package:productivity/dataservice/ai_settings_service.dart';
 import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/widgets/settings_tile.dart';
 
+import 'package:productivity/dataservice/haushalt_sicht.dart';
+import 'package:productivity/provider/haushalt_provider.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/provider/settings_provider.dart';
 import 'package:provider/provider.dart';
@@ -432,6 +434,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
     final colors = Theme.of(context).colorScheme;
     final settings = Provider.of<SettingsProvider>(context);
     final rechte = context.watch<PermissionProvider>();
+    final haushalt = context.watch<HaushaltProvider>().haushalt;
 
     // Stadt-Feld einmalig befüllen, sobald die Prefs geladen sind.
     if (_weatherCityCtrl.text.isEmpty && settings.weatherCity.isNotEmpty) {
@@ -452,6 +455,33 @@ class _SettingsBodyState extends State<_SettingsBody> {
             subtitle: Text(ApiClient.baseUrl),
             trailing: const Icon(Icons.chevron_right),
             onTap: _serverAendern,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Haushalt ──
+        //
+        // Hier und NICHT im Menue, solange man in keinem ist. Das
+        // Leitprinzip sagt: wer keinen Haushalt hat, sieht keinen
+        // Haushalts-Menuepunkt. Irgendwo muss man ihn aber anlegen
+        // koennen -- und die Einstellungen sind der Ort, an dem man
+        // etwas ueber sich selbst einrichtet.
+        //
+        // Sobald es einen gibt, steht er zusaetzlich im Menue; diese
+        // Zeile bleibt dann als zweiter Weg stehen, wie die Serveradresse
+        // auch am Login haengt und trotzdem hier steht.
+        _SectionTitle('Haushalt'),
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.home_work_outlined, color: colors.primary),
+            title: Text(haushalt?.name ?? 'Kein Haushalt'),
+            subtitle: Text(
+              haushalt == null
+                  ? 'Rezepte, Vorrat und Einkauf mit anderen teilen.'
+                  : Haushaltssicht.mitgliederSatz(haushalt),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.haushalt),
           ),
         ),
         const SizedBox(height: 16),

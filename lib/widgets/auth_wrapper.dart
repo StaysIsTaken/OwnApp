@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:productivity/provider/haushalt_provider.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/provider/tablet_provider.dart';
 import 'package:productivity/provider/user_provider.dart';
@@ -20,14 +21,22 @@ class _AppAuthWrapperState extends State<AppAuthWrapper> {
   /// Neubau erneut geladen — und nach einem Nutzerwechsel gar nicht.
   String? _fuerNutzer;
 
+  /// Rechte und Haushalt beim Anmelden holen, beim Abmelden wegwerfen.
+  ///
+  /// Beides hängt am selben Zeitpunkt: es gilt pro Konto. Der Haushalt
+  /// kommt hier und nicht auf seiner Seite her, weil ihn das **Menü**
+  /// braucht — und weil so auch eine offene Einladung ankommt, ohne dass
+  /// es dafür einen zweiten Weg braucht.
   void _rechteHolen(UserProvider userProvider) {
     final id = userProvider.user?.id;
     final rechte = context.read<PermissionProvider>();
+    final haushalt = context.read<HaushaltProvider>();
 
     if (id == null) {
       if (_fuerNutzer != null) {
         _fuerNutzer = null;
         rechte.leeren();
+        haushalt.leeren();
       }
       return;
     }
@@ -35,7 +44,10 @@ class _AppAuthWrapperState extends State<AppAuthWrapper> {
     _fuerNutzer = id;
     // Nach dem Bauen, sonst würde mitten im Aufbau ein notifyListeners
     // ausgelöst.
-    WidgetsBinding.instance.addPostFrameCallback((_) => rechte.laden());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      rechte.laden();
+      haushalt.laden();
+    });
   }
 
   @override

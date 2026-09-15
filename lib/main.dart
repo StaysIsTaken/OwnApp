@@ -18,6 +18,7 @@ import 'package:productivity/dataservice/erinnerungs_abgleich.dart';
 import 'package:productivity/provider/timer_provider.dart';
 import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
 import 'package:productivity/tabs/finanzen/finanzen_page.dart';
+import 'package:productivity/tabs/haushalt/haushalt_page.dart';
 import 'package:productivity/tabs/finanzen/kassen_page.dart';
 import 'package:productivity/tabs/finanzen/serien_page.dart';
 import 'package:productivity/tabs/einkauf/laeden_page.dart';
@@ -46,6 +47,7 @@ import 'package:productivity/dataservice/local_notification_manager.dart';
 import 'package:productivity/dataservice/background_task_manager.dart';
 import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/provider/chat_provider.dart';
+import 'package:productivity/provider/haushalt_provider.dart';
 import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/provider/tablet_provider.dart';
 import 'package:provider/provider.dart';
@@ -74,6 +76,10 @@ void main() async {
         ChangeNotifierProvider(create: (_) => PlannerProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => PermissionProvider()),
+        // App-weit und nicht an der Haushaltsseite: das MENUE muss
+        // wissen, ob es den Abschnitt ueberhaupt zeigt, und an privaten
+        // Zustand einer Seite kommt es nicht heran.
+        ChangeNotifierProvider(create: (_) => HaushaltProvider()),
         ChangeNotifierProvider(create: (_) => TabletProvider()),
         // App-weit, nicht an der Uhrkachel: der Timer laeuft weiter,
         // waehrend man blaettert, und die Sprache stellt ihn von aussen.
@@ -278,6 +284,10 @@ class AppRoutes {
   static const String kassen = '/finanzen/kassen';
   static const String finanzSerien = '/finanzen/serien';
 
+  // Haushalte. Kein Menuepunkt fuer den, der in keinem ist -- der Weg
+  // hierher fuehrt dann nur ueber die Einstellungen.
+  static const String haushalt = '/haushalt';
+
   // Knowledge Management
   static const String notes = '/notes';
   static const String journal = '/journal';
@@ -309,6 +319,7 @@ class AppRoutes {
     finanzen: (_) => const FinanzenPage(),
     kassen: (_) => const KassenPage(),
     finanzSerien: (_) => const SerienPage(),
+    haushalt: (_) => const HaushaltPage(),
     einkauf: (_) => const EinkaufslistenPage(),
     laeden: (_) => const LaedenPage(),
     preise: (_) => const PreisePage(),
