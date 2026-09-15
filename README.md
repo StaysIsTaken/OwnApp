@@ -178,9 +178,33 @@ lib/
 ./deploy/aufs-handy.sh
 ```
 
-iPhone anschließen, entsperren, Kommando ausführen — es baut, signiert und
-installiert. `--ziehen` holt vorher den neuesten Stand, `--starten` öffnet
-die App danach gleich.
+iPhone anschließen, entsperren, Kommando ausführen — es baut, signiert,
+installiert und startet. Ein Lauf, keine Handgriffe dazwischen.
+
+Hängt mehr als ein Gerät dran, fragt es:
+
+```
+  Mehrere Geraete. Wohin soll die App?
+  1) iPhone von Malin         iPhone14,8   am Kabel
+  2) IPhone von JP (2)        iPhone15,4   im WLAN
+
+  Nummer [1]:
+```
+
+Am Kabel angeschlossene stehen oben und sind die Vorgabe — ein Telefon,
+das nur im WLAN sichtbar ist, steht meist bloß herum. `--geraet "Malin"`
+überspringt die Frage (Name, Modell oder Kennung), `--liste` zeigt nur,
+was da ist, `--ziehen` holt vorher den neuesten Stand.
+
+**Ein neues Telefon braucht keine Sonderbehandlung.** Das
+Bereitstellungsprofil gilt je Gerät, und `flutter build ios` baut für ein
+*generisches* — es fragt deshalb nie nach einem Profil für genau dieses
+Telefon, und das Installieren scheitert dann mit `0xe8008012`. Das Skript
+baut über `flutter run`, weil das die Gerätekennung an Xcode durchreicht
+und das Profil erneuern lässt. Einmal am Gerät nötig ist nur der
+**Entwicklermodus** (Einstellungen → Datenschutz & Sicherheit) und beim
+ersten Start das Vertrauen zum Zertifikat (Einstellungen → Allgemein →
+VPN & Geräteverwaltung); nach beidem sagt das Skript, wenn es fehlt.
 
 **Warum das wöchentlich nötig ist:** Das Entwicklerkonto ist ein
 kostenloses. Apple gibt dafür Bereitstellungsprofile mit **sieben Tagen**

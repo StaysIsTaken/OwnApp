@@ -90,14 +90,43 @@ erledigt den Tausch.
 ./deploy/aufs-tablet.sh --anbieten  # Android ohne Kabel
 ```
 
-Zum iPhone: Das Entwicklerkonto ist ein **kostenloses**, Apple gibt
-dafür Profile mit **sieben Tagen** Laufzeit. Danach startet die App
-nicht mehr, ohne dass sich am Code etwas geändert hätte. Wer eine
-Fehlermeldung „App startet nicht" bekommt, prüft zuerst das Datum:
+Hängen mehrere Geräte dran, fragt das Skript. `--geraet "Malin"` nimmt
+Name, Modell oder Kennung und überspringt die Frage — das brauchst du,
+denn ohne Terminal wird nicht gefragt. `--liste` zeigt, was da ist.
+
+**Das Profil gilt je Gerät, und darüber stolpert man.** `flutter build
+ios` baut für ein *generisches* Gerät: es setzt `-destination
+generic/platform=iOS` und fragt deshalb nie nach einem Profil für genau
+dieses Telefon. Bei einem Gerät, das noch nicht im Profil steht,
+scheitert dann erst das Installieren — mit `0xe8008012`, und die Meldung
+zeigt auf die App statt auf die Ursache. Genau so ist hier ein iPhone 14
+Plus hängengeblieben, obwohl Bauen und Signieren sauber durchliefen.
+
+Deshalb baut das Skript über **`flutter run --release --no-resident -d
+<udid>`**. Nur der Weg über `run` reicht die Kennung an Xcode durch
+(`-destination id=…`, dazu `-allowProvisioningUpdates` und
+`-allowProvisioningDeviceRegistration`) und lässt das Profil erneuern;
+`--no-resident` beendet den Aufruf nach dem Start, statt anzuhängen. Ein
+Lauf macht damit alles: bauen, signieren, registrieren, installieren,
+starten.
+
+Was am Gerät bleibt und kein Skript abnehmen kann: **Entwicklermodus**
+(Einstellungen → Datenschutz & Sicherheit) und beim ersten Start das
+Vertrauen zum Zertifikat (Einstellungen → Allgemein → VPN &
+Geräteverwaltung). Beide Fälle fängt das Skript ab und sagt den Weg —
+`devicectl` nennt sonst nur einen Fehlercode.
+
+Das Entwicklerkonto ist ein **kostenloses**, Apple gibt dafür Profile mit
+**sieben Tagen** Laufzeit. Danach startet die App nicht mehr, ohne dass
+sich am Code etwas geändert hätte; das Skript nennt das Datum am Ende.
+Nachsehen lässt es sich auch von Hand — aber **nicht** über „das neueste
+Profil", das gehört bei mehreren Geräten womöglich zu einem anderen
+Telefon:
 
 ```bash
-P=$(ls -t ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision | head -1)
-security cms -D -i "$P" | grep -A1 ExpirationDate
+for P in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision; do
+  security cms -D -i "$P" | grep -A1 -E 'ExpirationDate|ProvisionedDevices'
+done
 ```
 
 Ein Signieren **ohne angeschlossenes Gerät ist unmöglich** — die
