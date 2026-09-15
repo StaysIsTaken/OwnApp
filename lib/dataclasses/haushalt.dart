@@ -163,3 +163,102 @@ class Einladung {
         angelegt: DateTime.tryParse(j['created_at']?.toString() ?? ''),
       );
 }
+
+
+/// Was von einem Mitglied in der Haushaltsübersicht zu sehen ist.
+///
+/// **`null` heißt „gibt nichts preis" — nicht „hat null Euro".** Das ist
+/// der Unterschied, den eine 0 verwischen würde, und der Grund, warum
+/// die Felder hier nullbar sind.
+class MitgliedsFinanzen {
+  final String userId;
+  final String name;
+
+  /// Die Stufe selbst ist kein Geheimnis: die anderen sollen wissen,
+  /// **warum** bei jemandem keine Zahl steht.
+  final Finanzsicht finanzsicht;
+
+  /// Ob dieses Mitglied in der Summe steckt.
+  final bool rechnetMit;
+
+  final int? einnahmenCents;
+  final int? ausgabenCents;
+  final int? saldoCents;
+
+  const MitgliedsFinanzen({
+    required this.userId,
+    required this.name,
+    this.finanzsicht = Finanzsicht.nichts,
+    this.rechnetMit = false,
+    this.einnahmenCents,
+    this.ausgabenCents,
+    this.saldoCents,
+  });
+
+  factory MitgliedsFinanzen.fromJson(Map<String, dynamic> j) =>
+      MitgliedsFinanzen(
+        userId: j['user_id']?.toString() ?? '',
+        name: j['name']?.toString() ?? '?',
+        finanzsicht: Finanzsicht.von(j['finanz_sicht']?.toString()),
+        rechnetMit: j['rechnet_mit'] == true,
+        einnahmenCents: (j['einnahmen_cents'] as num?)?.toInt(),
+        ausgabenCents: (j['ausgaben_cents'] as num?)?.toInt(),
+        saldoCents: (j['saldo_cents'] as num?)?.toInt(),
+      );
+}
+
+/// Die zusammengerechneten Finanzen des Haushalts.
+class HaushaltsFinanzen {
+  final int haushaltId;
+  final String name;
+  final DateTime von;
+  final DateTime bis;
+  final int einnahmenCents;
+  final int ausgabenCents;
+  final int saldoCents;
+  final List<MitgliedsFinanzen> mitglieder;
+
+  /// Die zwei Zahlen, die verhindern, dass jemand eine unvollständige
+  /// Summe für die Wahrheit hält: „2 von 3 Mitgliedern rechnen mit."
+  final int rechnenMit;
+  final int mitgliederGesamt;
+
+  const HaushaltsFinanzen({
+    required this.haushaltId,
+    required this.name,
+    required this.von,
+    required this.bis,
+    this.einnahmenCents = 0,
+    this.ausgabenCents = 0,
+    this.saldoCents = 0,
+    this.mitglieder = const [],
+    this.rechnenMit = 0,
+    this.mitgliederGesamt = 0,
+  });
+
+  /// Fehlt jemand in der Summe?
+  bool get unvollstaendig => rechnenMit < mitgliederGesamt;
+
+  /// Wer nicht mitrechnet — für den Satz darunter.
+  List<String> get fehlende => [
+        for (final m in mitglieder)
+          if (!m.rechnetMit) m.name,
+      ];
+
+  factory HaushaltsFinanzen.fromJson(Map<String, dynamic> j) =>
+      HaushaltsFinanzen(
+        haushaltId: (j['haushalt_id'] as num).toInt(),
+        name: j['name']?.toString() ?? 'Haushalt',
+        von: DateTime.parse(j['von'].toString()),
+        bis: DateTime.parse(j['bis'].toString()),
+        einnahmenCents: (j['einnahmen_cents'] as num?)?.toInt() ?? 0,
+        ausgabenCents: (j['ausgaben_cents'] as num?)?.toInt() ?? 0,
+        saldoCents: (j['saldo_cents'] as num?)?.toInt() ?? 0,
+        mitglieder: [
+          for (final m in (j['mitglieder'] as List<dynamic>? ?? const []))
+            MitgliedsFinanzen.fromJson(m as Map<String, dynamic>),
+        ],
+        rechnenMit: (j['rechnen_mit'] as num?)?.toInt() ?? 0,
+        mitgliederGesamt: (j['mitglieder_gesamt'] as num?)?.toInt() ?? 0,
+      );
+}

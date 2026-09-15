@@ -18,6 +18,7 @@ import 'package:productivity/dataservice/erinnerungs_abgleich.dart';
 import 'package:productivity/provider/timer_provider.dart';
 import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
 import 'package:productivity/tabs/finanzen/finanzen_page.dart';
+import 'package:productivity/tabs/haushalt/haushalt_finanzen_page.dart';
 import 'package:productivity/tabs/haushalt/haushalt_page.dart';
 import 'package:productivity/tabs/finanzen/kassen_page.dart';
 import 'package:productivity/tabs/finanzen/serien_page.dart';
@@ -287,6 +288,7 @@ class AppRoutes {
   // Haushalte. Kein Menuepunkt fuer den, der in keinem ist -- der Weg
   // hierher fuehrt dann nur ueber die Einstellungen.
   static const String haushalt = '/haushalt';
+  static const String haushaltFinanzen = '/haushalt/finanzen';
 
   // Knowledge Management
   static const String notes = '/notes';
@@ -320,6 +322,7 @@ class AppRoutes {
     kassen: (_) => const KassenPage(),
     finanzSerien: (_) => const SerienPage(),
     haushalt: (_) => const HaushaltPage(),
+    haushaltFinanzen: (_) => const HaushaltFinanzenPage(),
     einkauf: (_) => const EinkaufslistenPage(),
     laeden: (_) => const LaedenPage(),
     preise: (_) => const PreisePage(),

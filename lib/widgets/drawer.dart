@@ -137,6 +137,12 @@ class _DrawerWidgetState extends State<DrawerWidget>
       label: 'Haushalt',
       route: AppRoutes.haushalt,
     ),
+    NavItem(
+      icon: Icons.groups_outlined,
+      iconActive: Icons.groups_rounded,
+      label: 'Gemeinsame Finanzen',
+      route: AppRoutes.haushaltFinanzen,
+    ),
   ];
 
   static const _knowledgeItems = [

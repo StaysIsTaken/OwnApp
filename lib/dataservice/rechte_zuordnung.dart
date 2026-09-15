@@ -34,7 +34,10 @@ const Map<String, String> rechtJeRoute = {
   '/finanzen': 'finance:read',
   '/finanzen/kassen': 'finance:read',
   '/finanzen/serien': 'finance:read',
-  // `/haushalt` steht hier ABSICHTLICH nicht.
+  // Die gemeinsame Finanzübersicht schon: sie zeigt Geld, und ohne
+  // `finance:read` führt der Menüpunkt nur in eine Fehlermeldung.
+  '/haushalt/finanzen': 'finance:read',
+  // `/haushalt` selbst steht hier ABSICHTLICH nicht.
   //
   // Den eigenen Haushalt sehen darf jeder Angemeldete -- auch wer
   // `household:manage` nicht hat, denn sonst könnte ein eingeladenes

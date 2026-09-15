@@ -113,6 +113,23 @@ class HaushaltService {
     await ApiClient.dio.delete('$_pfad/einladungen/$einladungId');
   }
 
+  // ── Finanzen ───────────────────────────────────────────────────────────
+
+  /// Die Finanzen des Haushalts im Zeitraum — zusammengerechnet über die
+  /// Mitglieder, aber nur so weit, wie jedes einzelne es erlaubt.
+  static Future<HaushaltsFinanzen> finanzen(
+      DateTime von, DateTime bis) async {
+    final r = await ApiClient.dio.get('$_pfad/finanzen', queryParameters: {
+      'von': _tag(von),
+      'bis': _tag(bis),
+    });
+    return HaushaltsFinanzen.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  static String _tag(DateTime t) =>
+      '${t.year}-${t.month.toString().padLeft(2, '0')}-'
+      '${t.day.toString().padLeft(2, '0')}';
+
   /// Ob dieses Backend Haushalte überhaupt kennt.
   ///
   /// Ein älterer Server antwortet auf `/haushalt` mit 404. Das ist kein
