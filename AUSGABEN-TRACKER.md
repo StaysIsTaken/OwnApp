@@ -785,7 +785,59 @@ docker build -q -f Dockerfile.test -t ownapi-test . \
 flutter analyze && flutter test
 ```
 
-Sobald die Basis auf `main` steht, läuft die CI von selbst nach.
+### Die Reihenfolge beim Mergen: erst umhängen, dann mergen
+
+Das ist beim Ausgaben-Tracker schiefgegangen, und zwar sofort beim ersten
+PR.
+
+`gh pr merge <n> --merge --delete-branch` hängt die darüberliegenden PRs
+**nicht** um. GitHub **schließt** sie, weil ihre Basis verschwindet — und
+danach lassen sie sich nicht wieder öffnen, weil zum Öffnen der
+Basis-Branch existieren muss. Henne und Ei.
+
+Deshalb in dieser Reihenfolge:
+
+```bash
+# 1. ALLE Kinder auf main umhängen, solange die Basis noch existiert
+gh pr edit <kind> --base main
+
+# 2. Erst danach den unteren PR mergen
+gh pr merge <eltern> --merge
+```
+
+Ist es doch passiert, hilft nur, den Basis-Branch kurz wiederherzustellen:
+
+```bash
+git push origin <alter-sha>:refs/heads/<geloeschter-branch>
+gh pr reopen <n>
+gh pr edit <n> --base main
+git push origin --delete <geloeschter-branch>
+```
+
+Die Commits sind dabei nie in Gefahr — sie liegen im Branch des Kindes.
+Nur der PR mitsamt seinem Text hängt an der Basis.
+
+### Ein Basiswechsel löst keine CI aus
+
+Der Satz „sobald die Basis auf `main` steht, läuft die CI von selbst
+nach" stand hier und war falsch.
+
+`pull_request` feuert nur bei `opened`, `synchronize` und `reopened`. Ein
+`--base`-Wechsel ist keins davon: der PR zeigt danach auf `main`, hat
+aber weiterhin **kein einziges Häkchen**.
+
+Schließen und wieder öffnen löst sie aus, ohne die Historie mit
+Leer-Commits zu verschmutzen:
+
+```bash
+gh pr close <n> && gh pr reopen <n>
+until gh pr checks <n> 2>/dev/null | grep -qE "pass|fail"; do sleep 20; done
+gh pr checks <n>
+```
+
+Beim Tracker sind so sechs PRs zum ersten Mal überhaupt durch die CI
+gelaufen — nachdem sie längst geschrieben, geprüft und begründet waren.
+Das ist der richtige Zeitpunkt dafür: **vor dem Merge, nicht danach.**
 
 **PR 7 hängt nur an 1 und 2**, nicht an den Serien — er lässt sich
 vorziehen, sobald die App buchen kann. Nötig ist es nicht: er fasst
