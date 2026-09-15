@@ -317,3 +317,74 @@ Zielzeitpunkt zu rechnen. Das ist bewusst — und es ist zugleich seine
 Grenze: legt das Betriebssystem die App schlafen, steht der Timer und
 läuft danach nach. Für ein Küchentablet mit Wakelock stimmt das, für ein
 Telefon in der Hosentasche nicht.
+
+---
+
+## 5. Es gibt drei Arten, wie etwas geteilt wird
+
+Seit den Haushalten, und der nächste Leser muss wissen, welche wo gilt.
+**Das ist der Doppelgänger, an dem man hier am ehesten die falsche
+Annahme trifft** — „ich habe es doch freigegeben" heißt je nach Bereich
+etwas anderes.
+
+| Art | Bereiche | Wer sieht es |
+|---|---|---|
+| **Haushalt** | Rezepte, Vorrat, Einkaufslisten, Preise, Essensplan, Kassen | alle Mitglieder |
+| **Einzelfreigabe** | Listen, Kalender, Kassen | wer eingetragen ist |
+| **Global** | Einheiten, Zutaten, Kategorien, Läden | jeder mit dem Recht |
+
+Die mittlere Art ist mit den Haushalten **nicht** verschwunden. Sie löst
+einen Fall, den der Haushalt nicht abdeckt: „diese eine Liste nur mit
+meiner Schwester".
+
+Und der Satz, der das Ganze trägt und den man sonst nicht rekonstruieren
+kann:
+
+> **Haushalte sind additiv. Wer keinen hat, verliert nichts.**
+
+Daraus folgt alles Weitere — dass `household_id` überall NULL-bar ist,
+dass `GET /haushalt` mit 204 antwortet statt mit einem Fehler, und dass
+die Umschaltung „Meins / Unseres" samt ihrem Platz verschwindet, wenn man
+in keinem Haushalt ist.
+
+### Wo die Regel steht, und wo nicht
+
+In der App an **einer** Stelle: `lib/dataservice/haushalt_sicht.dart`.
+Dort ist sie eine reine Rechnung und damit prüfbar — derselbe Kunstgriff
+wie bei `finanz_rechnung.dart`, und aus demselben Grund: die Seiten laden
+beim Aufbau und lassen sich nicht testen, die Regel dahinter schon.
+
+```dart
+Haushaltssicht.zeigtMenue(...)       // gibt es den Menüabschnitt?
+Haushaltssicht.zeigtUmschaltung(...) // gibt es „Meins / Unseres"?
+Haushaltssicht.darfGehen(...)        // darf ich austreten?
+Haushaltssicht.mitrechnenSatz(...)   // „2 von 3 rechnen mit"
+```
+
+Wer eine vierte Seite haushaltsfähig macht, ruft diese Funktionen auf,
+statt `haushalt != null` ein viertes Mal zu schreiben. Beim vierten Mal
+schreibt es sonst jemand anders.
+
+### Der Haushalt liegt in einem Provider
+
+`HaushaltProvider`, geladen im `AuthWrapper` zusammen mit den Rechten.
+Das ist dasselbe Muster wie bei `TimerProvider` und
+`TabletSeitenProvider` (§4): er musste aus der Seite heraus, weil das
+**Menü** ihn braucht — und an privaten Zustand einer Seite kommt es nicht
+heran.
+
+Nebeneffekt, und er war beabsichtigt: so kommt auch eine **offene
+Einladung** beim nächsten Öffnen der App an, ohne dass es dafür einen
+WebSocket-Anstoß wie `planner_changed` braucht. Eine Einladung eilt
+selten so, dass sich ein zweiter Zustellweg lohnt.
+
+### Zwei Wege zur Haushaltsseite, und das ist Absicht
+
+Im **Menü** steht sie nur, wenn es einen Haushalt gibt oder eine
+Einladung offen ist. In den **Einstellungen** steht sie immer.
+
+Ohne den zweiten Weg käme niemand je zu seinem ersten Haushalt — der
+Menüpunkt erscheint ja erst, wenn es einen gibt. Die Einstellungen sind
+der Ort, an dem man einrichtet, was einen selbst betrifft; dieselbe
+Überlegung wie bei der Serveradresse, die am Login hängt und trotzdem
+dort steht.
