@@ -75,6 +75,27 @@ Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mi
 - **Notizen**: Notizen in Ordnern organisieren und verknüpfen
 - **Journal**: Tagebuch-Einträge mit Auswertungen/Analysen
 
+### 🏠 Haushalte
+- **Koexistenz, nicht Umbau**: Wer in keinem Haushalt ist, merkt vom
+  ganzen Bereich nichts — kein Menüpunkt, keine Umschaltung, nichts
+  fehlt. Die App verhält sich wie vorher.
+- **Höchstens ein Haushalt je Person.** Das erspart der App einen
+  Umschalter und jeder Abfrage einen Kontext.
+- **Gemeinsam werden**: Rezepte, Vorrat, Einkaufslisten, Preise,
+  Essensplan und Kassen. **Global bleiben** Einheiten, Zutaten,
+  Kategorien und Läden — „Gramm" und „Mehl" sind Vokabular, kein Besitz.
+- **„Meins / Unseres"** im Kopf jeder betroffenen Seite; sie entscheidet
+  auch, wohin Neues gehört. Einzelnes lässt sich nachträglich verschieben.
+- **Einladung als Ablauf**: annehmen, ablehnen, zurückziehen. Vor dem
+  Annehmen sieht keine Seite etwas von der anderen.
+- **Finanz-Sichtbarkeit entscheidet jedes Mitglied selbst** — vier Stufen
+  von „nichts" bis „alles", Vorgabe ist **nichts**. Wer nicht mitrechnet,
+  wird in der gemeinsamen Übersicht genannt: „2 von 3 Mitgliedern rechnen
+  mit."
+- **Der Besitzer kann nicht gehen**, solange andere drin sind — er
+  übergibt erst. Geht der Letzte, löst sich der Haushalt auf und die Daten
+  fallen an ihn zurück.
+
 ### ⚙️ Einstellungen
 - **Serveradresse**: frei einstellbar, mit Erreichbarkeitsprüfung. Kein
   eigener Bauvorgang nötig, um die App gegen einen anderen Server zu
@@ -344,6 +365,21 @@ Die App kommuniziert mit einem REST-API-Backend.
 - `GET/POST/PUT/DELETE /planner/types` - Typen-Stammdaten verwalten
 - `GET /planner/pending/notifications` - Fällige Benachrichtigungen (für n8n)
 
+### Haushalt
+- `GET /haushalt` - Der eigene Haushalt (204, wenn man in keinem ist)
+- `POST/PUT/DELETE /haushalt` - Anlegen, ändern, auflösen
+- `GET /haushalt/einladungen` - Offene Einladungen an mich
+- `POST /haushalt/einladungen` - Jemanden einladen
+- `POST /haushalt/einladungen/{id}/annehmen|ablehnen` - Antworten
+- `PUT /haushalt/finanz-sicht` - Die eigene Sichtbarkeitsstufe
+- `DELETE /haushalt/mitglieder/me` - Austreten
+- `POST /haushalt/besitz/{uid}` - Haushalt übergeben
+- `GET /haushalt/finanzen?von=&bis=` - Zusammengerechnet über alle
+  Mitglieder, so weit wie jedes es erlaubt
+
+Dazu an den haushaltsfähigen Bereichen: `?unseres=` und `?eigene=` zum
+Filtern, `PUT .../haushalt` zum Verschieben.
+
 ### Chat
 - WebSocket-Verbindung für Echtzeit-Nachrichten
 - `GET /messages` - Hole Nachrichtenhistorie
@@ -529,7 +565,8 @@ flutter test
 flutter analyze
 ```
 
-**86 Tests.** Neben Einheitentests auch Widget-Tests für das Menü: der
+**736 Tests.** Neben Einheitentests auch Widget-Tests für das Menü: der
 Drawer wird mit einem eingeschränkten Rechtestand aufgebaut, und der Test
-sieht nach, was wirklich dasteht.
+sieht nach, was wirklich dasteht — inzwischen auch, ob der
+Haushaltsabschnitt verschwindet, wenn es keinen Haushalt gibt.
 
