@@ -187,4 +187,33 @@ class EinkaufService {
     });
     return Warenpreis.fromJson(r.data as Map<String, dynamic>);
   }
+
+  // ── Brücke ins Haushaltsbuch ───────────────────────────────────────────
+
+  /// Was die abgehakten Posten laut Preisgedächtnis in [shopId] gekostet
+  /// haben.
+  ///
+  /// Holt nur einen **Vorschlag** — gebucht wird über [FinanzService],
+  /// nachdem der Nutzer den Betrag gesehen hat.
+  static Future<Buchungsvorschlag> buchungsvorschlag(
+    int listId, {
+    required String shopId,
+  }) async {
+    final r = await ApiClient.dio.get(
+      '$_pfad/$listId/buchungsvorschlag',
+      queryParameters: {'shop_id': shopId},
+    );
+    return Buchungsvorschlag.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// Die Kennung, die eine Doppelbuchung verhindert.
+  ///
+  /// Landet als `external_uid` an der Buchung; `uq_buchung_fremdkennung`
+  /// lässt dieselbe Liste am selben Tag dann kein zweites Mal zu. Abhaken,
+  /// buchen, weiter abhaken, nochmal buchen — ohne das stünde der Einkauf
+  /// zweimal im Kassenbuch.
+  static String einkaufsKennung(int listId, DateTime tag) =>
+      'einkauf:$listId:${tag.year.toString().padLeft(4, '0')}-'
+      '${tag.month.toString().padLeft(2, '0')}-'
+      '${tag.day.toString().padLeft(2, '0')}';
 }

@@ -4,6 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
 import 'package:productivity/dataservice/preisvergleich.dart';
 import 'package:productivity/dataservice/api_error.dart';
+import 'package:productivity/dataclasses/finanzen.dart';
+import 'package:productivity/dataclasses/shop.dart';
+import 'package:productivity/dataservice/finanz_service.dart';
+import 'package:productivity/dataservice/shop_service.dart';
+import 'package:productivity/provider/permission_provider.dart';
+import 'package:productivity/tabs/finanzen/buchung_dialog.dart';
+import 'package:provider/provider.dart';
 import 'package:productivity/dataservice/einkauf_service.dart';
 
 /// Eine Einkaufsliste mit ihren Positionen.
@@ -208,6 +215,115 @@ class _EinkaufslistePageState extends State<EinkaufslistePage> {
     }
   }
 
+  /// Den abgehakten Einkauf als Ausgabe buchen.
+  ///
+  /// Vier Schritte: Laden wählen, Vorschlag holen, Dialog mit dem Betrag
+  /// **vorbelegt und änderbar**, buchen.
+  ///
+  /// Das Änderbare ist der Punkt. Die Summe kommt aus Preisen, die
+  /// irgendwann notiert wurden — sie ist eine Schätzung und kein
+  /// Kassenbon. Wer den Bon in der Hand hat, gewinnt gegen das
+  /// Gedächtnis.
+  Future<void> _alsAusgabeBuchen() async {
+    final laeden = await _laeden();
+    if (laeden == null || !mounted) return;
+    if (laeden.isEmpty) {
+      _melde('Noch kein Laden angelegt — ohne den gibt es keine Preise.');
+      return;
+    }
+
+    final laden = laeden.length == 1
+        ? laeden.first
+        : await showModalBottomSheet<Shop>(
+            context: context,
+            showDragHandle: true,
+            builder: (_) => _Ladenwahl(laeden: laeden),
+          );
+    if (laden == null || !mounted) return;
+
+    setState(() => _rechnet = true);
+    Buchungsvorschlag vorschlag;
+    List<Kasse> kassen;
+    List<Finanzkategorie> kategorien;
+    try {
+      vorschlag = await EinkaufService.buchungsvorschlag(
+          widget.liste.id, shopId: laden.id);
+      kassen = await FinanzService.kassen();
+      kategorien = await FinanzService.kategorien();
+    } catch (e) {
+      if (mounted) _melde(ApiFehler.text(e));
+      return;
+    } finally {
+      if (mounted) setState(() => _rechnet = false);
+    }
+    if (!mounted) return;
+
+    if (kassen.isEmpty) {
+      _melde('Erst eine Kasse im Haushaltsbuch anlegen.');
+      return;
+    }
+
+    final eingabe = await BuchungDialog.zeige(
+      context,
+      kassen: kassen,
+      kategorien: kategorien,
+      betragVorgabe: vorschlag.summeCents,
+      titelVorgabe: '${widget.liste.name} bei ${vorschlag.laden}',
+      hinweis: _herkunft(vorschlag),
+    );
+    if (eingabe == null) return;
+
+    try {
+      await FinanzService.buchen(
+        kasseId: eingabe.kasseId,
+        tag: eingabe.tag,
+        cents: eingabe.cents,
+        titel: eingabe.titel,
+        kategorieId: eingabe.kategorieId,
+        notiz: eingabe.notiz ?? _herkunft(vorschlag),
+        externeKennung: EinkaufService.einkaufsKennung(
+            widget.liste.id, eingabe.tag),
+      );
+      if (mounted) _melde('Als Ausgabe gebucht.');
+    } catch (e) {
+      // 409: derselbe Einkauf steht an diesem Tag schon im Kassenbuch.
+      // Das ist keine Panne, sondern der Schutz, der greifen soll —
+      // entsprechend liest sich die Meldung.
+      if (!mounted) return;
+      _melde(ApiFehler.istKonflikt(e)
+          ? 'Dieser Einkauf ist heute schon gebucht. Ändern geht im '
+              'Haushaltsbuch.'
+          : ApiFehler.text(e));
+    }
+  }
+
+  /// Woher die Zahl kommt — steht über dem Betragsfeld und in der Notiz.
+  ///
+  /// Ohne diesen Satz sähe der Betrag aus wie eine Tatsache. Und wer ihn
+  /// später im Kassenbuch wiederfindet, soll erkennen können, dass er
+  /// geschätzt war.
+  String _herkunft(Buchungsvorschlag v) {
+    if (v.leer) {
+      return 'Für keinen der abgehakten Posten ist bei ${v.laden} ein Preis '
+          'bekannt — trag den Betrag von Hand ein.';
+    }
+    final grund = 'Geschätzt aus ${v.anzahl} '
+        '${v.anzahl == 1 ? 'Preis' : 'Preisen'} bei ${v.laden}';
+    if (v.vollstaendig) return '$grund.';
+    return '$grund. ${v.ohnePreis.length} ohne Preis: '
+        '${v.ohnePreis.take(3).join(', ')}'
+        '${v.ohnePreis.length > 3 ? ' …' : ''}';
+  }
+
+  Future<List<Shop>?> _laeden() async {
+    try {
+      return await ShopService.loadAll();
+    } catch (e) {
+      if (mounted) _melde(ApiFehler.text(e));
+      return null;
+    }
+  }
+
   /// „Dieser Zettel kostet bei Aldi 34 €, bei Rewe 39 €."
   ///
   /// Die Preise holt es Posten für Posten aus dem Gedächtnis — das hängt
@@ -287,6 +403,15 @@ class _EinkaufslistePageState extends State<EinkaufslistePage> {
               icon: const Icon(Icons.kitchen_outlined),
               tooltip: 'Abgehaktes in den Vorrat buchen',
               onPressed: () => _inDenVorrat(erledigt.length),
+            ),
+          // Nur mit Schreibrecht im Haushaltsbuch. Ein Knopf, der beim
+          // Antippen „fehlt dir das Recht" sagt, ist kein Angebot.
+          if (erledigt.isNotEmpty &&
+              context.watch<PermissionProvider>().darf('finance:write'))
+            IconButton(
+              icon: const Icon(Icons.receipt_long_outlined),
+              tooltip: 'Als Ausgabe buchen',
+              onPressed: _rechnet ? null : _alsAusgabeBuchen,
             ),
           if (erledigt.isNotEmpty)
             IconButton(
@@ -650,4 +775,42 @@ class _Hinweis extends StatelessWidget {
       ],
     );
   }
+}
+
+/// In welchem Laden eingekauft wurde.
+///
+/// Die Frage lässt sich nicht aus der Liste beantworten: ein Zettel sagt,
+/// WAS gekauft wurde, nicht WO. Und der Preis hängt genau daran.
+class _Ladenwahl extends StatelessWidget {
+  final List<Shop> laeden;
+
+  const _Ladenwahl({required this.laeden});
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Wo war der Einkauf?',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final laden in laeden)
+                    ListTile(
+                      leading: const Icon(Icons.storefront_outlined),
+                      title: Text(laden.name),
+                      onTap: () => Navigator.pop(context, laden),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      );
 }

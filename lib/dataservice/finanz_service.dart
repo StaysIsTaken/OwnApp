@@ -150,6 +150,7 @@ class FinanzService {
     required String titel,
     int? kategorieId,
     String? notiz,
+    String? externeKennung,
   }) async {
     final r = await ApiClient.dio.post('$_pfad/buchungen', data: {
       'account_id': kasseId,
@@ -158,6 +159,10 @@ class FinanzService {
       'title': titel,
       'category_id': ?kategorieId,
       'note': ?kennung(notiz),
+      // Stabile Kennung des Erzeugers. Zusammen mit einem Unique-Index
+      // im Backend verhindert sie, dass derselbe Vorgang zweimal im
+      // Kassenbuch landet; der zweite Versuch kommt als 409 zurück.
+      'external_uid': ?kennung(externeKennung),
     });
     return Buchung.fromJson(r.data as Map<String, dynamic>);
   }

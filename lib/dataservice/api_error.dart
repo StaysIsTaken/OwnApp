@@ -16,6 +16,13 @@ class ApiFehler {
   static bool istNichtGefunden(Object fehler) =>
       fehler is DioException && fehler.response?.statusCode == 404;
 
+  /// Der Vorgang steht schon so da. Kein Fehler im eigentlichen Sinn,
+  /// sondern ein Schutz, der gegriffen hat — etwa die Sperre gegen
+  /// doppelt gebuchte Einkäufe. Entsprechend liest sich die Meldung
+  /// beim Aufrufer.
+  static bool istKonflikt(Object fehler) =>
+      fehler is DioException && fehler.response?.statusCode == 409;
+
   /// Kein Netz, Zeitüberschreitung, Server weg — alles, was nichts mit
   /// Berechtigungen zu tun hat.
   static bool istNetzproblem(Object fehler) {
@@ -38,6 +45,8 @@ class ApiFehler {
         return 'Dafür fehlt dir die Berechtigung.';
       case 404:
         return 'Das gibt es nicht (mehr).';
+      case 409:
+        return 'Das steht schon so da.';
       case 500:
         return 'Auf dem Server ist etwas schiefgegangen.';
     }
