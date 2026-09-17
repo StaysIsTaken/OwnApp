@@ -1,6 +1,6 @@
 # Productivity App - Flutter
 
-Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mit Aufgabenverwaltung, einem Kalender-/Planner-Modul (inkl. wiederkehrender Termine), Rezepten, Vorratsverwaltung, Essensplanung, Zeitverfolgung, Notizen, Journal und Echtzeit-Chat.
+Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mit Aufgabenverwaltung, einem Kalender-/Planner-Modul (inkl. wiederkehrender Termine), Rezepten, Vorratsverwaltung, Essensplanung, Zeitverfolgung, Notizen, Journal, Echtzeit-Chat und einem Haushaltsbuch — das Ganze wahlweise allein oder gemeinsam in einem Haushalt.
 
 ## 🎯 Features
 
@@ -74,6 +74,36 @@ Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mi
 ### 📝 Notizen & 📔 Journal
 - **Notizen**: Notizen in Ordnern organisieren und verknüpfen
 - **Journal**: Tagebuch-Einträge mit Auswertungen/Analysen
+
+### 💶 Haushaltsbuch
+- **Kassen**: „Bar", „Giro", „Sparen", „Kreditkarte" — je mit
+  Anfangsbestand, Farbe und Mitgliedern. Ein überzogenes Konto fängt mit
+  einem Minus an.
+- **Eine Tabelle für beides**: Gehalt und Wocheneinkauf sind derselbe
+  Vorgang mit anderem Vorzeichen. Im Dialog steht kein Minuszeichen,
+  sondern ein Schalter **Ausgabe / Einnahme**.
+- **Beträge in Cent**, nie als Fließkomma — über ein Jahr Summen driftet
+  sonst der Saldo um Beträge, die man danach sucht.
+- **Daueraufträge mit Betragsstaffel**: „Strom, monatlich am 1." trägt
+  seinen Betrag *ab einem Stichtag*. Ändert sich der Abschlag, kommt eine
+  neue Stufe dazu — die Vergangenheit bleibt stehen und stimmt weiter.
+- **Die Zukunft wird gerechnet, nicht gebucht.** Bis heute stehen echte
+  Buchungen, ab morgen eine Vorschau („Was noch kommt"), die bei jeder
+  Abfrage neu entsteht. Sie ist blasser gezeichnet und nicht antippbar,
+  weil es sie noch nicht gibt.
+- **„am 31." heißt „am letzten"** — im Februar wird gekürzt statt
+  übersprungen. Fällt eine Fälligkeit auf ein Wochenende, wird sie
+  **nicht** verschoben; eine Bank tut das, wir nicht.
+- **Auswertung** je Monat: Saldo, Einnahmen, Ausgaben und die Verteilung
+  nach Kategorie — gerechnet im Backend, nicht im Client.
+- **Vier Kacheln** fürs Dashboard: Saldo, Ausgaben nach Kategorie,
+  Verlauf über N Monate, „Was noch kommt".
+- **Aus dem Einkauf buchen**: Abgehakte Posten × Preisgedächtnis ergeben
+  einen **Vorschlag**, keine Buchung. Der Betrag ist vorher änderbar, die
+  Buchung trägt ihre Herkunft in der Notiz, und Posten ohne bekannten
+  Preis werden genannt und gezählt statt stillschweigend weggelassen.
+- **Jarvis kann buchen**: „Trag zwölf Euro Edeka ein" — mit Rückfrage,
+  wenn es mehrere Kassen gibt, und wie immer erst nach Bestätigung.
 
 ### 🏠 Haushalte
 - **Koexistenz, nicht Umbau**: Wer in keinem Haushalt ist, merkt vom
@@ -177,6 +207,15 @@ lib/
 │   │   ├── views/                    # week_view, month_view, day_view
 │   │   ├── widgets/                  # Eintrags-Dialog & -Karte
 │   │   └── manage_planner_types_page.dart  # Typen-Stammdaten
+│   ├── finanzen/                     # Haushaltsbuch
+│   │   ├── finanzen_page.dart        # Monatsansicht mit Vorschau
+│   │   ├── buchung_dialog.dart       # Ausgabe/Einnahme erfassen
+│   │   ├── serien_page.dart          # Daueraufträge
+│   │   ├── serie_dialog.dart         # Regel anlegen/ändern
+│   │   ├── stufe_dialog.dart         # Stufe der Betragsstaffel
+│   │   └── kassen_page.dart          # Kassen und Mitlesende
+│   ├── haushalt/                     # Haushalt, Einladungen, Finanzsicht
+│   ├── einkauf/                      # Einkaufslisten und Preise
 │   ├── notes/                        # Notizen
 │   ├── journal/                      # Journal
 │   ├── calendar/                     # Kalender
@@ -389,6 +428,22 @@ Die App kommuniziert mit einem REST-API-Backend.
 - `GET/POST/PUT/DELETE /planner/types` - Typen-Stammdaten verwalten
 - `GET /planner/pending/notifications` - Fällige Benachrichtigungen (für n8n)
 
+### Finanzen
+- `GET /finanzen/kassen?alle=` - Kassen (mit `alle` für `finance:read_all`)
+- `POST/PUT/DELETE /finanzen/kassen[/{id}]` - Kassen pflegen
+- `POST/DELETE /finanzen/kassen/{id}/mitglieder/{uid}` - Mitlesende
+- `GET/POST/PUT/DELETE /finanzen/kategorien[/{id}]` - eigene Kategorien
+- `GET /finanzen/buchungen?kasse=&von=&bis=` - Buchungen im Zeitraum
+- `POST/PUT/DELETE /finanzen/buchungen[/{id}]` - Buchungen pflegen
+- `GET/POST/PUT/DELETE /finanzen/serien[/{id}]` - Daueraufträge
+- `POST /finanzen/serien/{id}/betrag` - Stufe der Betragsstaffel setzen
+- `DELETE /finanzen/serien/{id}/betrag/{bid}` - Stufe entfernen
+- `GET /finanzen/vorschau?von=&bis=` - was kommt (ohne `id`, nie gespeichert)
+- `GET /finanzen/auswertung?von=&bis=` - Saldo, Summen, Verteilung
+- `POST /finanzen/nachbuchen` - fällige Serienbuchungen nachtragen
+- `GET /einkauf/{id}/buchungsvorschlag?shop_id=` - Schätzung aus dem
+  Preisgedächtnis (`shopping:read` **und** `prices:read`)
+
 ### Haushalt
 - `GET /haushalt` - Der eigene Haushalt (204, wenn man in keinem ist)
 - `POST/PUT/DELETE /haushalt` - Anlegen, ändern, auflösen
@@ -548,6 +603,26 @@ Filtern, `PUT .../haushalt` zum Verschieben.
 - [ ] Wiederkehrende Aufgaben und Gewohnheits-Verfolgung
 - [ ] Backup und Export-Funktionalität
 
+### Bewusst nicht gebaut
+
+Das ist keine Liste von Lücken, sondern von Entscheidungen. Sie stand in
+den Bauplänen von Haushaltsbuch und Haushalten; die Pläne sind mit dem
+Bau erledigt, die Begründungen gelten weiter.
+
+| | Warum nicht |
+|---|---|
+| **Bankanbindung** | Eigenes Vorhaben mit eigenen Fallstricken (Zustimmungsfristen, Kategorisierung, Abgleich). `finance_accounts` und `external_uid` halten ihr die Tür auf, mehr bewusst nicht. |
+| **Budgets und Sparziele** | Erst wissen, wofür man Geld ausgibt, dann Grenzen ziehen. Sonst setzt man sie ins Blaue. |
+| **Eine Buchung auf mehrere Kategorien aufteilen** | Kommt vor (Lebensmittel *und* Drogerie), ist aber eine eigene Tabelle samt Oberfläche. |
+| **Belegfotos** | Braucht eine Dateiablage, die es im Backend nicht gibt. |
+| **Bon-Scan → Buchung** | Der Bon liefert den *echten* Betrag statt einer Schätzung — die Stufe nach der Einkaufs-Brücke, und erst, wenn die sich bewährt hat. |
+| **Mehrere Währungen** | Nein. |
+| **Mehrere Haushalte je Person** | Bräuchte einen Umschalter und in jeder Abfrage einen Kontext. Das Datenmodell lässt es offen: die Mitgliedschaft steht in einer eigenen Tabelle, nicht als Feld am Nutzer. |
+| **Rollen im Haushalt jenseits von Besitzer/Mitglied** | „Kind darf keine Finanzen sehen" geht über eine App-Rolle, nicht über den Haushalt. |
+| **Haushalte über Server hinweg** | Nein. |
+| **Einladung per Link an Fremde** | Eingeladen wird, wer schon ein Konto hat. Registrierung ist ein anderer Vorgang. |
+| **Serienbuchung als Fälligkeits-Erinnerung** | Die Mitteilungen sind auf 58 vorgemerkte gedeckelt (iOS-Grenze 64). Eine neue Quelle müsste durch `NotificationScheduler.rescheduleAll()` gehen, sonst kennt sie das Budget der anderen nicht. |
+
 ## 📝 Lizenz
 
 Dieses Projekt ist Teil einer Schulaufgabe.
@@ -572,7 +647,7 @@ Jan-Philip Anft
 
 ---
 
-**Zuletzt aktualisiert**: Juni 2026
+**Zuletzt aktualisiert**: September 2026
 
 ## Zugehöriges Backend
 
