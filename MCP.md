@@ -641,16 +641,21 @@ Zu jedem Test die Gegenprobe: kaputt machen, rot sehen, wiederherstellen.
 
 ## 11. Reihenfolge
 
-| # | Repo | Inhalt | Basis | Danach benutzbar? |
-|---|---|---|---|---|
-| 1 | OwnAPI | Migration 034, `user_settings`, Dienst, `/einstellungen` | `main` | — |
-| 2 | OwnApp | Einstellungen lesen/schreiben, die drei Werte vom Gerät holen | PR 1 | **ja** — Einstellungen liegen am Konto |
-| 3 | OwnAPI | MCP: Anmeldung, Baum, Lese-Werkzeuge der eigenen Bereiche | PR 1 | |
-| 4 | OwnApp | der Baum in den Einstellungen, Schlüssel anzeigen/erneuern | PR 2+3 | **ja** — der MCP läuft |
-| 5 | OwnAPI | Haushalts-Ast: `mcp_freigabe`, Filter, „ausgelassen" | PR 3 | |
-| 6 | OwnApp | Freigabe auf der Haushaltsseite, Haushalts-Ast im Baum | PR 4+5 | **ja** — vollständig |
-| 7 | OwnAPI | Schreib-Werkzeuge | PR 3 | |
-| 8 | OwnAPI | Rate-Limit, Protokoll | PR 3 | |
+Die Spalte **Stand** wird beim Arbeiten gepflegt: offen → die PR-Nummer,
+sobald einer aufgemacht ist → ✅, sobald er in `main` steht. So sagt der
+Plan jederzeit, wo er steht, und niemand muss es aus der Git-Historie
+zusammensuchen.
+
+| # | Repo | Inhalt | Basis | Danach benutzbar? | Stand |
+|---|---|---|---|---|---|
+| 1 | OwnAPI | Migration 034, `user_settings`, Dienst, `/einstellungen` | `main` | — | ⬜ |
+| 2 | OwnApp | Einstellungen lesen/schreiben, die drei Werte vom Gerät holen | PR 1 | **ja** — Einstellungen liegen am Konto | ⬜ |
+| 3 | OwnAPI | MCP: Anmeldung, Baum, Lese-Werkzeuge der eigenen Bereiche | PR 1 | | ⬜ |
+| 4 | OwnApp | der Baum in den Einstellungen, Schlüssel anzeigen/erneuern | PR 2+3 | **ja** — der MCP läuft | ⬜ |
+| 5 | OwnAPI | Haushalts-Ast: `mcp_freigabe`, Filter, „ausgelassen" | PR 3 | | ⬜ |
+| 6 | OwnApp | Freigabe auf der Haushaltsseite, Haushalts-Ast im Baum | PR 4+5 | **ja** — vollständig | ⬜ |
+| 7 | OwnAPI | Schreib-Werkzeuge | PR 3 | | ⬜ |
+| 8 | OwnAPI | Rate-Limit, Protokoll | PR 3 | | ⬜ |
 
 Nach PR 6 ist das Projekt fachlich fertig; 7 und 8 sind die Zugaben —
 wobei **8 vor dem ersten öffentlichen Ausrollen stehen muss**. Ein
