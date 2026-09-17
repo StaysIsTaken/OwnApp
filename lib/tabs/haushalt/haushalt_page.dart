@@ -220,6 +220,20 @@ class _HaushaltState extends State<_Haushalt> {
     }
   }
 
+  /// Meine Beiträge für die Assistenten-Zugänge der anderen freigeben.
+  ///
+  /// Das ist nur die eine Hälfte: ob die gemeinsamen Sachen wirklich
+  /// hinausgehen, entscheidet zusätzlich der Haushalts-Ast im Zugang
+  /// desjenigen, der ihn benutzt. Die Freigabe sagt „von mir aus".
+  Future<void> _freigabeAendern(bool frei) async {
+    try {
+      await HaushaltService.mcpFreigabe(frei);
+      await _laden();
+    } catch (e) {
+      if (mounted) _melde(ApiFehler.text(e));
+    }
+  }
+
   Future<void> _uebergeben(Haushalt haushalt) async {
     final andere =
         haushalt.mitglieder.where((m) => m.userId != _ichId).toList();
@@ -516,6 +530,39 @@ class _HaushaltState extends State<_Haushalt> {
             onTap: () => _stufeAendern(ichAlsMitglied),
           ),
         ),
+
+        // Die zweite Entscheidung, die jedes Mitglied fuer sich trifft.
+        // Sie steht hier und nicht in den MCP-Einstellungen, weil sie
+        // den HAUSHALT betrifft und nicht den eigenen Zugang: es geht um
+        // die eigenen Beitraege in den Zugaengen der ANDEREN.
+        Card(
+          margin: const EdgeInsets.only(bottom: 4),
+          child: SwitchListTile(
+            secondary: const Icon(Icons.hub_outlined),
+            title: const Text('Deine Beiträge für Assistenten'),
+            subtitle: Text(
+              ichAlsMitglied.mcpFreigabe
+                  ? 'Was du zu unseren Rezepten, Listen und Vorräten '
+                      'beigetragen hast, darf in die Assistenten-Zugänge '
+                      'der anderen.'
+                  : 'Deine Beiträge bleiben drinnen — auch wenn jemand '
+                      'anderes den Haushalt in seinem Zugang anschaltet.',
+            ),
+            value: ichAlsMitglied.mcpFreigabe,
+            onChanged: _freigabeAendern,
+          ),
+        ),
+        // Wer gemeinsame Daten weitergibt, tut das mit den Beitraegen
+        // der anderen. Also steht hier, wer freigibt -- derselbe Gedanke
+        // wie „2 von 3 rechnen mit".
+        if (Haushaltssicht.freigabeSatz(haushalt.mitglieder).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Text(
+              Haushaltssicht.freigabeSatz(haushalt.mitglieder),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
       ],
 
       if (meiner && _darfVerwalten) ...[

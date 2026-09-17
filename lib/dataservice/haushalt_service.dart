@@ -52,6 +52,22 @@ class HaushaltService {
     return Mitglied.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// Dürfen meine Beiträge zu den gemeinsamen Sachen an Assistenten?
+  ///
+  /// Wie die Finanz-Sichtbarkeit: das entscheidet jedes Mitglied für
+  /// sich, und der Endpunkt nimmt gar keine fremde Kennung entgegen.
+  ///
+  /// Es ist nur die eine Hälfte — die andere ist der Haushalts-Ast im
+  /// Zugang des anderen. Die Freigabe sagt „von mir aus", der Baum sagt
+  /// „ich will".
+  static Future<Mitglied> mcpFreigabe(bool frei) async {
+    final r = await ApiClient.dio.put(
+      '$_pfad/mcp-freigabe',
+      data: {'frei': frei},
+    );
+    return Mitglied.fromJson(r.data as Map<String, dynamic>);
+  }
+
   /// Ich gehe. Bin ich der Letzte, löst sich der Haushalt auf.
   static Future<void> austreten() async {
     await ApiClient.dio.delete('$_pfad/mitglieder/me');

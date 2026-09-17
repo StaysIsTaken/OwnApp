@@ -8,6 +8,8 @@ import 'package:productivity/dataservice/haushalt_sicht.dart';
 /// beim Aufbau und sind damit nicht prüfbar, die Regel dahinter schon.
 /// Und diese Regel ist es wert — an ihr hängt das Leitprinzip.
 void main() {
+  _freigabe();
+
   const alice = Mitglied(userId: 'u1', name: 'Alice', rolle: 'besitzer');
   const bob = Mitglied(userId: 'u2', name: 'Bob');
 
@@ -168,6 +170,76 @@ void main() {
         'zustand': 'abgelehnt',
       });
       expect(abgelehnt.istOffen, isFalse);
+    });
+  });
+}
+
+/// Die MCP-Freigabe: wer gibt frei, und was sagt die Seite darüber.
+///
+/// Derselbe Gedanke wie bei „2 von 3 rechnen mit": was ein Assistent aus
+/// dem Haushalt bekommt, ist unvollständig, sobald jemand nicht
+/// freigibt. Das gehört dazugesagt — sonst hält jemand eine halbe Liste
+/// für die ganze.
+void _freigabe() {
+  Mitglied wer(String name, {bool frei = false}) =>
+      Mitglied(userId: name, name: name, mcpFreigabe: frei);
+
+  group('Freigabe-Satz', () {
+    test('alle geben frei', () {
+      final satz = Haushaltssicht.freigabeSatz(
+          [wer('Anna', frei: true), wer('Bert', frei: true)]);
+
+      expect(satz, 'Alle geben ihre Beiträge frei.');
+    });
+
+    test('niemand gibt frei', () {
+      final satz = Haushaltssicht.freigabeSatz([wer('Anna'), wer('Bert')]);
+
+      expect(satz, contains('Niemand'));
+      expect(satz, contains('geht nichts heraus'));
+    });
+
+    test('einer fehlt und wird genannt', () {
+      final satz = Haushaltssicht.freigabeSatz(
+          [wer('Anna', frei: true), wer('Bert')]);
+
+      expect(satz, contains('1 von 2'));
+      expect(satz, contains('Bert gibt nicht frei'));
+    });
+
+    test('mehrere fehlen und werden alle genannt', () {
+      final satz = Haushaltssicht.freigabeSatz(
+          [wer('Anna', frei: true), wer('Bert'), wer('Cem')]);
+
+      expect(satz, contains('1 von 3'));
+      expect(satz, contains('Bert, Cem geben nicht frei'));
+    });
+
+    test('ohne Mitglieder gibt es nichts zu sagen', () {
+      expect(Haushaltssicht.freigabeSatz([]), isEmpty);
+    });
+  });
+
+  group('Vorgabe', () {
+    test('ein frisches Mitglied gibt nichts frei', () {
+      // Eine Mitgliedschaft ist kein Einverständnis — dieselbe Zeile
+      // wie bei der Finanz-Sichtbarkeit.
+      expect(const Mitglied(userId: 'x', name: 'X').mcpFreigabe, isFalse);
+    });
+
+    test('das Feld kommt aus der Antwort des Servers', () {
+      final m = Mitglied.fromJson(
+          {'user_id': 'x', 'name': 'X', 'mcp_freigabe': true});
+
+      expect(m.mcpFreigabe, isTrue);
+    });
+
+    test('fehlt es in der Antwort, gilt nein', () {
+      // Ein altes Backend ohne dieses Feld darf nicht versehentlich
+      // freigeben.
+      final m = Mitglied.fromJson({'user_id': 'x', 'name': 'X'});
+
+      expect(m.mcpFreigabe, isFalse);
     });
   });
 }

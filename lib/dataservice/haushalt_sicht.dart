@@ -101,6 +101,31 @@ class Haushaltssicht {
         'Mitgliedern rechnen mit — $wer';
   }
 
+  /// „2 von 3 geben frei" — oder ein leerer String, wenn alle es tun.
+  ///
+  /// Derselbe Gedanke wie [mitrechnenSatz]: was ein Assistent aus dem
+  /// Haushalt bekommt, ist unvollständig, sobald jemand nicht freigibt.
+  /// Das gehört dazugesagt — sonst hält jemand eine halbe Liste für die
+  /// ganze.
+  static String freigabeSatz(List<Mitglied> mitglieder) {
+    if (mitglieder.isEmpty) return '';
+    final frei = mitglieder.where((m) => m.mcpFreigabe).toList();
+    if (frei.length == mitglieder.length) {
+      return 'Alle geben ihre Beiträge frei.';
+    }
+    if (frei.isEmpty) {
+      return 'Niemand gibt frei — aus dem Haushalt geht nichts heraus.';
+    }
+    final fehlen = mitglieder
+        .where((m) => !m.mcpFreigabe)
+        .map((m) => m.name)
+        .toList();
+    final wer = fehlen.length == 1
+        ? '${fehlen.first} gibt nicht frei.'
+        : '${fehlen.join(', ')} geben nicht frei.';
+    return '${frei.length} von ${mitglieder.length} geben frei — $wer';
+  }
+
   /// Der Satz, der erklärt, warum der Knopf nicht geht.
   static const String warumNichtGehen =
       'Du führst diesen Haushalt. Übergib ihn erst an jemand anderen.';
