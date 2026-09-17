@@ -233,10 +233,43 @@ kommt es als CORS-Fehler an. Feld weglassen statt `''` schicken.
 
 **Ausführen statt überlegen.** Erst nachsehen, was da ist.
 
-**Gestapelte PRs sind eine Falle.** Wird der unterste gemergt, mergen die
-darüber in einen Branch, der nicht mehr nach `main` führt. Von `main`
-abzweigen — oder nach jedem Merge nachsehen, ob die Änderung wirklich
-dort steht.
+**Gestapelte PRs sind eine Falle**, und die echte Abhängigkeit
+verschwindet nicht dadurch, dass man von `main` abzweigt — sie wird dann
+nur zu einem PR, der nicht baut. Wo gestapelt werden muss, gelten drei
+Dinge, alle drei beim Ausgaben-Tracker gelernt:
+
+**1. Erst alle Kinder umhängen, dann mergen.** `--delete-branch` am
+Elternteil **schliesst** die darüberliegenden PRs, statt sie umzuhängen —
+und wieder öffnen lässt sich ein PR nur, solange seine Basis existiert.
+Die Commits sind dabei nie in Gefahr, sie liegen im Branch des Kindes;
+nur der PR mitsamt seinem Text hängt an der Basis.
+
+```bash
+gh pr edit <kind> --base main    # ALLE Kinder, solange die Basis noch da ist
+gh pr merge <eltern> --merge     # erst danach
+```
+
+**2. Ein Basiswechsel löst keine CI aus.** `pull_request` feuert nur bei
+`opened`, `synchronize` und `reopened` — `--base` ist keins davon. Der PR
+zeigt danach auf `main` und hat trotzdem kein einziges Häkchen.
+Schliessen und wieder öffnen löst sie aus:
+
+```bash
+gh pr close <n> && gh pr reopen <n>
+until gh pr checks <n> 2>/dev/null | grep -qE "pass|fail"; do sleep 20; done
+```
+
+**3. Solange die Basis nicht `main` ist, läuft hier gar nichts.** Kein
+rotes Häkchen heisst dann nicht „grün", sondern „nicht gelaufen" — dann
+vor dem Öffnen `flutter analyze && flutter test` selbst laufen lassen und
+das Ergebnis in den PR-Text schreiben.
+
+Und nach jedem Merge nachsehen, ob die Änderung wirklich in `main` steht
+— nicht darauf vertrauen, dass „MERGED" das bedeutet:
+
+```bash
+gh pr view <n> --json baseRefName -q .baseRefName
+```
 
 **Sag, was ungeprüft blieb.** Ob ein Layout auf dem Tablet gut aussieht,
 ob ein Ton hörbar ist, ob eine Geste sich richtig anfühlt — das kann hier
