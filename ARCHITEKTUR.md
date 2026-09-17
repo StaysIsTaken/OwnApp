@@ -339,13 +339,17 @@ etwas anderes.
 
 | Art | Bereiche | Wer sieht es |
 |---|---|---|
-| **Haushalt** | Rezepte, Vorrat, Einkaufslisten, Preise, Essensplan, Kassen | alle Mitglieder |
+| **Haushalt** | Rezepte, Vorrat, Einkaufslisten, Preise, Essensplan, Kassen, **Kalender** | alle Mitglieder |
 | **Einzelfreigabe** | Listen, Kalender, Kassen | wer eingetragen ist |
 | **Global** | Einheiten, Zutaten, Kategorien, Läden | jeder mit dem Recht |
 
 Die mittlere Art ist mit den Haushalten **nicht** verschwunden. Sie löst
 einen Fall, den der Haushalt nicht abdeckt: „diese eine Liste nur mit
 meiner Schwester".
+
+Der **Kalender steht in zwei Zeilen**, und das ist kein Versehen — siehe
+§5b. Er ist der einzige Gegenstand, bei dem beide Arten nebeneinander
+gelten und verschiedene Dinge bedeuten.
 
 Und der Satz, der das Ganze trägt und den man sonst nicht rekonstruieren
 kann:
@@ -398,6 +402,83 @@ Menüpunkt erscheint ja erst, wenn es einen gibt. Die Einstellungen sind
 der Ort, an dem man einrichtet, was einen selbst betrifft; dieselbe
 Überlegung wie bei der Serveradresse, die am Login hängt und trotzdem
 dort steht.
+
+---
+
+## 5b. Der Kalender wird zweimal geteilt, und die Oberfläche muss beides zeigen
+
+Die zwei Sätze, die sich gleich anfühlen und verschieden sind:
+
+| | „mein Kalender, aber ihr dürft mitlesen" | „unser Kalender" |
+|---|---|---|
+| Datenklasse | `Kalender.haushaltsFreigabe` | `Kalender.istHaushaltskalender` |
+| `ownerId` | ich | **`null`** |
+| `ownerName` | die Person | der **Haushalt** |
+| Wo gestellt | Haushaltsseite, Schalter je Kalender | Haushaltsseite, „Anlegen" |
+| Hineinschreiben | nur ich | jedes Mitglied |
+| Löschen | ich | wer den Haushalt führt |
+
+**`ownerId == meineId` ist seitdem die falsche Frage.** Beim gemeinsamen
+Kalender steht dort niemand — eine Seite, die so rechnet, zeigt ihn als
+fremd, hängt ein Schloss daran und sperrt ihn zu, obwohl jedes Mitglied
+ihn pflegen darf. Genau daran wäre `kalender_verwalten_page.dart` sonst
+kaputtgegangen.
+
+Deshalb kommt die Antwort **vom Server** und steht am Kalender:
+
+```dart
+k.darfSchreiben   // Termine hineinlegen  (may_write)
+k.darfVerwalten   // umbenennen, abholen  (may_manage)
+k.gehoert(ichId)  // gehört er MIR? — etwas anderes!
+```
+
+`gehoert` und `darfVerwalten` auseinanderzuhalten ist der Punkt: beim
+gemeinsamen Kalender ist das erste `false` und das zweite `true`. Die
+Seiten fragen nach dem, was sie meinen — „darf ich das anfassen" beim
+Knopf, „gehört er mir" beim Untertitel.
+
+### Wo die Schalter stehen, und warum dort
+
+Der Schalter „die anderen dürfen mitlesen" steht auf der **Haushaltsseite**
+und nicht in `kalender_verwalten_page.dart`. Er ist eine Entscheidung über
+den Haushalt und gehört neben die Finanz-Stufe und die MCP-Freigabe — die
+drei Dinge, die jedes Mitglied für sich entscheidet. Zwischen Farbe und
+ICS-Adresse stünde er da wie eine Einstellung des Kalenders.
+
+Sichtbar ist er trotzdem an beiden Orten: in der Kalenderverwaltung steht
+er im Untertitel („im Haushalt sichtbar"). **Gestellt** wird er nur an
+einer Stelle.
+
+Der Satz darüber — „2 von 3 deiner Kalender laufen im Haushalt mit" —
+steht in `Haushaltssicht.kalenderSatz()`, wie `mitrechnenSatz` und
+`freigabeSatz` und aus demselben Grund: eine Seite, die beim Aufbau lädt,
+lässt sich nicht prüfen, die Regel dahinter schon.
+
+Anders als `mitrechnenSatz` schweigt er **nicht**, wenn alle freigegeben
+sind. Dort ist Vollständigkeit der Normalfall; hier ist es eine Preisgabe,
+und die möchte man an einer Stelle nachlesen können, statt Schalter für
+Schalter durchzugehen.
+
+### Der Import fragt jetzt „wohin"
+
+`planner_import_dialog.dart` zeigt oben eine **Liste der eigenen und
+gemeinsamen Kalender**, vorgewählt ist der Standardkalender.
+
+Vorher fragte der Dialog nach Quelle und Termintyp und schwieg darüber, wo
+die Termine landen — sie fielen in den Standardkalender, und damit war die
+Trennung nach Kalendern für den Import wirkungslos. Bei einer Datei mit
+dreihundert Terminen merkt man das erst hinterher, und dann ist es
+Handarbeit.
+
+Die Liste zeigt nur, wohin man **schreiben** darf. Ein fremder,
+freigegebener Kalender steht nicht dabei: eine Freigabe öffnet ihn zum
+Lesen, und stünde er da, liefe der Import in ein 403 — nachdem der Nutzer
+die Datei gewählt hat.
+
+**Es gab den Import zweimal**, und das ist jetzt bereinigt:
+`PlannerService.importIcs` (ohne Kalender) ist gelöscht, es gilt
+`PlannerService.importieren` (mit `calendarId`). Der zweite Weg im
+Kalender-Verwalten-Dialog benutzte schon immer den richtigen.
 
 ---
 

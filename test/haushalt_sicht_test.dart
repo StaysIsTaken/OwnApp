@@ -242,4 +242,39 @@ void _freigabe() {
       expect(m.mcpFreigabe, isFalse);
     });
   });
+
+  group('2 von 3 deiner Kalender laufen mit', () {
+    // Dritter Satz neben mitrechnenSatz und freigabeSatz, und aus
+    // demselben Grund: eine Vorgabe, die „nein" heisst, muss man sehen
+    // koennen -- sonst haelt man sie fuer „noch nicht eingerichtet".
+    test('ohne eigene Kalender gibt es nichts zu sagen', () {
+      expect(Haushaltssicht.kalenderSatz(frei: 0, gesamt: 0), '');
+    });
+
+    test('keiner freigegeben: es steht da, und es steht da, was zu tun ist',
+        () {
+      final satz = Haushaltssicht.kalenderSatz(frei: 0, gesamt: 3);
+      expect(satz, contains('keinen deiner Kalender'));
+      expect(satz, contains('Leg um'));
+    });
+
+    test('alle freigegeben wird auch gesagt', () {
+      // Anders als bei mitrechnenSatz: dort ist Vollstaendigkeit der
+      // Normalfall und schweigt. Hier ist es eine Preisgabe, und die
+      // moechte man nachlesen koennen, ohne Schalter fuer Schalter zu
+      // gehen.
+      expect(Haushaltssicht.kalenderSatz(frei: 3, gesamt: 3),
+          'Alle deine Kalender laufen im Haushalt mit.');
+    });
+
+    test('bei genau einem steht die Einzahl da', () {
+      expect(Haushaltssicht.kalenderSatz(frei: 1, gesamt: 1),
+          'Dein Kalender läuft im Haushalt mit.');
+    });
+
+    test('teilweise: die Zahlen stehen da', () {
+      expect(Haushaltssicht.kalenderSatz(frei: 2, gesamt: 3),
+          '2 von 3 deiner Kalender laufen im Haushalt mit.');
+    });
+  });
 }

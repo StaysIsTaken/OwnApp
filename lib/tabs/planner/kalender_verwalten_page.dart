@@ -29,6 +29,21 @@ import 'package:productivity/widgets/color_picker_dialog.dart';
 /// Hier wird auch **freigegeben**: ohne Freigabe sieht niemand einen
 /// fremden Kalender. Fremde Kalender, die mir jemand freigegeben hat,
 /// stehen in derselben Liste — nur zu lesen, erkennbar am Schloss.
+///
+/// Seit den Haushalten steht dort noch eine dritte Art: der **gemeinsame
+/// Kalender**, der dem Haushalt gehört und keiner Person. Ihn darf jedes
+/// Mitglied pflegen, deshalb trägt er kein Schloss — aber er lässt sich
+/// nicht einzeln freigeben, denn ihn sieht ohnehin, wer im Haushalt ist.
+///
+/// **Was ein Kalender hier erlaubt, steht an ihm** ([Kalender.darfVerwalten])
+/// und wird nicht aus dem Besitzer gerechnet: beim gemeinsamen Kalender
+/// steht dort niemand, und `ownerId == meineId` sperrte ihn fälschlich zu.
+///
+/// Der Schalter „die anderen im Haushalt dürfen mitlesen" steht bewusst
+/// **nicht** hier, sondern in den Haushaltseinstellungen — er ist eine
+/// Entscheidung über den Haushalt und gehört neben die Finanz-Stufe, nicht
+/// zwischen Farbe und ICS-Adresse. Sichtbar ist er hier trotzdem: er steht
+/// im Untertitel, damit niemand ihn übersieht.
 class KalenderVerwaltenPage extends BasePage {
   const KalenderVerwaltenPage({super.key})
       : super(title: 'Kalender verwalten');
@@ -55,8 +70,10 @@ class _InhaltState extends State<_Inhalt> {
   /// entscheidet, was man dagegen tun kann.
   bool _verboten = false;
 
-  /// Die eigene Kennung – daran hängt, was ein Kalender hier darf: ändern,
-  /// freigeben und löschen nur der Besitzer, alles andere ist nur zu lesen.
+  /// Die eigene Kennung – nur noch, um „meiner" von „fremd" zu
+  /// unterscheiden (Untertitel, Freigabe). Was ein Kalender **erlaubt**,
+  /// steht an ihm: [Kalender.darfVerwalten]. Vorher hing beides an dieser
+  /// Zeile, und der gemeinsame Kalender hat keinen Besitzer.
   String? _meineId;
 
   @override
@@ -220,7 +237,9 @@ class _InhaltState extends State<_Inhalt> {
   Widget _zeile(Kalender k) {
     final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
-    final meiner = k.ownerId == _meineId;
+    // Nicht „gehört mir", sondern „darf ich anfassen": den gemeinsamen
+    // Kalender darf ich pflegen, obwohl er niemandem gehört.
+    final meiner = k.darfVerwalten;
 
     return Card(
       child: ListTile(
@@ -251,11 +270,15 @@ class _InhaltState extends State<_Inhalt> {
                 tooltip: 'Termine aus einer .ics-Datei einlesen',
                 onPressed: () => _importieren(k),
               ),
-              IconButton(
-                icon: const Icon(Icons.person_add_alt_1_outlined),
-                tooltip: 'Freigeben',
-                onPressed: () => _freigeben(k),
-              ),
+              // Der gemeinsame Kalender wird nicht einzeln freigegeben:
+              // ihn sieht, wer im Haushalt ist, und ein einzelnes Mitglied
+              // würde sonst für alle anderen entscheiden, wer mitliest.
+              if (!k.istHaushaltskalender)
+                IconButton(
+                  icon: const Icon(Icons.person_add_alt_1_outlined),
+                  tooltip: 'Freigeben',
+                  onPressed: () => _freigeben(k),
+                ),
               IconButton(
                 icon: const Icon(Icons.edit_outlined),
                 tooltip: 'Ändern',
@@ -279,8 +302,15 @@ class _InhaltState extends State<_Inhalt> {
   String _untertitel(Kalender k) {
     final teile = <String>[
       // Bei einem fremden Kalender ist der Besitzer die wichtigste Angabe –
-      // „Privat" gibt es zweimal im Haushalt.
-      if (_alle || k.ownerId != _meineId) k.ownerName,
+      // „Privat" gibt es zweimal im Haushalt. Beim gemeinsamen steht dort
+      // der Haushalt.
+      if (k.istHaushaltskalender)
+        'gemeinsam · ${k.ownerName}'
+      else if (_alle || !k.gehoert(_meineId))
+        k.ownerName,
+      // Der Schalter aus den Haushaltseinstellungen. Er steht hier, damit
+      // niemand ihn übersieht – gestellt wird er dort.
+      if (k.gehoert(_meineId) && k.haushaltsFreigabe) 'im Haushalt sichtbar',
       if (k.istAbonniert)
         'abonniert${k.zuletztGeholt == null ? "" : ", zuletzt "
             "${k.zuletztGeholt!.day}.${k.zuletztGeholt!.month}."}'

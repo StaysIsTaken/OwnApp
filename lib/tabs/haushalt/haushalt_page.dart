@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataclasses/haushalt.dart';
+import 'package:productivity/dataclasses/kalender.dart';
 import 'package:productivity/dataclasses/user.dart';
 import 'package:productivity/dataservice/api_error.dart';
+import 'package:productivity/dataservice/calendar_service.dart';
 import 'package:productivity/dataservice/haushalt_service.dart';
 import 'package:productivity/dataservice/haushalt_sicht.dart';
 import 'package:productivity/dataservice/user_service.dart';
@@ -20,8 +22,14 @@ import 'package:provider/provider.dart';
 /// * **Kein Haushalt, keine Einladung** — ein Satz, was ein Haushalt ist,
 ///   und ein Knopf. Sonst nichts.
 /// * **Eine Einladung liegt vor** — die Frage, samt Pop-up.
-/// * **Im Haushalt** — Mitglieder, Einladungen, die eigene
-///   Finanz-Sichtbarkeit.
+/// * **Im Haushalt** — Mitglieder, Einladungen, und was jedes Mitglied
+///   für sich entscheidet: Finanz-Sichtbarkeit, Assistenten-Freigabe und
+///   **welche der eigenen Kalender die anderen mitlesen dürfen**.
+///
+/// Der Kalenderabschnitt am Ende führt zwei Dinge zusammen, die sich
+/// ähnlich anfühlen und verschieden sind — „mein Kalender, aber ihr dürft
+/// mitlesen" und „unser Kalender". Beides steht nebeneinander, weil man
+/// sich sonst für eins von beidem hält.
 ///
 /// Wer in keinem Haushalt ist, kommt hierher nur über die Einstellungen.
 /// Im Menü taucht der Bereich erst auf, wenn es etwas zu sehen gibt.
@@ -42,8 +50,18 @@ class _Haushalt extends StatefulWidget {
 class _HaushaltState extends State<_Haushalt> {
   List<User> _leute = [];
   List<Einladung> _gesendet = const [];
+  List<Kalender> _kalender = const [];
   bool _laedt = true;
   String? _fehler;
+
+  /// Meine persönlichen Kalender — die, für die ich den Schalter stellen
+  /// darf. Der gemeinsame steht hier nicht: ihn sehen ohnehin alle.
+  List<Kalender> get _meineKalender => _kalender
+      .where((k) => k.gehoert(_ichId) && !k.istHaushaltskalender)
+      .toList();
+
+  List<Kalender> get _gemeinsameKalender =>
+      _kalender.where((k) => k.istHaushaltskalender).toList();
 
   @override
   void initState() {
@@ -74,10 +92,21 @@ class _HaushaltState extends State<_Haushalt> {
       // trotzdem da.
       List<User> leute = const [];
       List<Einladung> gesendet = const [];
+      List<Kalender> kalender = const [];
       try {
         leute = await UserService.getAllUsers();
       } catch (_) {
         leute = const [];
+      }
+      // Wie die Namensliste: darf ausfallen. Wem „planner:read" fehlt,
+      // der sieht den Kalenderabschnitt nicht — und den Rest des
+      // Haushalts trotzdem.
+      if (_provider.imHaushalt) {
+        try {
+          kalender = await CalendarService.laden();
+        } catch (_) {
+          kalender = const [];
+        }
       }
       if (_provider.imHaushalt && _darfVerwalten) {
         try {
@@ -90,6 +119,7 @@ class _HaushaltState extends State<_Haushalt> {
       setState(() {
         _leute = leute;
         _gesendet = gesendet;
+        _kalender = kalender;
         _laedt = false;
       });
     } catch (e) {
@@ -228,6 +258,76 @@ class _HaushaltState extends State<_Haushalt> {
   Future<void> _freigabeAendern(bool frei) async {
     try {
       await HaushaltService.mcpFreigabe(frei);
+      await _laden();
+    } catch (e) {
+      if (mounted) _melde(ApiFehler.text(e));
+    }
+  }
+
+  /// Einen meiner Kalender den anderen im Haushalt zu lesen geben.
+  ///
+  /// Je Kalender und nicht als ein Schalter für alle: der Arbeitskalender
+  /// darf mitlaufen, während der eine daneben es nicht soll. Ein Schalter
+  /// für alles wäre die Entscheidung, die niemand trifft — man ließe ihn
+  /// dann aus.
+  Future<void> _kalenderFreigabe(Kalender k, bool frei) async {
+    // Vorweg umlegen, damit der Schalter nicht erst nach der Antwort
+    // umspringt. Geht es schief, holt [_laden] den Wahrheitsstand.
+    setState(() {
+      _kalender = [
+        for (final vorhanden in _kalender)
+          if (vorhanden.id == k.id)
+            Kalender(
+              id: k.id, ownerId: k.ownerId, ownerName: k.ownerName,
+              name: k.name, color: k.color, icon: k.icon,
+              istStandard: k.istStandard, icsUrl: k.icsUrl,
+              zuletztGeholt: k.zuletztGeholt, anzahlTermine: k.anzahlTermine,
+              haushaltId: k.haushaltId,
+              istHaushaltskalender: k.istHaushaltskalender,
+              haushaltsFreigabe: frei,
+              darfSchreiben: k.darfSchreiben, darfVerwalten: k.darfVerwalten,
+            )
+          else
+            vorhanden,
+      ];
+    });
+    try {
+      await CalendarService.haushaltsFreigabe(k.id, frei);
+    } catch (e) {
+      if (mounted) _melde(ApiFehler.text(e));
+    }
+    await _laden();
+  }
+
+  /// Einen Kalender anlegen, der dem Haushalt gehört.
+  ///
+  /// Kein Besitzer, kein „gehört Lisa" — jedes Mitglied sieht ihn und
+  /// trägt darin ein. Das ist der andere Fall neben der Freigabe, und
+  /// deshalb steht er direkt daneben.
+  Future<void> _gemeinsamenAnlegen() async {
+    final name = await _NameDialog.zeige(context,
+        titel: 'Gemeinsamer Kalender',
+        knopf: 'Anlegen',
+        hinweis: 'Familie');
+    if (name == null) return;
+    try {
+      await CalendarService.anlegen(name: name, unseres: true);
+      await _laden();
+    } catch (e) {
+      if (mounted) _melde(ApiFehler.text(e));
+    }
+  }
+
+  Future<void> _gemeinsamenLoeschen(Kalender k) async {
+    final ja = await _fragen(
+      '„${k.name}" löschen?',
+      'Die Termine darin bleiben erhalten — sie verlieren nur ihre '
+          'Zuordnung und stehen danach in keinem Kalender mehr. '
+          'Löschen darf ihn, wer den Haushalt führt.',
+    );
+    if (!ja) return;
+    try {
+      await CalendarService.loeschen(k.id);
       await _laden();
     } catch (e) {
       if (mounted) _melde(ApiFehler.text(e));
@@ -565,6 +665,8 @@ class _HaushaltState extends State<_Haushalt> {
           ),
       ],
 
+      ..._kalenderabschnitt(haushalt),
+
       if (meiner && _darfVerwalten) ...[
         _ueberschrift('EINLADUNGEN'),
         for (final e in _gesendet)
@@ -629,6 +731,121 @@ class _HaushaltState extends State<_Haushalt> {
     ];
   }
 
+  /// Kalender im Haushalt — zwei Dinge, die sich ähnlich anfühlen.
+  ///
+  /// **„Meine Kalender"** ist eine Entscheidung über mich: welche meiner
+  /// Kalender die anderen mitlesen dürfen. Sie steht deshalb neben der
+  /// Finanz-Stufe und der Assistenten-Freigabe, in demselben Abschnitt
+  /// „was ich für mich entscheide".
+  ///
+  /// **„Gemeinsame Kalender"** ist etwas anderes: ein Kalender, der
+  /// niemandem gehört. Beides nebeneinander, weil man sonst das eine für
+  /// das andere hält und sich wundert, warum der Familienkalender bei
+  /// jedem anders heißt.
+  ///
+  /// Ohne Kalenderrechte fällt der ganze Abschnitt weg — wie überall in
+  /// dieser App: ein leerer Abschnitt ist schlechter als keiner.
+  List<Widget> _kalenderabschnitt(Haushalt haushalt) {
+    if (_kalender.isEmpty) return const [];
+
+    final text = Theme.of(context).textTheme;
+    final colors = Theme.of(context).colorScheme;
+    final meine = _meineKalender;
+    final gemeinsame = _gemeinsameKalender;
+    final fuehrer = haushalt.gehoert(_ichId);
+    final wieviele = meine.where((k) => k.haushaltsFreigabe).length;
+
+    return [
+      if (meine.isNotEmpty) ...[
+        _ueberschrift('MEINE KALENDER IM HAUSHALT'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+          child: Text(
+            Haushaltssicht.kalenderSatz(
+                frei: wieviele, gesamt: meine.length),
+            style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ),
+        for (final k in meine)
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: SwitchListTile(
+              secondary: CircleAvatar(
+                  backgroundColor: _farbe(k.color), radius: 12),
+              title: Text(k.name),
+              subtitle: Text(
+                k.haushaltsFreigabe
+                    ? 'Alle im Haushalt sehen die Termine darin.'
+                    : 'Nur du siehst die Termine darin.',
+              ),
+              value: k.haushaltsFreigabe,
+              onChanged: (frei) => _kalenderFreigabe(k, frei),
+            ),
+          ),
+        // Der Satz, den man sonst nirgends findet und der die häufigste
+        // Rückfrage vorwegnimmt.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+          child: Text(
+            'Als privat markierte Termine bleiben privat — auch in einem '
+            'freigegebenen Kalender, und auch im gemeinsamen.',
+            style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ),
+      ],
+
+      _ueberschrift('GEMEINSAME KALENDER'),
+      if (gemeinsame.isEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+          child: Text(
+            'Ein gemeinsamer Kalender gehört keinem von euch. Jeder sieht '
+            'ihn, jeder trägt darin ein — für alles, was den ganzen '
+            'Haushalt angeht.',
+            style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        )
+      else
+        for (final k in gemeinsame)
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading:
+                  CircleAvatar(backgroundColor: _farbe(k.color), radius: 14),
+              title: Text(k.name),
+              subtitle: Text(
+                '${k.anzahlTermine} '
+                '${k.anzahlTermine == 1 ? "Termin" : "Termine"} · '
+                'gehört ${haushalt.name}',
+              ),
+              // Löschen darf nur, wer den Haushalt führt: umbenennen sieht
+              // jeder, aber nach dem Löschen stehen die Termine eines
+              // halben Jahres in keinem Kalender mehr.
+              trailing: fuehrer
+                  ? IconButton(
+                      icon: Icon(Icons.delete_outline, color: colors.error),
+                      tooltip: 'Löschen',
+                      onPressed: () => _gemeinsamenLoeschen(k),
+                    )
+                  : null,
+            ),
+          ),
+      Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        child: OutlinedButton.icon(
+          onPressed: _gemeinsamenAnlegen,
+          icon: const Icon(Icons.calendar_month_outlined),
+          label: const Text('Gemeinsamen Kalender anlegen'),
+        ),
+      ),
+    ];
+  }
+
+  static Color _farbe(String hex) {
+    final wert = int.tryParse(hex.replaceFirst('#', ''), radix: 16);
+    return wert == null ? const Color(0xFF3B82F6) : Color(0xFF000000 | wert);
+  }
+
   Widget _ueberschrift(String titel) => Padding(
         padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
         child: Text(
@@ -648,10 +865,16 @@ class _NameDialog extends StatefulWidget {
   final String knopf;
   final String vorgabe;
 
+  /// Der graue Beispielname im Feld. „Zuhause" passt zum Haushalt,
+  /// „Familie" zum gemeinsamen Kalender — derselbe Dialog, ein anderes
+  /// Beispiel.
+  final String hinweis;
+
   const _NameDialog({
     required this.titel,
     required this.knopf,
     this.vorgabe = '',
+    this.hinweis = 'Zuhause',
   });
 
   static Future<String?> zeige(
@@ -659,11 +882,12 @@ class _NameDialog extends StatefulWidget {
     required String titel,
     required String knopf,
     String vorgabe = '',
+    String hinweis = 'Zuhause',
   }) =>
       showDialog<String>(
         context: context,
-        builder: (_) =>
-            _NameDialog(titel: titel, knopf: knopf, vorgabe: vorgabe),
+        builder: (_) => _NameDialog(
+            titel: titel, knopf: knopf, vorgabe: vorgabe, hinweis: hinweis),
       );
 
   @override
@@ -687,9 +911,9 @@ class _NameDialogState extends State<_NameDialog> {
       content: TextField(
         controller: _name,
         autofocus: true,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'Name',
-          hintText: 'Zuhause',
+          hintText: widget.hinweis,
         ),
         onSubmitted: (_) => _fertig(),
       ),
