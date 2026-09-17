@@ -150,36 +150,21 @@ class _McpState extends State<_Mcp> {
                   style: const TextStyle(fontFamily: 'monospace'),
                 ),
                 const Divider(height: 28),
-                // Der einzige Moment, in dem der Befehl komplett
-                // dasteht. Auf der Seite selbst steht danach ein
+                // Der einzige Moment, in dem die Schnipsel komplett
+                // dastehen. Auf der Seite selbst steht danach ein
                 // Platzhalter -- wir haben den Schlüssel dann nicht mehr.
-                Text('Für Claude Code, fertig zum Einfügen:',
+                Text('Fertig zum Einfügen:',
                     style: Theme.of(ctx).textTheme.labelLarge),
-                const SizedBox(height: 6),
-                SelectableText(
-                  McpAnleitung.claudeCodeBefehl(
-                    McpAnleitung.adresse(ApiClient.baseUrl, neu.slug),
-                    schluessel: neu.schluessel,
-                  ),
-                  style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Befehl kopieren'),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(
-                      text: McpAnleitung.claudeCodeBefehl(
+                for (final client in McpAnleitung.clients)
+                  if (client.nimmtSchluessel)
+                    _FertigerSchnipsel(
+                      titel: client.name,
+                      text: McpAnleitung.schnipselFuer(
+                        client,
                         McpAnleitung.adresse(ApiClient.baseUrl, neu.slug),
                         schluessel: neu.schluessel,
-                      ),
-                    ));
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('Befehl kopiert')),
-                    );
-                  },
-                ),
+                      )!,
+                    ),
               ],
             ),
           ),
@@ -258,7 +243,7 @@ class _McpState extends State<_Mcp> {
           if (_zugang.hatSchluessel) ...[
             const SizedBox(height: 16),
             const _Ueberschrift('Einrichten'),
-            const _Einrichten(),
+            _Einrichten(slug: _zugang.slug),
           ],
 
           const SizedBox(height: 16),
@@ -434,7 +419,8 @@ class _BereichKachel extends StatelessWidget {
 /// Schlüssel antwortet der Zugang mit 404 — das sieht wie ein Fehler
 /// dieser App aus und ist keiner. Deshalb steht es hier.
 class _Einrichten extends StatelessWidget {
-  const _Einrichten();
+  final String? slug;
+  const _Einrichten({required this.slug});
 
   @override
   Widget build(BuildContext context) {
@@ -476,9 +462,9 @@ class _Einrichten extends StatelessWidget {
                       ],
                     ),
                   ),
-                if (client.nimmtSchluessel) ...[
+                if (client.schnipsel != McpSchnipsel.keiner) ...[
                   const SizedBox(height: 8),
-                  _Befehl(),
+                  _Schnipsel(client: client, slug: slug),
                 ],
                 const SizedBox(height: 8),
                 _Doku(url: client.doku),
@@ -490,12 +476,23 @@ class _Einrichten extends StatelessWidget {
   }
 }
 
-/// Der Befehl mit Platzhalter — den Schlüssel selbst haben wir nicht mehr.
-class _Befehl extends StatelessWidget {
+/// Der Schnipsel zum Einrichten — mit Platzhalter statt Schlüssel.
+///
+/// Den echten Schlüssel haben wir nach dem Erzeugen nicht mehr; er steht
+/// nur im Dialog, der ihn einmal zeigt. Hier steht deshalb
+/// `DEIN_SCHLUESSEL`, und daneben der Satz, wo man ihn herbekommt.
+class _Schnipsel extends StatelessWidget {
+  final McpClient client;
+  final String? slug;
+
+  const _Schnipsel({required this.client, required this.slug});
+
   @override
   Widget build(BuildContext context) {
-    final befehl = McpAnleitung.claudeCodeBefehl(
-        McpAnleitung.adresse(ApiClient.baseUrl, _slug(context)));
+    final text = McpAnleitung.schnipselFuer(
+        client, McpAnleitung.adresse(ApiClient.baseUrl, slug));
+    if (text == null) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -507,7 +504,7 @@ class _Befehl extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: SelectableText(
-            befehl,
+            text,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
           ),
         ),
@@ -518,17 +515,17 @@ class _Befehl extends StatelessWidget {
               icon: const Icon(Icons.copy, size: 16),
               label: const Text('Kopieren'),
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: befehl));
+                Clipboard.setData(ClipboardData(text: text));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Befehl kopiert')),
+                  const SnackBar(content: Text('Kopiert')),
                 );
               },
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'DEIN_SCHLUESSEL ersetzen — oder gleich beim Erzeugen '
-                'kopieren, dort steht er schon drin.',
+                '${McpAnleitung.platzhalter} ersetzen — oder gleich beim '
+                'Erzeugen kopieren, dort steht er schon drin.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -537,9 +534,6 @@ class _Befehl extends StatelessWidget {
       ],
     );
   }
-
-  static String? _slug(BuildContext context) =>
-      context.findAncestorStateOfType<_McpState>()?._zugang.slug;
 }
 
 /// Die Anleitung des Herstellers — antippen öffnet sie im Browser.
@@ -595,4 +589,49 @@ class _Doku extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Ein fertiger Schnipsel im Schlüssel-Dialog — mit echtem Schlüssel.
+class _FertigerSchnipsel extends StatelessWidget {
+  final String titel;
+  final String text;
+
+  const _FertigerSchnipsel({required this.titel, required this.text});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(titel, style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 4),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: SelectableText(
+                text,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.copy, size: 14),
+                label: const Text('Kopieren'),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: text));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Kopiert')),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
 }

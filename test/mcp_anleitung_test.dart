@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:productivity/dataservice/mcp_anleitung.dart';
 
@@ -69,6 +71,66 @@ void main() {
 
       expect(befehl, contains('DEIN_SCHLUESSEL'));
       expect(befehl, isNot(contains('Bearer mcp_')));
+    });
+  });
+
+  group('Konfiguration für Claude Desktop', () {
+    test('trägt Adresse und Schlüssel über die Umgebungsvariable', () {
+      final konfig = McpAnleitung.claudeDesktopKonfig(
+        'https://a.de/mcp/abc',
+        schluessel: 'mcp_geheim',
+      );
+
+      expect(konfig, contains('"https://a.de/mcp/abc"'));
+      expect(konfig, contains('"AUTH_HEADER": "Bearer mcp_geheim"'));
+      expect(konfig, contains('mcp-remote'));
+    });
+
+    test('setzt kein Leerzeichen hinter den Doppelpunkt im Header', () {
+      // Genau daran scheitert es sonst: Claude Desktop unter Windows
+      // reicht Argumente mit Leerzeichen falsch an npx weiter und
+      // zerlegt den Header dabei. Das Leerzeichen gehört deshalb in die
+      // Variable, nicht ins Argument.
+      final konfig = McpAnleitung.claudeDesktopKonfig('https://a.de/mcp/abc');
+
+      expect(konfig, contains(r'"Authorization:${AUTH_HEADER}"'));
+      expect(konfig, isNot(contains('"Authorization: ')));
+    });
+
+    test('ist gültiges JSON', () {
+      final konfig = McpAnleitung.claudeDesktopKonfig(
+          'https://a.de/mcp/abc', schluessel: 'mcp_x');
+
+      // Der Platzhalter ${...} ist in JSON ein ganz normaler String --
+      // wer ihn kopiert, soll keine kaputte Datei bekommen.
+      expect(() => jsonDecode(konfig), returnsNormally);
+      final d = jsonDecode(konfig) as Map<String, dynamic>;
+      final server = (d['mcpServers'] as Map)['ownapp'] as Map;
+      expect(server['command'], 'npx');
+      expect((server['args'] as List), contains('mcp-remote'));
+    });
+
+    test('ohne Schlüssel steht auch hier ein Platzhalter', () {
+      final konfig = McpAnleitung.claudeDesktopKonfig('https://a.de/mcp/abc');
+
+      expect(konfig, contains(McpAnleitung.platzhalter));
+      expect(konfig, isNot(contains('Bearer mcp_')));
+    });
+  });
+
+  group('Schnipsel je Client', () {
+    test('jeder Client, der den Schlüssel nimmt, hat auch einen', () {
+      for (final client in McpAnleitung.clients) {
+        final text = McpAnleitung.schnipselFuer(client, 'https://a.de/mcp/x');
+        if (client.nimmtSchluessel) {
+          expect(text, isNotNull, reason: client.name);
+          expect(text, contains('https://a.de/mcp/x'), reason: client.name);
+        } else {
+          // Ein Schnipsel, in dem der Schlüssel nirgends unterkommt,
+          // wäre eine Anleitung ins Leere.
+          expect(text, isNull, reason: client.name);
+        }
+      }
     });
   });
 
