@@ -20,6 +20,7 @@ import 'package:productivity/tabs/einkauf/einkaufslisten_page.dart';
 import 'package:productivity/tabs/finanzen/finanzen_page.dart';
 import 'package:productivity/tabs/haushalt/haushalt_finanzen_page.dart';
 import 'package:productivity/tabs/haushalt/haushalt_page.dart';
+import 'package:productivity/tabs/settings/mcp_page.dart';
 import 'package:productivity/tabs/finanzen/kassen_page.dart';
 import 'package:productivity/tabs/finanzen/serien_page.dart';
 import 'package:productivity/tabs/einkauf/laeden_page.dart';
@@ -285,6 +286,11 @@ class AppRoutes {
   static const String kassen = '/finanzen/kassen';
   static const String finanzSerien = '/finanzen/serien';
 
+  // Der Zugang fuer fremde Assistenten. Steht nur in den Einstellungen
+  // und nie im Menue: man richtet ihn einmal ein und sieht ihn danach
+  // kaum wieder -- wie die Serveradresse.
+  static const String mcp = '/einstellungen/mcp';
+
   // Haushalte. Kein Menuepunkt fuer den, der in keinem ist -- der Weg
   // hierher fuehrt dann nur ueber die Einstellungen.
   static const String haushalt = '/haushalt';
@@ -321,6 +327,7 @@ class AppRoutes {
     finanzen: (_) => const FinanzenPage(),
     kassen: (_) => const KassenPage(),
     finanzSerien: (_) => const SerienPage(),
+    mcp: (_) => const McpPage(),
     haushalt: (_) => const HaushaltPage(),
     haushaltFinanzen: (_) => const HaushaltFinanzenPage(),
     einkauf: (_) => const EinkaufslistenPage(),

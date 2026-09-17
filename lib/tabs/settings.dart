@@ -486,6 +486,27 @@ class _SettingsBodyState extends State<_SettingsBody> {
         ),
         const SizedBox(height: 16),
 
+        // ── Assistent-Zugang ──
+        //
+        // Hier und nur hier. Ein MCP-Zugang wird einmal eingerichtet und
+        // danach kaum wieder angefasst -- ein Menuepunkt dafuer waere
+        // einer, an dem man taeglich vorbeilaeuft und den man nie
+        // braucht. Dieselbe Ueberlegung wie bei der Serveradresse.
+        _SectionTitle('Assistent-Zugang'),
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.hub_outlined, color: colors.primary),
+            title: const Text('Zugang für fremde Assistenten'),
+            subtitle: const Text(
+              'Aus, bis du ihn anschaltest. Dann gibt er nur heraus, was '
+              'du einzeln anhakst.',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.mcp),
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // ── Anmeldung ──
         if (_biometrieVerfuegbar) ...[
           _SectionTitle('Anmeldung'),
