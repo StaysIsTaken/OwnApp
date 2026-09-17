@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:productivity/dataclasses/mcp_zugang.dart';
 import 'package:productivity/dataservice/api_error.dart';
+import 'package:productivity/dataservice/api_client.dart';
+import 'package:productivity/dataservice/mcp_anleitung.dart';
 import 'package:productivity/dataservice/mcp_baum.dart';
 import 'package:productivity/dataservice/mcp_service.dart';
 import 'package:productivity/main.dart';
 import 'package:productivity/provider/haushalt_provider.dart';
+import 'package:productivity/utils/link_oeffnen.dart';
 import 'package:productivity/utils/snack.dart';
 import 'package:provider/provider.dart';
 
@@ -132,20 +135,53 @@ class _McpState extends State<_Mcp> {
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           title: const Text('Dein Schlüssel'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Dieser Schlüssel wird nicht noch einmal angezeigt. '
-                'Kopiere ihn jetzt.',
-              ),
-              const SizedBox(height: 12),
-              SelectableText(
-                neu.schluessel,
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Dieser Schlüssel wird nicht noch einmal angezeigt. '
+                  'Kopiere ihn jetzt.',
+                ),
+                const SizedBox(height: 12),
+                SelectableText(
+                  neu.schluessel,
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+                const Divider(height: 28),
+                // Der einzige Moment, in dem der Befehl komplett
+                // dasteht. Auf der Seite selbst steht danach ein
+                // Platzhalter -- wir haben den Schlüssel dann nicht mehr.
+                Text('Für Claude Code, fertig zum Einfügen:',
+                    style: Theme.of(ctx).textTheme.labelLarge),
+                const SizedBox(height: 6),
+                SelectableText(
+                  McpAnleitung.claudeCodeBefehl(
+                    McpAnleitung.adresse(ApiClient.baseUrl, neu.slug),
+                    schluessel: neu.schluessel,
+                  ),
+                  style: const TextStyle(
+                      fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Befehl kopieren'),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(
+                      text: McpAnleitung.claudeCodeBefehl(
+                        McpAnleitung.adresse(ApiClient.baseUrl, neu.slug),
+                        schluessel: neu.schluessel,
+                      ),
+                    ));
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('Befehl kopiert')),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -218,6 +254,12 @@ class _McpState extends State<_Mcp> {
                 ? 'Neuen Schlüssel erzeugen'
                 : 'Schlüssel erzeugen'),
           ),
+
+          if (_zugang.hatSchluessel) ...[
+            const SizedBox(height: 16),
+            const _Ueberschrift('Einrichten'),
+            const _Einrichten(),
+          ],
 
           const SizedBox(height: 16),
           const _Ueberschrift('Meine Daten'),
@@ -295,19 +337,21 @@ class _Zugangsdaten extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final benutzt = zugang.zuletztBenutzt;
+    final adresse = McpAnleitung.adresse(ApiClient.baseUrl, zugang.slug);
     return Card(
       child: Column(
         children: [
           ListTile(
             leading: const Icon(Icons.link),
             title: const Text('Adresse'),
-            subtitle: SelectableText('/mcp/${zugang.slug ?? ''}'),
+            // Vollständig, nicht `/mcp/…`: ein Client bekommt nur diesen
+            // einen String zu sehen.
+            subtitle: SelectableText(adresse),
             trailing: IconButton(
               icon: const Icon(Icons.copy),
               tooltip: 'Kopieren',
               onPressed: () {
-                Clipboard.setData(
-                    ClipboardData(text: '/mcp/${zugang.slug ?? ''}'));
+                Clipboard.setData(ClipboardData(text: adresse));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Adresse kopiert')),
                 );
@@ -377,6 +421,178 @@ class _BereichKachel extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+
+/// „Wie trage ich das ein?" — je Assistent ein aufklappbarer Eintrag.
+///
+/// Der Stand der Clients ist der Grund für diesen Abschnitt: **nur
+/// Claude Code nimmt heute einen eigenen Schlüssel entgegen.** Alle
+/// anderen haben ein Feld für die Adresse und sonst nichts, und ohne
+/// Schlüssel antwortet der Zugang mit 404 — das sieht wie ein Fehler
+/// dieser App aus und ist keiner. Deshalb steht es hier.
+class _Einrichten extends StatelessWidget {
+  const _Einrichten();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      child: Column(
+        children: [
+          for (final client in McpAnleitung.clients)
+            ExpansionTile(
+              leading: Icon(
+                client.nimmtSchluessel
+                    ? Icons.check_circle_outline
+                    : Icons.info_outline,
+                color: client.nimmtSchluessel
+                    ? colors.primary
+                    : colors.onSurfaceVariant,
+              ),
+              title: Text(client.name),
+              subtitle: Text(client.nimmtSchluessel
+                  ? 'Nimmt den Schlüssel entgegen'
+                  : 'Kein Feld für den Schlüssel'),
+              childrenPadding:
+                  const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              expandedCrossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (client.hinweis != null) ...[
+                  Text(client.hinweis!,
+                      style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 10),
+                ],
+                for (var i = 0; i < client.schritte.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${i + 1}.  '),
+                        Expanded(child: Text(client.schritte[i])),
+                      ],
+                    ),
+                  ),
+                if (client.nimmtSchluessel) ...[
+                  const SizedBox(height: 8),
+                  _Befehl(),
+                ],
+                const SizedBox(height: 8),
+                _Doku(url: client.doku),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Der Befehl mit Platzhalter — den Schlüssel selbst haben wir nicht mehr.
+class _Befehl extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final befehl = McpAnleitung.claudeCodeBefehl(
+        McpAnleitung.adresse(ApiClient.baseUrl, _slug(context)));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: SelectableText(
+            befehl,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            OutlinedButton.icon(
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Kopieren'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: befehl));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Befehl kopiert')),
+                );
+              },
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'DEIN_SCHLUESSEL ersetzen — oder gleich beim Erzeugen '
+                'kopieren, dort steht er schon drin.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static String? _slug(BuildContext context) =>
+      context.findAncestorStateOfType<_McpState>()?._zugang.slug;
+}
+
+/// Die Anleitung des Herstellers — antippen öffnet sie im Browser.
+///
+/// Der Kopier-Knopf bleibt daneben: auf dem Küchentablet im Kioskmodus
+/// gibt es womöglich gar keinen Browser, und dann ist die Adresse in der
+/// Zwischenablage mehr wert als ein Knopf, der nichts tut.
+class _Doku extends StatelessWidget {
+  final String url;
+  const _Doku({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: InkWell(
+            onTap: () => linkOeffnen(context, url),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Icon(Icons.open_in_new, size: 16, color: colors.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Anleitung des Anbieters',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: colors.primary,
+                            decoration: TextDecoration.underline,
+                            decorationColor: colors.primary,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.copy, size: 16),
+          tooltip: 'Link kopieren',
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: url));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Link kopiert')),
+            );
+          },
+        ),
+      ],
     );
   }
 }

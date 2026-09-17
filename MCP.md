@@ -668,7 +668,7 @@ zusammensuchen.
 | 2 | OwnApp | Einstellungen lesen/schreiben, die drei Werte vom Gerät holen | PR 1 | **ja** — Einstellungen liegen am Konto | **#101** |
 | 3 | OwnAPI | MCP: Anmeldung, Baum, Lese-Werkzeuge der eigenen Bereiche | PR 1 | | **#35** |
 | 4 | OwnApp | der Baum in den Einstellungen, Schlüssel anzeigen/erneuern | PR 2+3 | **ja** — der MCP läuft | **#102** |
-| 5 | OwnAPI | Haushalts-Ast: `mcp_freigabe`, Filter, „ausgelassen" | PR 3 | | ⬜ |
+| 5 | OwnAPI | Haushalts-Ast: `mcp_freigabe`, Filter, „ausgelassen" | PR 3 | | **#36**, Migration nachgebessert in **#37** |
 | 6 | OwnApp | Freigabe auf der Haushaltsseite, Haushalts-Ast im Baum | PR 4+5 | **ja** — vollständig | ⬜ |
 | 7 | OwnAPI | Schreib-Werkzeuge | PR 3 | | ⬜ |
 | 8 | OwnAPI | Rate-Limit, Protokoll | PR 3 | | ⬜ |
@@ -714,7 +714,7 @@ drücken muss.
 | **Verwaltung, Rollen, Stimmprofile** | Was Rechte vergeben kann, darf nicht an einem Ende hängen, an dem ein Sprachmodell entscheidet. |
 | **Löschen, egal wo** | Der einzige Fehler, den man von außen nicht zurücknehmen kann, und es gibt keine Bestätigungskarte. |
 | **Mehrere Schlüssel je Person** | Erst wenn es zwei Clients gibt, die sich getrennt sperren lassen müssen. Das Datenmodell lässt es offen (§2.4). |
-| **OAuth statt Schlüssel** | Die MCP-Spezifikation kann es; hier wäre es ein Anmeldeserver für einen einzigen Nutzerkreis. Der Schlüssel tut dasselbe mit einem Hundertstel des Aufbaus. |
+| **OAuth statt Schlüssel** | Die MCP-Spezifikation kann es; hier wäre es ein Anmeldeserver für einen einzigen Nutzerkreis. Der Schlüssel tut dasselbe mit einem Hundertstel des Aufbaus — **aber er kostet etwas, und das steht inzwischen in §15**. |
 | **Ein MCP für den Haushalt** (statt je Person) | Klingt praktisch und ist die Rückkehr zu „alle sehen alles". Der Haushalts-Ast löst denselben Fall, ohne die Freigabe des Einzelnen zu übergehen. |
 | **Werkzeuge, die rechnen** („wie viel gebe ich für X aus") | Der Client hat ein Sprachmodell, das rechnen kann, sobald es die Zahlen hat. Eine Auswertung im MCP wäre eine zweite Wahrheit neben `/finanzen/auswertung`. |
 
@@ -740,7 +740,43 @@ rekonstruieren kann:
 
 ---
 
-## 15. Offene Entscheidungen
+## 15. Die Clients — und was der Schlüssel kostet
+
+Dieser Abschnitt entstand, nachdem der Zugang lief und niemand ihn
+eintragen konnte.
+
+**Nur ein Client nimmt heute einen eigenen Schlüssel entgegen.**
+
+| Client | Schlüssel? | |
+|---|---|---|
+| **Claude Code** | **ja** | `claude mcp add --transport http … --header "Authorization: Bearer …"` |
+| Claude Desktop / claude.ai | nein | Feld für die Adresse, dazu optional OAuth-Client-ID und -Secret. Kein Feld für einen Header. |
+| ChatGPT | nein | Entwicklermodus, dann Adresse. Bezahltes Konto nötig. |
+| Gemini | nein | „Connected Apps" in der Web-App, Adresse. Verlangt ein öffentlich anerkanntes Zertifikat. |
+
+Das ist der Preis der Entscheidung aus §2.3/§13: **ein statischer
+Schlüssel im Header ist die einfachste sichere Bauform und zugleich die,
+die drei von vier Clients nicht bedienen können.** Wer den Zugang in
+Claude Desktop einträgt, bekommt ein 404 — richtig so, aber es sieht aus
+wie ein Fehler dieser App. Die Seite sagt es deshalb ausdrücklich.
+
+Drei Wege, und sie sind in dieser Reihenfolge zu haben:
+
+1. **So lassen.** Claude Code reicht, und die anderen ziehen vielleicht
+   nach. Kostet nichts und ist umkehrbar.
+2. **OAuth nachrüsten.** Dann geht Claude Desktop. Es ist aber ein
+   Anmeldeserver mit Registrierung, Zustimmungsseite und Token-Ablauf —
+   deutlich mehr als dieser ganze Bauplan bis hierher.
+3. **Den Schlüssel in die Adresse legen** (`/mcp/<slug>/<schlüssel>`).
+   Dann geht alles, und §2.2 fällt: die URL wäre wieder das Passwort,
+   mit allem, was dort steht — Server-Logs, Proxy-Logs,
+   Konfigurationsdateien, Screenshots. Falls doch, dann als
+   ausdrückliche zweite Tür mit eigenem Schalter und deutlichem Hinweis,
+   nicht als stiller Ersatz.
+
+---
+
+## 16. Offene Entscheidungen
 
 1. **Wird `user_ai_settings` mitgelöscht?** Sie ist seit Migration 010
    tot (§3.1). Mein Vorschlag: eine eigene, kleine Migration danach — ein

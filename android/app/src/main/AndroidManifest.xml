@@ -71,5 +71,14 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Damit url_launcher die Doku-Links der Assistenten-Anbieter
+             oeffnen kann. Seit Android 11 sieht eine App nur noch, wofuer
+             sie hier ausdruecklich fragt; ohne diesen Eintrag meldet
+             canLaunchUrl schlicht "geht nicht", ohne dass etwas kaputt
+             waere. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>
