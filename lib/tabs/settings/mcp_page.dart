@@ -243,7 +243,10 @@ class _McpState extends State<_Mcp> {
           if (_zugang.hatSchluessel) ...[
             const SizedBox(height: 16),
             const _Ueberschrift('Einrichten'),
+            const _EinrichtenErklaerung(),
             _Einrichten(slug: _zugang.slug),
+            const SizedBox(height: 8),
+            const _NurImBrowser(),
           ],
 
           const SizedBox(height: 16),
@@ -428,7 +431,7 @@ class _Einrichten extends StatelessWidget {
     return Card(
       child: Column(
         children: [
-          for (final client in McpAnleitung.clients)
+          for (final client in McpAnleitung.an(McpOrt.lokal))
             ExpansionTile(
               leading: Icon(
                 client.nimmtSchluessel
@@ -634,4 +637,68 @@ class _FertigerSchnipsel extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// Warum die Liste so geteilt ist, wie sie geteilt ist.
+///
+/// Die Trennlinie verläuft **nicht** zwischen den Herstellern, sondern
+/// zwischen „läuft auf deinem Rechner" und „läuft im Browser eines
+/// Anbieters". Das erste kann den Schlüssel mitgeben, das zweite nicht —
+/// und zwar egal, wessen Name draufsteht.
+class _EinrichtenErklaerung extends StatelessWidget {
+  const _EinrichtenErklaerung();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+        child: Text(
+          'Jeder Assistent, der auf deinem Rechner läuft, kann diesen '
+          'Zugang benutzen — manche sprechen HTTP direkt, andere über '
+          'eine kleine Brücke. Im Browser geht es nicht: dort kann '
+          'niemand einen Schlüssel mitschicken.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+}
+
+/// Die Clients, für die es keinen Weg gibt — und warum.
+///
+/// Sie stehen bewusst dabei und nicht unter den Tisch gekehrt: wer es
+/// dort probiert, bekommt ein 404 und hält es für einen Fehler dieser
+/// App. Und jeder von ihnen hat einen Bruder, der geht.
+class _NurImBrowser extends StatelessWidget {
+  const _NurImBrowser();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ExpansionTile(
+      leading: Icon(Icons.public_off, color: colors.onSurfaceVariant),
+      title: const Text('Nur im Browser — geht nicht'),
+      subtitle: const Text('claude.ai, ChatGPT, Gemini'),
+      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Dort läuft der Assistent auf fremden Rechnern und kann keinen '
+          'lokalen Helfer starten. Es gibt nur ein Feld für die Adresse '
+          '— ohne Schlüssel antwortet der Zugang mit 404.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        for (final client in McpAnleitung.an(McpOrt.browser)) ...[
+          Text(client.name,
+              style: Theme.of(context).textTheme.labelLarge),
+          if (client.hinweis != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 6),
+              child: Text(client.hinweis!,
+                  style: Theme.of(context).textTheme.bodySmall),
+            ),
+          _Doku(url: client.doku),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
 }

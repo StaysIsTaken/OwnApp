@@ -134,6 +134,83 @@ void main() {
     });
   });
 
+  group('Die anderen Anbieter', () {
+    test('Gemini CLI braucht keine Brücke', () {
+      final konfig = McpAnleitung.geminiCliKonfig('https://a.de/mcp/x');
+
+      expect(konfig, contains('"httpUrl": "https://a.de/mcp/x"'));
+      expect(konfig, isNot(contains('mcp-remote')));
+      expect(() => jsonDecode(konfig), returnsNormally);
+    });
+
+    test('Gemini CLI nimmt ohne Schlüssel die Umgebungsvariable', () {
+      final konfig = McpAnleitung.geminiCliKonfig('https://a.de/mcp/x');
+
+      expect(konfig, contains('\${${McpAnleitung.variable}}'));
+    });
+
+    test('Codex nennt nur den Namen der Variablen', () {
+      // Das Format sieht keinen Platz für den Schlüssel vor -- also darf
+      // auch der Dialog nach dem Erzeugen dort keinen hineinschreiben.
+      final toml = McpAnleitung.codexKonfig('https://a.de/mcp/x');
+
+      expect(toml, contains('[mcp_servers.ownapp]'));
+      expect(toml, contains('bearer_token_env_var = "'
+          '${McpAnleitung.variable}"'));
+      expect(toml, isNot(contains('Bearer ')));
+    });
+
+    test('VS Code fragt den Schlüssel ab, statt ihn zu speichern', () {
+      final konfig = McpAnleitung.vscodeKonfig('https://a.de/mcp/x');
+
+      expect(() => jsonDecode(konfig), returnsNormally);
+      final d = jsonDecode(konfig) as Map<String, dynamic>;
+      expect((d['inputs'] as List).first['password'], isTrue);
+      expect(d['servers']['ownapp']['type'], 'http');
+      expect(konfig, isNot(contains('mcp_')));
+    });
+
+    test('kein Schnipsel verrät einen Schlüssel, wenn keiner da ist', () {
+      // Die Seite zeigt sie ohne Schlüssel -- stünde dort einer, wäre er
+      // aus einem früheren Aufruf hängengeblieben.
+      for (final c in McpAnleitung.clients) {
+        final text = McpAnleitung.schnipselFuer(c, 'https://a.de/mcp/x');
+        if (text == null) continue;
+        expect(text, isNot(contains('Bearer mcp_')), reason: c.name);
+      }
+    });
+  });
+
+  group('Wo ein Client läuft', () {
+    test('die Trennlinie ist der Ort, nicht der Hersteller', () {
+      // Jeder der drei Browser-Anbieter hat einen lokalen Bruder, der
+      // geht -- sonst wäre die Liste eine Absage statt einer Anleitung.
+      for (final c in McpAnleitung.an(McpOrt.browser)) {
+        expect(c.nimmtSchluessel, isFalse, reason: c.name);
+      }
+      for (final c in McpAnleitung.an(McpOrt.lokal)) {
+        expect(c.nimmtSchluessel, isTrue, reason: c.name);
+      }
+    });
+
+    test('für jeden grossen Anbieter gibt es einen lokalen Weg', () {
+      final lokal = McpAnleitung.an(McpOrt.lokal).map((c) => c.name).join(' ');
+
+      expect(lokal, contains('Claude'));
+      expect(lokal, contains('Gemini'));
+      expect(lokal, contains('Codex'));
+    });
+
+    test('es gibt einen Sammelweg für alles andere', () {
+      // Cursor, Windsurf, Cline, Zed -- die alle einzeln zu pflegen
+      // hiesse, die Liste nie wieder aktuell zu haben.
+      expect(
+        McpAnleitung.clients.any((c) => c.schnipsel == McpSchnipsel.bruecke),
+        isTrue,
+      );
+    });
+  });
+
   group('Die Anbieter', () {
     test('mindestens einer nimmt den Schlüssel entgegen', () {
       // Wäre das einmal nicht mehr so, ist der Zugang für niemanden

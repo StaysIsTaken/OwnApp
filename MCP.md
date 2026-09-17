@@ -747,13 +747,30 @@ eintragen konnte.
 
 **Nur ein Client nimmt heute einen eigenen Schlüssel entgegen.**
 
+**Die Trennlinie verläuft nicht zwischen den Herstellern, sondern
+zwischen „läuft auf dem eigenen Rechner" und „läuft im Browser eines
+Anbieters".** Das erste kann einen Schlüssel mitgeben, das zweite nicht
+— und zwar egal, wessen Name draufsteht. Jeder der drei Browser-Clients
+hat einen lokalen Bruder, der geht.
+
 | Client | Schlüssel? | Wie |
 |---|---|---|
 | **Claude Code** | **ja** | `claude mcp add --transport http … --header "Authorization: Bearer …"` |
-| **Claude Desktop** | **ja** | nicht über „Connectors", sondern über `claude_desktop_config.json` und **`mcp-remote`** |
-| claude.ai im Browser | nein | nur Adresse + optional OAuth. Kein Header, und im Browser auch keine Brücke. |
-| ChatGPT | nein | Entwicklermodus, dann Adresse. Bezahltes Konto nötig. |
-| Gemini | nein | „Connected Apps" in der Web-App, Adresse. Verlangt ein öffentlich anerkanntes Zertifikat. |
+| **Claude Desktop** | **ja** | `claude_desktop_config.json` + **`mcp-remote`** als Brücke |
+| **Gemini CLI** | **ja** | `~/.gemini/settings.json` mit `httpUrl` und `headers` — spricht HTTP selbst |
+| **Codex CLI** | **ja** | `~/.codex/config.toml`, `url` + `bearer_token_env_var` |
+| **VS Code (Copilot)** | **ja** | `mcp.json`, `type: "http"` + `headers`, Schlüssel über `${input:…}` abgefragt |
+| **Cursor, Windsurf, Cline, Zed …** | **ja** | dieselbe Form wie Claude Desktop, über `mcp-remote` |
+| claude.ai im Browser | nein | nur Adresse + optional OAuth |
+| ChatGPT im Browser | nein | Entwicklermodus, dann Adresse |
+| Gemini im Browser | nein | „Connected Apps", Adresse |
+
+**Zwei Formate kommen ganz ohne Schlüssel in der Datei aus** und sind
+damit die saubersten: VS Code fragt ihn beim ersten Start ab und legt
+ihn in den Anmeldedaten des Systems ab, Codex nennt nur den *Namen* der
+Umgebungsvariablen. Gemini CLI kann beides. Die App erzeugt deshalb für
+diese drei nie einen Schnipsel mit Schlüssel darin — auch nicht im
+Dialog direkt nach dem Erzeugen.
 
 **Der entscheidende Umweg heisst `mcp-remote`.** Zuerst stand hier, drei
 von vier Clients könnten unseren Schlüssel nicht bedienen — das stimmt
@@ -785,7 +802,14 @@ heil an. Genau dafür gibt es einen Test.
 Was bleibt: **die reinen Web-Clients** (claude.ai, ChatGPT, Gemini) haben
 keinen Weg, weil dort niemand einen lokalen Prozess starten kann. Wer den
 Zugang dort einträgt, bekommt ein 404 — richtig so, aber es sieht aus wie
-ein Fehler dieser App, und die Seite sagt es deshalb ausdrücklich.
+ein Fehler dieser App, und die Seite sagt es deshalb ausdrücklich, samt
+dem Hinweis auf den lokalen Bruder desselben Anbieters.
+
+**Ein Sammeleintrag statt einer Liste aller Clients.** Cursor, Windsurf,
+Cline und Zed nehmen dieselbe Form wie Claude Desktop; sie einzeln zu
+pflegen hiesse, die Liste nie wieder aktuell zu haben. Es gibt deshalb
+einen Eintrag „ein anderer Client mit lokalem Start" mit derselben
+Vorlage.
 
 Falls die je dazukommen sollen, gibt es zwei Wege, und beide kosten:
 
