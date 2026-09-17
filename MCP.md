@@ -666,7 +666,7 @@ zusammensuchen.
 |---|---|---|---|---|---|
 | 1 | OwnAPI | Migration 034, `user_settings`, Dienst, `/einstellungen` | `main` | — | **#34** |
 | 2 | OwnApp | Einstellungen lesen/schreiben, die drei Werte vom Gerät holen | PR 1 | **ja** — Einstellungen liegen am Konto | **#101** |
-| 3 | OwnAPI | MCP: Anmeldung, Baum, Lese-Werkzeuge der eigenen Bereiche | PR 1 | | ⬜ |
+| 3 | OwnAPI | MCP: Anmeldung, Baum, Lese-Werkzeuge der eigenen Bereiche | PR 1 | | **#35** |
 | 4 | OwnApp | der Baum in den Einstellungen, Schlüssel anzeigen/erneuern | PR 2+3 | **ja** — der MCP läuft | ⬜ |
 | 5 | OwnAPI | Haushalts-Ast: `mcp_freigabe`, Filter, „ausgelassen" | PR 3 | | ⬜ |
 | 6 | OwnApp | Freigabe auf der Haushaltsseite, Haushalts-Ast im Baum | PR 4+5 | **ja** — vollständig | ⬜ |
