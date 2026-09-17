@@ -240,19 +240,30 @@ class PlannerProvider extends ChangeNotifier {
 
   // ── iCal-Import ────────────────────────────────────────────────────────
 
+  /// Eine .ics-Datei oder -Adresse einlesen.
+  ///
+  /// [calendarId] sagt, **wohin**. Ohne Angabe fiele alles in den
+  /// Standardkalender — bei hunderten Terminen die unangenehmste Antwort,
+  /// und die Trennung nach Kalendern wäre für den Import wirkungslos.
+  /// Der Dialog fragt deshalb danach.
   Future<Map<String, dynamic>> importIcs({
     required int typeId,
     String? url,
     String? ics,
+    int? calendarId,
     String color = '#3B82F6',
   }) async {
-    final result = await PlannerService.importIcs(
+    final result = await PlannerService.importieren(
       typeId: typeId,
       url: url,
       ics: ics,
+      calendarId: calendarId,
       color: color,
     );
     await loadEntries();
+    // Die Zahl der Termine je Kalender steht in der Liste und ist nach
+    // einem Import falsch.
+    await loadKalender();
     return result;
   }
 

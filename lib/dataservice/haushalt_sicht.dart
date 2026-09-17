@@ -126,6 +126,31 @@ class Haushaltssicht {
     return '${frei.length} von ${mitglieder.length} geben frei — $wer';
   }
 
+  /// „2 von 3 deiner Kalender laufen im Haushalt mit."
+  ///
+  /// Dritter Satz nach [mitrechnenSatz] und [freigabeSatz], und aus
+  /// demselben Grund: eine Vorgabe, die „nein" heißt, muss man sehen
+  /// können, sonst hält man sie für „noch nicht eingerichtet". Hier zeigt
+  /// er in beide Richtungen — auch „alle" wird gesagt, denn wer seine
+  /// Kalender freigibt, soll das an einer Stelle nachlesen können und
+  /// nicht Schalter für Schalter durchgehen müssen.
+  ///
+  /// [gesamt] ist die Zahl der **eigenen** Kalender. Der gemeinsame zählt
+  /// nicht mit: den sehen ohnehin alle, und es gibt nichts freizugeben.
+  static String kalenderSatz({required int frei, required int gesamt}) {
+    if (gesamt == 0) return '';
+    if (frei == 0) {
+      return 'Die anderen sehen keinen deiner Kalender. '
+          'Leg um, was mitlaufen darf.';
+    }
+    if (frei == gesamt) {
+      return gesamt == 1
+          ? 'Dein Kalender läuft im Haushalt mit.'
+          : 'Alle deine Kalender laufen im Haushalt mit.';
+    }
+    return '$frei von $gesamt deiner Kalender laufen im Haushalt mit.';
+  }
+
   /// Der Satz, der erklärt, warum der Knopf nicht geht.
   static const String warumNichtGehen =
       'Du führst diesen Haushalt. Übergib ihn erst an jemand anderen.';

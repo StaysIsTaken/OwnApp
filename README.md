@@ -31,6 +31,24 @@ Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mi
   - Ende per Datum, nach Anzahl oder unbegrenzt
   - Beim Bearbeiten/Löschen Auswahl des Geltungsbereichs: **Nur dieser / Dieser und folgende / Alle**
   - 🔁-Markierung an Serienterminen; einzeln verschobene Termine bleiben erhalten
+- **Kalender als eigene Objekte**: Termine liegen in einem Kalender, nicht
+  einfach in „dem Planer". Selbst gepflegt oder **abonniert** (ICS-Adresse
+  für Müllabfuhr, Feiertage, Schulferien), frei ein- und ausblendbar,
+  auch per Zuruf („zeige nur den Arbeitskalender an").
+- **Drei Wege, einen Kalender zu teilen** — und sie bedeuten
+  Verschiedenes:
+  - **Einzelfreigabe**: „dieser Kalender für dich", wahlweise nur für
+    bestimmte Termintypen oder ein Stichwort im Titel.
+  - **Im Haushalt mitlesen**: ein Schalter je Kalender in den
+    Haushaltseinstellungen. Vorgabe ist **aus**.
+  - **Gemeinsamer Kalender**: gehört dem Haushalt und keiner Person.
+    Jeder sieht ihn, jeder trägt darin ein.
+  - **Als privat markierte Termine bleiben privat** — auf allen drei
+    Wegen, ohne Ausnahme.
+- **ICS-Import sagt, wohin**: das Import-Fenster zeigt oben die Liste der
+  eigenen und gemeinsamen Kalender; vorgewählt ist der Standardkalender.
+  Vorher fiel alles stillschweigend dorthin, und bei dreihundert Terminen
+  merkt man das erst hinterher.
 - **Benachrichtigungen**: Konfigurierbare Vorlaufzeit pro Termin
 
 ### 📖 Rezeptverwaltung
@@ -122,6 +140,12 @@ Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mi
   von „nichts" bis „alles", Vorgabe ist **nichts**. Wer nicht mitrechnet,
   wird in der gemeinsamen Übersicht genannt: „2 von 3 Mitgliedern rechnen
   mit."
+- **Kalender ebenso**: jedes Mitglied legt je Kalender um, ob die anderen
+  mitlesen dürfen — Vorgabe **nein**. Daneben lässt sich ein
+  **gemeinsamer Kalender** anlegen, der dem Haushalt gehört und keiner
+  Person: jeder sieht ihn, jeder trägt darin ein, und er bleibt stehen,
+  wenn jemand geht. Beides nebeneinander, weil „mein Kalender, aber ihr
+  dürft mitlesen" und „unser Kalender" zwei verschiedene Sätze sind.
 - **Der Besitzer kann nicht gehen**, solange andere drin sind — er
   übergibt erst. Geht der Letzte, löst sich der Haushalt auf und die Daten
   fallen an ihn zurück.
@@ -425,6 +449,8 @@ Die App kommuniziert mit einem REST-API-Backend.
 - `POST /planner/recurring` - Wiederkehrende Serie anlegen
 - `PUT /planner/{id}/recurring?scope=single|all|future` - Serientermin bearbeiten
 - `DELETE /planner/{id}/recurring?scope=single|all|future` - Serientermin löschen
+- `POST /planner/import` - .ics einlesen, mit `calendar_id` in einen
+  bestimmten Kalender
 - `GET/POST/PUT/DELETE /planner/types` - Typen-Stammdaten verwalten
 - `GET /planner/pending/notifications` - Fällige Benachrichtigungen (für n8n)
 
@@ -458,6 +484,19 @@ Die App kommuniziert mit einem REST-API-Backend.
 
 Dazu an den haushaltsfähigen Bereichen: `?unseres=` und `?eigene=` zum
 Filtern, `PUT .../haushalt` zum Verschieben.
+
+### Kalender
+- `GET /calendars?alle=` - eigene, freigegebene, im Haushalt mitgelesene
+  und die des Haushalts. `may_write` / `may_manage` sagen je Kalender, was
+  man damit darf — die App rechnet das nicht aus `owner_id`.
+- `POST /calendars` - anlegen; mit `unseres: true` einen des Haushalts
+  (ohne Besitzer)
+- `PUT /calendars/{id}` - Name, Farbe, ICS-Adresse und
+  `household_share` (der Schalter „die anderen dürfen mitlesen")
+- `POST /calendars/{id}/sync` - hinterlegte ICS-Adresse sofort holen
+- `DELETE /calendars/{id}` - löschen; die Termine darin bleiben
+- `GET/PUT/DELETE /calendars/{id}/freigaben[/{uid}]` - Einzelfreigabe,
+  nur am persönlichen Kalender
 
 ### Chat
 - WebSocket-Verbindung für Echtzeit-Nachrichten

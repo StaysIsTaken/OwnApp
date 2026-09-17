@@ -8,10 +8,14 @@ class CalendarService {
 
   static const String _pfad = '/calendars';
 
-  /// Die eigenen und die mir freigegebenen Kalender.
+  /// Alles, was ich an Kalendern zu Gesicht bekomme.
   ///
-  /// Fremde Kalender kommen nur hierher, wenn ihr Besitzer sie freigegeben
-  /// hat. [alle] zeigt den ganzen Haushalt und ist Admin und Küchen-Tablet
+  /// Vier Quellen, und der Server führt sie zusammen: die eigenen, die mir
+  /// einzeln freigegebenen, die im Haushalt mitgelesenen und die des
+  /// Haushalts selbst. Fremde Kalender kommen nur hierher, weil jemand das
+  /// entschieden hat — nie, weil jemand ein Recht trägt.
+  ///
+  /// [alle] zeigt den ganzen Haushalt und ist Admin und Küchen-Tablet
   /// vorbehalten — bewusst ein ausdrücklicher Schalter: das Tablet setzt
   /// ihn, dasselbe Konto am Telefon nicht.
   static Future<List<Kalender>> laden({bool alle = false}) async {
@@ -24,17 +28,27 @@ class CalendarService {
         .toList();
   }
 
+  /// Legt einen Kalender an — meinen oder unseren.
+  ///
+  /// [unseres] macht daraus einen **Haushaltskalender**: er gehört dann
+  /// dem Haushalt und keiner Person, jedes Mitglied sieht ihn und trägt
+  /// darin ein. Derselbe Schalter wie bei Rezepten und Einkaufszetteln.
+  ///
+  /// Wer in keinem Haushalt ist, bekommt vom Server einen Satz — die
+  /// Oberfläche muss das nicht vorher prüfen.
   static Future<Kalender> anlegen({
     required String name,
     String color = '#3B82F6',
     String? icon,
     String? icsUrl,
+    bool unseres = false,
   }) async {
     final r = await ApiClient.dio.post(_pfad, data: {
       'name': name,
       'color': color,
       'icon': ?icon,
       if (icsUrl != null && icsUrl.isNotEmpty) 'ics_url': icsUrl,
+      if (unseres) 'unseres': true,
     });
     return Kalender.fromJson(r.data as Map<String, dynamic>);
   }
@@ -45,15 +59,25 @@ class CalendarService {
     String? color,
     String? icon,
     String? icsUrl,
+    bool? haushaltsFreigabe,
   }) async {
     final r = await ApiClient.dio.put('$_pfad/$id', data: {
       'name': ?name,
       'color': ?color,
       'icon': ?icon,
       'ics_url': ?icsUrl,
+      'household_share': ?haushaltsFreigabe,
     });
     return Kalender.fromJson(r.data as Map<String, dynamic>);
   }
+
+  /// „Die anderen im Haushalt dürfen mitlesen."
+  ///
+  /// Eigener Name statt [aendern] mit einem Feld: das ist der Schalter aus
+  /// den Haushaltseinstellungen, und an der Aufrufstelle soll stehen, was
+  /// er bedeutet — nicht `aendern(id, haushaltsFreigabe: true)`.
+  static Future<Kalender> haushaltsFreigabe(int id, bool frei) =>
+      aendern(id, haushaltsFreigabe: frei);
 
   /// Holt die hinterlegte Adresse sofort — nützlich direkt nach dem
   /// Eintragen, um zu sehen, ob sie stimmt.
