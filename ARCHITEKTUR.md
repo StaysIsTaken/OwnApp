@@ -10,17 +10,20 @@ naturgemäß nicht können: sagen, dass es an einer **anderen** Stelle etwas
 Genau daran verliert man hier Zeit. Diese Datei ist die Liste der
 Doppelgänger.
 
-Gegenstück: `ARCHITEKTUR.md` in **OwnAPI**. Die Einkaufs-Spaltung zieht
-sich durch beide Projekte, und wer nur eine Hälfte liest, zieht den
+Gegenstück: `ARCHITEKTUR.md` in **OwnAPI**. Die Regeln, wem etwas gehört,
+ziehen sich durch beide Projekte, und wer nur eine Hälfte liest, zieht den
 falschen Schluss.
 
 ---
 
-## 1. Es gibt zwei Einkaufsmodelle. Das neue gewinnt.
+## 1. Es gab zwei Einkaufsmodelle. Das alte ist weg.
 
-Das ist die wichtigste Zeile dieser Datei.
+Lange stand hier „das neue gewinnt" — inzwischen ist die linke Spalte
+restlos verschwunden, in **beiden** Repos. Sie steht noch da, weil man
+ihren Namen in Kommentaren, Migrationen und Commit-Texten findet und dann
+wissen will, was gemeint war.
 
-| | alt | neu |
+| | alt — **weg** | neu — **gilt** |
 |---|---|---|
 | Datenklasse | `ShoppingListItem` | `Einkaufsliste` + `Einkaufsposition` |
 | Dienst | `ShoppingListService` | `EinkaufService` |
@@ -62,10 +65,17 @@ am Posten hingen und mit ihm verschwanden. Jetzt kommt er aus
 [Preisvergleich] und damit aus dem Preisgedächtnis, das an der Ware
 hängt.
 
-**Im Backend lebt das alte Modell weiter**, und zwar mit gutem Grund:
-`receipt.py` (Bon-Scan) schreibt dorthin. Die App zielt beim Bon-Scan
-allerdings nur auf den Vorrat (`target: 'pantry'`) — der
-Einkaufs-Zweig ist von hier aus nicht mehr erreichbar.
+**Im Backend ebenfalls.** Das stand hier lange andersherum — „dort lebt
+es weiter, weil `receipt.py` hineinschreibt". Inzwischen liegt auch der
+Bon-Scan auf den neuen Listen, und Migration `028` hat die beiden
+Tabellen gelöscht. Es gibt das alte Modell nirgends mehr.
+
+Die App zielt beim Bon-Scan trotzdem nur auf den Vorrat
+(`target: 'pantry'` in `pantry_page.dart`). Das ist jetzt eine freie
+Entscheidung der Oberfläche und keine Einschränkung des Backends: der
+Zweig `target: 'shopping'` ist da, gepflegt und legt Positionen auf einem
+Zettel an, den der Nutzer vorher wählt. Wer ihn in der App anbieten will,
+braucht dafür nichts Neues im Backend.
 
 ### Wie Zettel, Zutat, Preis und Laden zusammenhängen
 
@@ -388,3 +398,40 @@ Menüpunkt erscheint ja erst, wenn es einen gibt. Die Einstellungen sind
 der Ort, an dem man einrichtet, was einen selbst betrifft; dieselbe
 Überlegung wie bei der Serveradresse, die am Login hängt und trotzdem
 dort steht.
+
+---
+
+## 6. Das Haushaltsbuch rechnet die Zukunft, der Planer speichert sie
+
+Beide zeigen wiederkehrende Dinge, beide reden von Serien — und mit der
+Zukunft machen sie das Gegenteil. Wer vom einen aufs andere schliesst,
+liegt falsch.
+
+| | Planer | Haushaltsbuch |
+|---|---|---|
+| Künftige Vorkommen | echte Termine, 183 Tage im Voraus angelegt | **gerechnet**, nie gespeichert |
+| Woher | `GET /planner` | `GET /finanzen/vorschau` |
+| Datenklasse | `PlannerEntry` mit `id` | `Geplant` — **ohne `id`** |
+| Bearbeitbar | ja, mit Geltungsbereich (nur dieser / folgende / alle) | nein; man ändert die Serie oder ihre Betragsstaffel |
+
+Der Grund liegt im Backend und steht dort ausführlich
+(`OwnAPI/ARCHITEKTUR.md` §5): ein Termin in drei Monaten *ist* schon ein
+Termin — das Telefon muss ihn ohne Server einplanen können. Die Miete im
+Mai ist dagegen eine Erwartung; wäre sie gespeichert, stünden beim ersten
+Mietanstieg 180 Zeilen falsch da.
+
+Für die App folgen daraus drei Dinge, und jedes davon ist eine Stelle,
+an der es sonst kaputtgeht:
+
+* **Eine Vorschauzeile darf nicht aussehen wie eine Buchung.** `_Vorschau`
+  in `finanzen_page.dart` zeichnet sie blasser, mit Rand und nicht
+  antippbar. Sähe sie gleich aus, würde jemand sie ändern wollen — und
+  die Änderung wäre beim nächsten Laden weg, ohne Fehlermeldung.
+* **Die Kachel `finanzen.faellig` speist sich aus der Vorschau, nicht aus
+  Buchungen.** Die Kachelfilter greifen dort bewusst **nicht**: sie sind
+  für Buchungen gebaut, und eine Vorschauzeile ist keine.
+* **`FinanzService.nachbuchen()` läuft vor jedem Laden der Monatsseite**
+  und darf scheitern (wer nur lesen darf, bekommt 403 und soll sein
+  Kassenbuch trotzdem sehen). Das ist derselbe Gedanke wie die vier
+  Auslöser von `ErinnerungsAbgleich` in §2: ein Hintergrundlauf, der
+  einmal ausfiel, darf nicht bedeuten, dass die Miete fehlt.
