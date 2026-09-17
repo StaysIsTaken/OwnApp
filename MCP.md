@@ -670,12 +670,21 @@ zusammensuchen.
 | 4 | OwnApp | der Baum in den Einstellungen, Schlüssel anzeigen/erneuern | PR 2+3 | **ja** — der MCP läuft | **#102** |
 | 5 | OwnAPI | Haushalts-Ast: `mcp_freigabe`, Filter, „ausgelassen" | PR 3 | | **#36**, Migration nachgebessert in **#37** |
 | 6 | OwnApp | Freigabe auf der Haushaltsseite, Haushalts-Ast im Baum | PR 4+5 | **ja** — vollständig | **#106** |
-| 7 | OwnAPI | Schreib-Werkzeuge | PR 3 | | ⬜ |
-| 8 | OwnAPI | Rate-Limit, Protokoll | PR 3 | | ⬜ |
+| 7 | OwnAPI | Schreib-Werkzeuge | PR 3 | | **#38** |
+| 8 | OwnAPI | Rate-Limit, Protokoll | PR 3 | | **#39** |
 
-Nach PR 6 ist das Projekt fachlich fertig; 7 und 8 sind die Zugaben —
-wobei **8 vor dem ersten öffentlichen Ausrollen stehen muss**. Ein
-Zugang ohne Bremse für fehlgeschlagene Anmeldungen gehört nicht ins Netz.
+**Alle acht stehen.** Was beim Bauen anders kam als geplant, steht
+jeweils im PR; drei Dinge gehören aber hierher, weil sie den Plan selbst
+berichtigen:
+
+* **Migration 034 war rein additiv**, die Aufteilung auf drei Dateien
+  hat die Rückfrage an PR 5 verschoben (§3.1).
+* **PR 3 gab Haushaltsdaten über die eigenen Schalter heraus**, weil
+  `sichtbarkeit()` per Vorgabe „meins ODER unseres" heisst. Repariert in
+  PR 5; der erste Test von `test_mcp_haushalt.py` hält es fest.
+* **Migration 035 ist beim ersten Ausrollen gefallen** und hatte vorher
+  etwas Falsches geschrieben. Seither gibt es `test_migrationen.py`, das
+  am Text prüft, was sich am Text prüfen lässt.
 
 Zum Stapeln gilt `SKILLS.md` §7 in beiden Repos: erst alle Kinder
 umhängen, dann mergen; ein Basiswechsel löst keine CI aus; ohne Basis
