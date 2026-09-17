@@ -1,3 +1,15 @@
+/// Welche Art von Schnipsel ein Client zum Einrichten braucht.
+enum McpSchnipsel {
+  /// Ein Befehl fürs Terminal (`claude mcp add …`).
+  befehl,
+
+  /// Ein Stück `claude_desktop_config.json` mit `mcp-remote` als Brücke.
+  konfig,
+
+  /// Nur Adresse eintragen, mehr gibt es nicht.
+  keiner,
+}
+
 /// Ein Assistent und was er zum Eintragen braucht.
 class McpClient {
   final String name;
@@ -7,6 +19,8 @@ class McpClient {
   /// Das ist die Zeile, an der es hängt: wer nur ein Feld für die
   /// Adresse hat, kann unseren Schlüssel nirgends hinschreiben.
   final bool nimmtSchluessel;
+
+  final McpSchnipsel schnipsel;
 
   /// Der Weg in der Oberfläche, in Schritten.
   final List<String> schritte;
@@ -22,6 +36,7 @@ class McpClient {
     required this.nimmtSchluessel,
     required this.schritte,
     required this.doku,
+    this.schnipsel = McpSchnipsel.keiner,
     this.hinweis,
   });
 }
@@ -33,6 +48,10 @@ class McpClient {
 /// API unter `…/api`, der MCP hängt aber **daneben** und nicht darin.
 class McpAnleitung {
   McpAnleitung._();
+
+  /// Platzhalter, wo der Schlüssel hingehört. Nach dem Erzeugen kennen
+  /// wir ihn nicht mehr — nur seinen Hash.
+  static const String platzhalter = 'DEIN_SCHLUESSEL';
 
   /// Die vollständige Adresse des eigenen Zugangs.
   ///
@@ -55,24 +74,61 @@ class McpAnleitung {
   }
 
   /// Der fertige Befehl für Claude Code.
-  ///
-  /// [schluessel] ist nur direkt nach dem Erzeugen bekannt — danach steht
-  /// hier ein Platzhalter. Das ist kein Mangel, sondern der Grund, warum
-  /// der Befehl im Schlüssel-Dialog steht: dort ist er einmal komplett.
   static String claudeCodeBefehl(String adresse, {String? schluessel}) =>
       'claude mcp add --transport http ownapp \\\n'
       '  $adresse \\\n'
-      '  --header "Authorization: Bearer ${schluessel ?? 'DEIN_SCHLUESSEL'}"';
+      '  --header "Authorization: Bearer ${schluessel ?? platzhalter}"';
+
+  /// Der Eintrag für `claude_desktop_config.json`.
+  ///
+  /// Der Umweg über `mcp-remote`: Claude Desktop kann in seinem
+  /// Connector-Dialog keinen Header setzen — aber es kann einen
+  /// **lokalen** Server starten, und `mcp-remote` ist genau das: eine
+  /// Brücke, die von aussen wie ein lokaler Server aussieht und innen
+  /// unsere Adresse mit Header ruft.
+  ///
+  /// **Warum `Authorization:${...}` ohne Leerzeichen und das Leerzeichen
+  /// in der Umgebungsvariablen?** Claude Desktop unter Windows (und
+  /// einige andere Clients) reichen Argumente mit Leerzeichen falsch an
+  /// `npx` weiter und zerlegen den Header dabei. Über die Variable
+  /// kommt er heil an. Das sieht nach Zierde aus und ist der
+  /// Unterschied zwischen „läuft" und „läuft nicht".
+  static String claudeDesktopKonfig(String adresse, {String? schluessel}) =>
+      '{\n'
+      '  "mcpServers": {\n'
+      '    "ownapp": {\n'
+      '      "command": "npx",\n'
+      '      "args": [\n'
+      '        "-y", "mcp-remote",\n'
+      '        "$adresse",\n'
+      '        "--header", "Authorization:\${AUTH_HEADER}"\n'
+      '      ],\n'
+      '      "env": {\n'
+      '        "AUTH_HEADER": "Bearer ${schluessel ?? platzhalter}"\n'
+      '      }\n'
+      '    }\n'
+      '  }\n'
+      '}';
+
+  /// Der Schnipsel, den dieser Client braucht — oder null.
+  static String? schnipselFuer(McpClient client, String adresse,
+      {String? schluessel}) {
+    switch (client.schnipsel) {
+      case McpSchnipsel.befehl:
+        return claudeCodeBefehl(adresse, schluessel: schluessel);
+      case McpSchnipsel.konfig:
+        return claudeDesktopKonfig(adresse, schluessel: schluessel);
+      case McpSchnipsel.keiner:
+        return null;
+    }
+  }
 
   /// Die Assistenten, in der Reihenfolge, in der sie hier nützen.
-  ///
-  /// Claude Code steht oben, weil es der einzige ist, der den Schlüssel
-  /// heute entgegennimmt. Das ist keine Vorliebe, sondern der Stand der
-  /// Clients.
   static const List<McpClient> clients = [
     McpClient(
       name: 'Claude Code',
       nimmtSchluessel: true,
+      schnipsel: McpSchnipsel.befehl,
       schritte: [
         'Den Befehl unten kopieren und im Terminal ausführen.',
         'Der Schlüssel steht darin — er landet in der Konfiguration von '
@@ -81,16 +137,38 @@ class McpAnleitung {
       doku: 'https://code.claude.com/docs/en/mcp',
     ),
     McpClient(
-      name: 'Claude Desktop / claude.ai',
+      name: 'Claude Desktop',
+      nimmtSchluessel: true,
+      schnipsel: McpSchnipsel.konfig,
+      hinweis: 'Nicht über „Connectors" — dort gibt es kein Feld für den '
+          'Schlüssel. Stattdessen über die Konfigurationsdatei und '
+          '`mcp-remote`, eine kleine Brücke, die Claude lokal startet und '
+          'die unsere Adresse mit dem Schlüssel ruft. Dafür muss Node.js '
+          'auf dem Rechner sein (`npx`).',
+      schritte: [
+        'Einstellungen → Entwickler → „Konfiguration bearbeiten" öffnet '
+            'claude_desktop_config.json. Von Hand: macOS unter '
+            '~/Library/Application Support/Claude/, Windows unter '
+            '%APPDATA%\\Claude\\.',
+        'Den Abschnitt unten hineinkopieren. Gibt es "mcpServers" schon, '
+            'nur den Eintrag "ownapp" dazusetzen.',
+        'Claude Desktop vollständig beenden und neu starten.',
+        'Hängt es beim Verbinden, hilft meist ein zusätzliches '
+            '"--transport", "http-only" in den args.',
+      ],
+      doku: 'https://www.npmjs.com/package/mcp-remote',
+    ),
+    McpClient(
+      name: 'claude.ai im Browser',
       nimmtSchluessel: false,
       hinweis: 'Dort gibt es nur ein Feld für die Adresse und optional '
-          'OAuth — ein eigener Schlüssel lässt sich nicht eintragen. '
-          'Solange das so ist, führt der Weg über Claude Code.',
+          'OAuth — ein eigener Schlüssel lässt sich nicht eintragen, und '
+          'eine lokale Brücke gibt es im Browser nicht. Der Zugang '
+          'antwortet dann mit 404, weil der Schlüssel fehlt; das ist kein '
+          'Fehler dieser App.',
       schritte: [
         'Einstellungen → Connectors → „Add custom connector".',
-        'Adresse eintragen.',
-        'Der Zugang antwortet dann mit 404, weil der Schlüssel fehlt — '
-            'das ist kein Fehler dieser App.',
+        'Geht heute nur, wenn dieser Zugang OAuth könnte — kann er nicht.',
       ],
       doku: 'https://support.claude.com/en/articles/'
           '11175166-getting-started-with-custom-connectors-using-remote-mcp',
@@ -99,8 +177,8 @@ class McpAnleitung {
       name: 'ChatGPT',
       nimmtSchluessel: false,
       hinweis: 'Braucht den Entwicklermodus und ein bezahltes Konto '
-          '(Plus, Pro, Business, Enterprise oder Edu), und er lässt sich '
-          'nur im Browser einschalten.',
+          '(Plus, Pro, Business, Enterprise oder Edu). Läuft im Browser, '
+          'also hilft auch hier keine lokale Brücke.',
       schritte: [
         'Einstellungen → Sicherheit und Anmeldung → Entwicklermodus an.',
         'Apps → Plus-Knopf → die Adresse eintragen.',
@@ -123,9 +201,6 @@ class McpAnleitung {
   ];
 
   /// Ob überhaupt ein Client den Schlüssel entgegennimmt.
-  ///
-  /// Wird das einmal `false`, ist der Zugang für niemanden benutzbar und
-  /// die Seite muss etwas anderes sagen als eine Liste von Wegen.
   static bool gibtEsEinenWegMitSchluessel() =>
       clients.any((c) => c.nimmtSchluessel);
 }

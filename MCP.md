@@ -747,27 +747,52 @@ eintragen konnte.
 
 **Nur ein Client nimmt heute einen eigenen Schlüssel entgegen.**
 
-| Client | Schlüssel? | |
+| Client | Schlüssel? | Wie |
 |---|---|---|
 | **Claude Code** | **ja** | `claude mcp add --transport http … --header "Authorization: Bearer …"` |
-| Claude Desktop / claude.ai | nein | Feld für die Adresse, dazu optional OAuth-Client-ID und -Secret. Kein Feld für einen Header. |
+| **Claude Desktop** | **ja** | nicht über „Connectors", sondern über `claude_desktop_config.json` und **`mcp-remote`** |
+| claude.ai im Browser | nein | nur Adresse + optional OAuth. Kein Header, und im Browser auch keine Brücke. |
 | ChatGPT | nein | Entwicklermodus, dann Adresse. Bezahltes Konto nötig. |
 | Gemini | nein | „Connected Apps" in der Web-App, Adresse. Verlangt ein öffentlich anerkanntes Zertifikat. |
 
-Das ist der Preis der Entscheidung aus §2.3/§13: **ein statischer
-Schlüssel im Header ist die einfachste sichere Bauform und zugleich die,
-die drei von vier Clients nicht bedienen können.** Wer den Zugang in
-Claude Desktop einträgt, bekommt ein 404 — richtig so, aber es sieht aus
-wie ein Fehler dieser App. Die Seite sagt es deshalb ausdrücklich.
+**Der entscheidende Umweg heisst `mcp-remote`.** Zuerst stand hier, drei
+von vier Clients könnten unseren Schlüssel nicht bedienen — das stimmt
+für ihre *Connector-Dialoge*, aber die lokalen Clients können mehr:
 
-Drei Wege, und sie sind in dieser Reihenfolge zu haben:
+```json
+{
+  "mcpServers": {
+    "ownapp": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "<adresse>",
+               "--header", "Authorization:${AUTH_HEADER}"],
+      "env": { "AUTH_HEADER": "Bearer <schlüssel>" }
+    }
+  }
+}
+```
 
-1. **So lassen.** Claude Code reicht, und die anderen ziehen vielleicht
-   nach. Kostet nichts und ist umkehrbar.
-2. **OAuth nachrüsten.** Dann geht Claude Desktop. Es ist aber ein
+`mcp-remote` ist eine Brücke: nach aussen ein lokaler Server, den Claude
+starten darf, nach innen ein Aufruf unserer Adresse **mit Header**. Damit
+bleibt der Entwurf aus §2.2/§2.3 wie er ist, und Claude Desktop geht
+trotzdem.
+
+**Der Doppelpunkt ohne Leerzeichen ist kein Schönheitsfehler.** Claude
+Desktop unter Windows reicht Argumente mit Leerzeichen falsch an `npx`
+weiter und zerlegt den Header dabei; über die Umgebungsvariable kommt er
+heil an. Genau dafür gibt es einen Test.
+
+Was bleibt: **die reinen Web-Clients** (claude.ai, ChatGPT, Gemini) haben
+keinen Weg, weil dort niemand einen lokalen Prozess starten kann. Wer den
+Zugang dort einträgt, bekommt ein 404 — richtig so, aber es sieht aus wie
+ein Fehler dieser App, und die Seite sagt es deshalb ausdrücklich.
+
+Falls die je dazukommen sollen, gibt es zwei Wege, und beide kosten:
+
+1. **OAuth nachrüsten.** Dann geht claude.ai. Es ist aber ein
    Anmeldeserver mit Registrierung, Zustimmungsseite und Token-Ablauf —
    deutlich mehr als dieser ganze Bauplan bis hierher.
-3. **Den Schlüssel in die Adresse legen** (`/mcp/<slug>/<schlüssel>`).
+2. **Den Schlüssel in die Adresse legen** (`/mcp/<slug>/<schlüssel>`).
    Dann geht alles, und §2.2 fällt: die URL wäre wieder das Passwort,
    mit allem, was dort steht — Server-Logs, Proxy-Logs,
    Konfigurationsdateien, Screenshots. Falls doch, dann als
