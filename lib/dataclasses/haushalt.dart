@@ -57,6 +57,14 @@ class Mitglied {
   /// steht. Die Zahlen dahinter sind es.
   final Finanzsicht finanzsicht;
 
+  /// Ob die Beiträge dieses Mitglieds zu den gemeinsamen Sachen in die
+  /// Assistenten-Zugänge der anderen dürfen.
+  ///
+  /// Auch das ist kein Geheimnis, und aus demselben Grund wie die
+  /// Finanz-Stufe: wer gemeinsame Daten weitergibt, tut das mit den
+  /// Beiträgen der anderen — die dürfen sehen, wer freigegeben hat.
+  final bool mcpFreigabe;
+
   final DateTime? beigetreten;
 
   const Mitglied({
@@ -64,6 +72,7 @@ class Mitglied {
     required this.name,
     this.rolle = 'mitglied',
     this.finanzsicht = Finanzsicht.nichts,
+    this.mcpFreigabe = false,
     this.beigetreten,
   });
 
@@ -74,6 +83,7 @@ class Mitglied {
         name: j['name']?.toString() ?? '?',
         rolle: j['rolle']?.toString() ?? 'mitglied',
         finanzsicht: Finanzsicht.von(j['finanz_sicht']?.toString()),
+        mcpFreigabe: j['mcp_freigabe'] == true,
         beigetreten: DateTime.tryParse(j['beigetreten_at']?.toString() ?? ''),
       );
 }

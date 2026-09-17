@@ -669,7 +669,7 @@ zusammensuchen.
 | 3 | OwnAPI | MCP: Anmeldung, Baum, Lese-Werkzeuge der eigenen Bereiche | PR 1 | | **#35** |
 | 4 | OwnApp | der Baum in den Einstellungen, Schlüssel anzeigen/erneuern | PR 2+3 | **ja** — der MCP läuft | **#102** |
 | 5 | OwnAPI | Haushalts-Ast: `mcp_freigabe`, Filter, „ausgelassen" | PR 3 | | **#36**, Migration nachgebessert in **#37** |
-| 6 | OwnApp | Freigabe auf der Haushaltsseite, Haushalts-Ast im Baum | PR 4+5 | **ja** — vollständig | ⬜ |
+| 6 | OwnApp | Freigabe auf der Haushaltsseite, Haushalts-Ast im Baum | PR 4+5 | **ja** — vollständig | **#106** |
 | 7 | OwnAPI | Schreib-Werkzeuge | PR 3 | | ⬜ |
 | 8 | OwnAPI | Rate-Limit, Protokoll | PR 3 | | ⬜ |
 
