@@ -33,6 +33,11 @@ dependencies:
   cross_file: ^0.3.5+5
   mobile_scanner: ^7.4.0
   image_picker: ^1.1.2
+
+  # Oeffnet die Doku-Links der Assistenten-Anbieter im Browser. Ohne ihn
+  # stuenden dort Adressen zum Abtippen -- auf einem Tablet an der Wand
+  # ist das keine Anleitung, sondern eine Zumutung.
+  url_launcher: ^6.3.1
   geolocator: ^14.0.3
   # Anmeldung per Face ID / Fingerabdruck: local_auth macht die Pruefung auf
   # dem Geraet, flutter_secure_storage legt die Zugangsdaten in die Keychain
