@@ -147,9 +147,19 @@ jemand als Anzeige.
 
 Nächste freie Nummer nach `033_essensplan_besitzer.sql`.
 
-**Diese Migration ist nicht rein additiv** — sie legt eine Tabelle an
-*und* übernimmt Werte. Nach `OwnAPI/SKILLS.md` §1 ist das der Fall zum
-vorher fragen.
+**Sie teilt sich auf drei auf**, entlang der Reihenfolge in §11 — eine
+Migration, die Spalten für einen Endpunkt anlegt, den es erst in drei PRs
+gibt, wäre eine Migration ohne Leser:
+
+| | Inhalt | PR | additiv? |
+|---|---|---|---|
+| `034_benutzereinstellungen.sql` | `user_settings` + eine Zeile je Nutzer | 1 | **ja** |
+| `035_mcp_haushalt.sql` | `mcp_freigabe`, `created_by`, Übernahme des Altbestands | 5 | **nein** |
+| `036_mcp_protokoll.sql` | `mcp_zugriffe` | 8 | ja |
+
+**Nur die mittlere ist nicht rein additiv** — sie ordnet Bestandsdaten
+zu. Nach `OwnAPI/SKILLS.md` §1 ist das der Fall zum vorher fragen, und die
+Zählabfrage aus §3.2 gehört dorthin. 034 und 036 legen nur an.
 
 Vorher zu klären ist auch, ob `user_ai_settings` mitgelöscht wird:
 Migration 010 hat ihren Inhalt nach `ai_providers` umgezogen, und
@@ -438,6 +448,12 @@ vergeben, Passwörter zurücksetzen oder Nutzer löschen kann, darf nicht
 an einem Ende hängen, an dem ein fremdes Sprachmodell entscheidet, was
 aufgerufen wird. Dasselbe gilt für die Stimmprofile: die sind biometrisch.
 
+Die Liste der Bereiche steht seit PR 1 an **einer** Stelle im Code:
+`MCP_BEREICHE` und `MCP_HAUSHALT_BEREICHE` in
+`app/models/user_settings.py`. Wer einen Bereich ergänzt, ergänzt ihn
+dort — sonst pflegen Dienst, Schema und Tests je eine eigene Liste, und
+die dritte vergisst jemand.
+
 `finance:read_all`, `planner:read_all` und `shopping:read_all` werden im
 MCP **ignoriert**. Der Zugang gibt heraus, was *dir* gehört, nicht was du
 im Haushalt sehen dürftest — dafür ist der Haushalts-Ast da, und der
@@ -648,7 +664,7 @@ zusammensuchen.
 
 | # | Repo | Inhalt | Basis | Danach benutzbar? | Stand |
 |---|---|---|---|---|---|
-| 1 | OwnAPI | Migration 034, `user_settings`, Dienst, `/einstellungen` | `main` | — | ⬜ |
+| 1 | OwnAPI | Migration 034, `user_settings`, Dienst, `/einstellungen` | `main` | — | **#34** |
 | 2 | OwnApp | Einstellungen lesen/schreiben, die drei Werte vom Gerät holen | PR 1 | **ja** — Einstellungen liegen am Konto | ⬜ |
 | 3 | OwnAPI | MCP: Anmeldung, Baum, Lese-Werkzeuge der eigenen Bereiche | PR 1 | | ⬜ |
 | 4 | OwnApp | der Baum in den Einstellungen, Schlüssel anzeigen/erneuern | PR 2+3 | **ja** — der MCP läuft | ⬜ |
