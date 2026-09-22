@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:productivity/provider/permission_provider.dart';
 import 'package:productivity/provider/planner_provider.dart';
 import 'package:productivity/tabs/planner/views/week_view.dart';
 import 'package:productivity/tabs/planner/views/month_view.dart';
@@ -45,7 +46,8 @@ class _PlannerTabState extends State<PlannerTab>
       await provider.loadEntries();
       if (!mounted) return;
       provider.loadTypes();
-      provider.loadKalender(alle: true);
+      provider.loadKalender(
+          alle: context.read<PermissionProvider>().darfAlleKalender);
       _zielAnsteuern();
     });
   }

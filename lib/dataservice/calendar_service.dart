@@ -15,9 +15,15 @@ class CalendarService {
   /// Haushalts selbst. Fremde Kalender kommen nur hierher, weil jemand das
   /// entschieden hat — nie, weil jemand ein Recht trägt.
   ///
-  /// [alle] zeigt den ganzen Haushalt und ist Admin und Küchen-Tablet
-  /// vorbehalten — bewusst ein ausdrücklicher Schalter: das Tablet setzt
-  /// ihn, dasselbe Konto am Telefon nicht.
+  /// [alle] zeigt die Kalender aller Hausgenossen und verlangt
+  /// `planner:read_all` — bewusst ein ausdrücklicher Schalter: wer darf,
+  /// sieht nicht überall alles.
+  ///
+  /// **Das Küchen-Tablet gehört nicht mehr dazu.** `tablet:use` öffnete
+  /// diesen Weg lange mit; das hieß, dass der öffentlichste Bildschirm im
+  /// Haus fremde Kalender zeigte, ohne dass ihr Besitzer gefragt worden
+  /// wäre. Das Tablet nimmt jetzt den gewöhnlichen Weg — vier Quellen,
+  /// und jede davon hat jemand entschieden.
   static Future<List<Kalender>> laden({bool alle = false}) async {
     final r = await ApiClient.dio.get(
       _pfad,

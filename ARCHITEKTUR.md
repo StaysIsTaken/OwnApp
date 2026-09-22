@@ -399,6 +399,39 @@ Wer eine vierte Seite haushaltsfähig macht, ruft diese Funktionen auf,
 statt `haushalt != null` ein viertes Mal zu schreiben. Beim vierten Mal
 schreibt es sonst jemand anders.
 
+### Das Küchen-Tablet ist ein Mitglied wie jedes andere
+
+Zwei Rechte, die lange eines waren — und deshalb stehen sie jetzt als
+zwei Fragen nebeneinander in `PermissionProvider`:
+
+```dart
+darfTablet         // tablet:use       — die Oberfläche
+darfAlleKalender   // planner:read_all — fremde Kalender
+```
+
+`tablet:use` schaltete beides frei. Das hieß: der Bildschirm, der in der
+Küche steht und an dem jeder vorbeikommt, zeigte die Termine aller
+Hausgenossen, ohne dass ein Besitzer zugestimmt hätte. Warum das die
+falsche Hälfte war, steht in OwnAPI, §4 — hier zählt die Folge für die
+Oberfläche:
+
+* **Das Tablet verlangt `alle: true` nicht mehr.** `tablet_dashboard` und
+  `planner_tab` fragen `darfAlleKalender` und laden sonst die gewöhnliche
+  Sicht. Ein Tablet-Konto hat in aller Regel nur `tablet:use`.
+* **Der Rückfall in `loadKalender` bleibt trotzdem.** Eine Rolle kann
+  sich ändern, während die App offen ist; dann ist die 403 kein Fehler,
+  sondern die Antwort — und weniger Auswahl ist besser als keine.
+* **`sprach_provider` fragt weiter blind nach `alle: true`.** Dort wäre
+  der `PermissionProvider` eine neue Abhängigkeit quer durch die
+  Sprachsteuerung, nur um dieselbe Entscheidung ein zweites Mal zu
+  treffen. Der Rückfall erledigt es.
+
+Und der Satz, der in der Küche vor der Liste stehen muss: **wenn Lisas
+Kalender fehlt, fehlt nicht ein Recht, sondern Lisas Schalter.**
+`kalender_auswahl.dart` sagt das jetzt dort, wo die Frage entsteht — wer
+sie erst auf der Haushaltsseite beantwortet bekommt, sucht vorher eine
+Weile.
+
 ### Der Haushalt liegt in einem Provider
 
 `HaushaltProvider`, geladen im `AuthWrapper` zusammen mit den Rechten.
