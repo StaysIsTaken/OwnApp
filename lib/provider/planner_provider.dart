@@ -44,12 +44,19 @@ class PlannerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// [alle] holt auch die Kalender der übrigen Personen — das braucht das
-  /// Küchen-Tablet, damit „zeige nur Lisas Kalender an" etwas findet.
+  /// [alle] holt auch die Kalender der übrigen Hausgenossen. Dafür braucht
+  /// es `planner:read_all` — siehe `PermissionProvider.darfAlleKalender`.
   ///
-  /// Fehlt dafür das Recht, antwortet der Server mit 403. Dann lieber die
-  /// eigenen Kalender als gar keine: ein Filter, der nichts zur Auswahl hat,
-  /// ist schlimmer als einer mit weniger Auswahl.
+  /// **Das Küchen-Tablet braucht das nicht mehr.** `tablet:use` öffnete
+  /// lange die Kalender aller Hausgenossen mit; heute sieht das Tablet den
+  /// Haushaltskalender und was die Besitzer freigeben, und das steht schon
+  /// ohne [alle] in der Liste.
+  ///
+  /// Fehlt das Recht, antwortet der Server mit 403. Dann lieber die
+  /// sichtbaren Kalender als gar keine: ein Filter, der nichts zur Auswahl
+  /// hat, ist schlimmer als einer mit weniger Auswahl. Der Rückfall bleibt
+  /// als Netz — die Aufrufer fragen das Recht vorher ab, aber eine Rolle
+  /// kann sich ändern, während die App offen ist.
   Future<void> loadKalender({bool alle = false}) async {
     try {
       try {

@@ -127,7 +127,7 @@ class _KalenderAuswahlState extends State<_KalenderAuswahl> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final darfAlle = context.read<PermissionProvider>().darf('planner:read_all');
+    final darfAlle = context.read<PermissionProvider>().darfAlleKalender;
 
     return AlertDialog(
       title: const Text('Welche Kalender zeigt diese Seite?'),
@@ -179,6 +179,22 @@ class _KalenderAuswahlState extends State<_KalenderAuswahl> {
                 ),
               ),
               const Divider(height: 28),
+            ],
+            // Ohne das Sonderrecht ist die Liste unten das, was der
+            // Haushalt hergibt — und die Frage „warum fehlt Lisas
+            // Kalender?" stellt sich genau hier, vor dieser Liste. Wer sie
+            // erst auf der Haushaltsseite beantwortet bekommt, sucht
+            // vorher eine Weile.
+            if (!darfAlle) ...[
+              Text(
+                'Hier stehen der gemeinsame Kalender des Haushalts und die, '
+                'die euch jemand freigegeben hat. Wer einen eigenen Kalender '
+                'dazunehmen will, legt den Schalter in seiner eigenen App '
+                'um — unter „Haushalt".',
+                style:
+                    text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+              ),
+              const Divider(height: 24),
             ],
             if (darfAlle) ...[
               SwitchListTile(

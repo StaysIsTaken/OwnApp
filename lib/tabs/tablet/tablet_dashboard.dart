@@ -49,7 +49,12 @@ class _TabletDashboardState extends State<TabletDashboard> {
     // die Kuechenansicht verlaesst, und per Zuruf stellbar sein.
     _sprache = SprachProvider(_seiten, planer, context.read<TimerProvider>());
     _seiten.laden();
-    unawaited(planer.loadKalender(alle: true));
+    // `alle` nur, wenn die Rolle es hergibt. Ein Tablet-Konto hat in aller
+    // Regel `tablet:use` und sonst nichts Besonderes — und sieht damit den
+    // Haushaltskalender und was ihm freigegeben wurde. Blind `alle: true`
+    // zu setzen brächte nur eine 403, die der Provider wieder auffängt.
+    unawaited(planer.loadKalender(
+        alle: context.read<PermissionProvider>().darfAlleKalender));
     // Ein Küchendisplay, das nach zwei Minuten schwarz wird, ist keins.
     unawaited(_bildschirmWachHalten(true));
   }

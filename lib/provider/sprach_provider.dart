@@ -904,6 +904,13 @@ class SprachProvider extends ChangeNotifier {
 
     // Erst jetzt holen: solange niemand filtert, braucht das Tablet die
     // Liste nicht.
+    //
+    // `alle: true` steht hier weiterhin als Wunsch, nicht als Anspruch:
+    // ein Konto mit `planner:read_all` bekommt die Kalender aller
+    // Hausgenossen, jedes andere -- auch das Tablet -- faellt im Provider
+    // still auf die sichtbaren zurueck. Hier das Recht abzufragen hiesse,
+    // den PermissionProvider bis in die Sprachsteuerung zu reichen, nur
+    // um dieselbe Entscheidung ein zweites Mal zu treffen.
     if (_planer.kalender.isEmpty) {
       await _planer.loadKalender(alle: true);
     }

@@ -35,6 +35,20 @@ class PermissionProvider extends ChangeNotifier {
   List<String> get rollen => _rollen;
   bool get geladen => _geladen;
 
+  /// Rechte ohne Netz setzen — nur fuer Tests.
+  ///
+  /// Ohne diese Naht liessen sich die abgeleiteten Fragen ([darfTablet],
+  /// [darfAlleKalender] und die uebrigen) nur gegen einen laufenden Server
+  /// pruefen. Gerade bei den beiden ist das zu wenig: dass sie
+  /// auseinanderfallen, ist der ganze Punkt, und ein Tippfehler im
+  /// Rechtenamen faellt sonst erst am Geraet auf.
+  @visibleForTesting
+  void setzeFuerTest(Set<String> rechte) {
+    _rechte = rechte;
+    _geladen = true;
+    notifyListeners();
+  }
+
   /// Niemand hat irgendein Recht — der Nutzer ist angemeldet, aber noch
   /// nicht freigeschaltet. Die App zeigt dafür einen Hinweis statt lauter
   /// leerer Seiten.
@@ -48,7 +62,24 @@ class PermissionProvider extends ChangeNotifier {
 
   /// Darf die Tablet-Ansicht benutzen. Nur dann erscheint der Schalter auf
   /// der Startseite — ohne das Recht gäbe es dort nichts einzuschalten.
+  ///
+  /// Es schaltet die **Oberfläche** frei und sonst nichts. Welche Kalender
+  /// das Tablet zeigt, sagt [darfAlleKalender] — und das ist ein anderes
+  /// Recht. Lange war es dasselbe: `tablet:use` öffnete nebenbei die
+  /// Kalender aller Hausgenossen, ohne dass ein Besitzer zugestimmt hätte.
   bool get darfTablet => darf('tablet:use');
+
+  /// Darf die Kalender aller Hausgenossen sehen (`?alle=true`).
+  ///
+  /// Die eine Stelle, an der diese Regel in der App steht — sie fällt an
+  /// mehreren Ladepfaden an (Planer, Küchenansicht, Sprachfilter), und
+  /// beim dritten schreibt sie sonst jemand anders auf.
+  ///
+  /// **Das Küchen-Tablet gehört ausdrücklich nicht dazu.** Es sieht den
+  /// Haushaltskalender und was die Besitzer ihm freigeben — wie jedes
+  /// Mitglied. Wer ihm trotzdem alles zeigen will, gibt seiner Rolle
+  /// ausdrücklich `planner:read_all`.
+  bool get darfAlleKalender => darf('planner:read_all');
 
   /// Darf den Assistenten benutzen (`/assistant/chat` im Backend).
   bool get darfChat => darf('chat:use');
