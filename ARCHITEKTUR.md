@@ -277,6 +277,26 @@ Schulferien herein.
 Was die Regel nicht erfasst: einen von Hand als ganztägig *gemeinten*
 Termin. Dafür bräuchte es ein echtes Feld im Backend.
 
+### Ein Termin ohne Kalender ist sichtbar, bis jemand filtert
+
+`PlannerProvider.sichtbar` lässt einen Termin mit `calendarId == null`
+durch, solange kein Kalenderfilter gesetzt ist, und wirft ihn weg, sobald
+einer gesetzt ist. Beides ist richtig — „nur der Arbeitskalender" heißt
+nur der Arbeitskalender.
+
+**Zusammen ergibt das aber den unangenehmsten Fehler, den es gibt: einen,
+der wie Erfolg aussieht.** Ein Import, der den Kalender verlor, meldete
+„300 neu", zeigte 300 Termine und ließ sie beim ersten Klick auf einen
+Kalender wieder verschwinden. Mit einem Kalender merkt das niemand;
+einen Haushaltskalender hat dagegen niemand allein.
+
+Die Ursache lag im Backend und ist dort behoben (OwnAPI, §5 — „Was die
+Vorlage nicht trägt, tragen die Vorkommen nicht"). Hier bleibt die
+Lehre für die Oberfläche: wer eine Liste nach Kalendern filtert, soll
+sich nicht darauf verlassen, dass jeder Termin einen hat — und wer einen
+Zähler anzeigt, zählt damit womöglich etwas anderes als die Liste
+darunter.
+
 ---
 
 ## 3. Die Sprachsteuerung hat eine Reihenfolge, und die ist Absicht
