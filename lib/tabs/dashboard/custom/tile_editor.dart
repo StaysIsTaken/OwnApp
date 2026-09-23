@@ -8,6 +8,16 @@ import 'package:productivity/tabs/dashboard/custom/tile_views.dart';
 import 'package:productivity/dataclasses/einkauf.dart';
 import 'package:productivity/dataservice/einkauf_service.dart';
 
+/// Woher die Einkaufslisten kommen — nur fuer Tests austauschbar.
+///
+/// Ohne diese Naht liesse sich nicht pruefen, was hier der eigentliche
+/// Fehler war: dass der Lader mehr als einmal lief. Genau das sieht man
+/// von aussen nicht, und auf dem Geraet merkt man es erst, wenn der
+/// Bildschirm steht.
+@visibleForTesting
+Future<List<Einkaufsliste>> Function() einkaufslistenLader =
+    EinkaufService.listen;
+
 /// Anlegen und Bearbeiten einer eigenen Kachel.
 ///
 /// Ablauf wie bisher: Quelle wählen → Darstellung wählen (nur passende zur
@@ -78,6 +88,30 @@ class _TileEditorState extends State<_TileEditor> {
   int _breite = CustomTile.automatisch;
   int _hoehe = CustomTile.automatisch;
 
+  /// Die Einkaufslisten — **einmal** geholt und dann behalten.
+  ///
+  /// HIER SASS DER FEHLER, UND ER SAH AUS WIE EIN WEISSER BILDSCHIRM.
+  /// Vorher stand `EinkaufService.listen()` direkt am `future:` des
+  /// FutureBuilder. Das ist die Falle, vor der auch Flutters eigene
+  /// Dokumentation warnt: `build()` erzeugt dabei bei JEDEM Aufruf eine
+  /// neue Future. Die Future wird fertig → der FutureBuilder baut neu →
+  /// `build()` erzeugt die naechste Future → sie wird fertig → …
+  ///
+  /// Das hoert nie auf. Die Kachelauswahl fragte den Server in
+  /// Dauerschleife, der Bildbau kam nicht mehr zum Stillstand, und was man
+  /// sah, war eine leere weisse Flaeche.
+  ///
+  /// Aufgefallen ist es nur bei dieser einen Quelle, weil
+  /// `ParamArt.einkaufsliste` nur an ihr haengt — alle anderen
+  /// Einstellungen sind Zahlen und Texte und brauchen keinen Server.
+  ///
+  /// Spaet und nur bei Bedarf: wer eine andere Quelle waehlt, soll keine
+  /// Einkaufslisten laden.
+  Future<List<Einkaufsliste>>? _listen;
+
+  Future<List<Einkaufsliste>> get _einkaufslisten =>
+      _listen ??= einkaufslistenLader();
+
   @override
   void initState() {
     super.initState();
@@ -88,11 +122,11 @@ class _TileEditorState extends State<_TileEditor> {
       _darstellung = TileViews.byKey(v.view);
       for (final p in _quelle?.params ?? const <TileParam>[]) {
         final gespeichert = v.params[p.key];
-        _werte[p.key] = switch (p.art) {
-          ParamArt.zahl =>
-            gespeichert is num ? gespeichert.toInt() : p.standard,
-          _ => gespeichert?.toString() ?? '',
-        };
+        _werte[p.key] = istZahlenart(p.art)
+            ? (gespeichert is num
+                ? gespeichert.toInt()
+                : int.tryParse(gespeichert?.toString() ?? '') ?? p.standard)
+            : gespeichert?.toString() ?? '';
       }
       _filter = List<FilterRule>.from(v.filters);
       _breite = v.breite;
@@ -107,6 +141,18 @@ class _TileEditorState extends State<_TileEditor> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  /// Der Zahlenwert einer Einstellung — auch wenn dort ein Text steht.
+  ///
+  /// Nicht `as num?`: ein gespeicherter Wert kann aus einer aelteren
+  /// Fassung als Zeichenkette kommen, und ein harter Cast wirft dann beim
+  /// Bauen. Ein Kachel-Editor, der an einer alten Einstellung
+  /// auseinanderfliegt, nimmt die ganze Seite mit.
+  int _zahlwert(TileParam p) {
+    final roh = _werte[p.key];
+    if (roh is num) return roh.toInt();
+    return int.tryParse(roh?.toString() ?? '') ?? p.standard;
   }
 
   /// Ein Feld je Text-Einstellung, ueber Neubauten hinweg dasselbe – sonst
@@ -131,7 +177,10 @@ class _TileEditorState extends State<_TileEditor> {
       }
       _textfelder.clear();
       for (final p in s.params) {
-        _werte[p.key] = p.art == ParamArt.zahl ? p.standard : '';
+        // Zahlenarten starten als Zahl. Stand hier frueher fuer alles
+        // ausser `zahl` ein leerer Text, und die Einkaufsliste las ihn
+        // danach mit `as num?` zurueck -- siehe [istZahlenart].
+        _werte[p.key] = istZahlenart(p.art) ? p.standard : '';
       }
       // Andere Quelle heisst andere Felder – alte Bedingungen passen nicht mehr.
       _filter = [];
@@ -473,7 +522,7 @@ class _TileEditorState extends State<_TileEditor> {
   Widget _zahlZeile(TileParam p) {
     final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
-    final wert = (_werte[p.key] as num?)?.toInt() ?? p.standard;
+    final wert = _zahlwert(p);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -514,10 +563,12 @@ class _TileEditorState extends State<_TileEditor> {
   /// Holt die Listen vom Server – niemand kennt die Kennung seiner Liste
   /// auswendig, und eine Zahl einzutippen wäre hier absurd.
   Widget _listenwahl(TileParam p) {
-    final gewaehlt = (_werte[p.key] as num?)?.toInt() ?? 0;
+    final gewaehlt = _zahlwert(p);
 
     return FutureBuilder<List<Einkaufsliste>>(
-      future: EinkaufService.listen(),
+      // Aus dem Zustand, NICHT hier erzeugt — sonst beginnt die
+      // Endlosschleife von vorn. Siehe [_listen].
+      future: _einkaufslisten,
       builder: (context, schnappschuss) {
         if (schnappschuss.connectionState != ConnectionState.done) {
           return const Padding(
@@ -525,6 +576,21 @@ class _TileEditorState extends State<_TileEditor> {
             child: Center(child: CircularProgressIndicator()),
           );
         }
+
+        // „Konnte nicht geladen werden" und „es gibt keine" sind zwei
+        // verschiedene Saetze, und sie fuehren zu verschiedenem Tun:
+        // beim einen legt man eine Liste an, beim anderen sieht man nach
+        // dem Server oder dem fehlenden Recht. Vorher stand bei beidem
+        // dasselbe da, weil ein Fehler nur `data == null` hinterlaesst.
+        if (schnappschuss.hasError) {
+          return Text(
+            'Die Einkaufslisten konnten nicht geladen werden. '
+            'Ohne sie lässt sich hier keine auswählen — Server erreichbar? '
+            'Fehlt dir „shopping:read"?',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          );
+        }
+
         final listen = schnappschuss.data ?? const <Einkaufsliste>[];
         if (listen.isEmpty) {
           return Text(
