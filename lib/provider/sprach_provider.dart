@@ -124,6 +124,29 @@ class SprachProvider extends ChangeNotifier {
   // _schwelleStimme womöglich höher.
   static const double _schwelleStimme = -32.0;
 
+  /// Wie weit ueber dem Grundpegel des Raumes etwas als Stimme gilt.
+  ///
+  /// **Warum ueberhaupt relativ:** `_schwelleStimme` ist eine feste Zahl,
+  /// und feste Zahlen passen zu genau einem Mikrofon in genau einem Raum.
+  /// Auf dem Tab A8 lag die Stimme darunter -- Jarvis nahm auf, hoerte
+  /// nichts Lautes, und meldete nach sechs Sekunden „Nichts gehoert",
+  /// obwohl gesprochen wurde.
+  ///
+  /// Der Grundpegel ist das leiseste, was seit Beginn der Aufnahme
+  /// gemessen wurde: in einer stillen Kueche tief, neben der Dunstabzugs-
+  /// haube hoch. Zehn Dezibel darueber ist Sprache -- unabhaengig davon,
+  /// wie laut das Mikrofon eines Geraetes insgesamt anzeigt.
+  static const double _abstandUeberGrund = 10.0;
+
+  /// Grenzen fuer die mitwachsende Schwelle.
+  ///
+  /// Nach unten, damit ein kaputtes oder stummgeschaltetes Mikrofon nicht
+  /// jedes Rauschen zur Stimme erklaert. Nach oben, damit eine laute
+  /// Kueche die Schwelle nicht so weit hebt, dass gar nichts mehr
+  /// durchkommt.
+  static const double _schwelleMin = -55.0;
+  static const double _schwelleMax = -28.0;
+
   /// So viele laute Messungen hintereinander gelten als Sprache. Der
   /// Pegelstrom kommt alle 200 ms, zwei sind also gut 400 ms. Ein einzelner
   /// Ausschlag -- ein Pling, ein Türklappen -- reicht bewusst nicht.
@@ -192,10 +215,46 @@ class SprachProvider extends ChangeNotifier {
   final List<AssistantPendingAction> _offen = [];
 
   StreamSubscription<Amplitude>? _pegelAbo;
+
+  /// Die Notbremse: beendet die Aufnahme nach [_maxGesamt], komme was wolle.
+  ///
+  /// **Ohne sie gibt es keine Obergrenze.** `_maxGesamt` wurde nur in
+  /// [_pegelGesehen] geprueft — also nur, wenn der Pegelstrom ueberhaupt
+  /// Werte liefert. Bleibt er stumm, weil `onAmplitudeChanged` auf diesem
+  /// Geraet nichts schickt oder der Strom stirbt, lief die Aufnahme
+  /// **endlos** weiter: Jarvis hoerte zu und hoerte zu und sagte nie etwas.
+  ///
+  /// Der Kommentar an der Fehlerbehandlung des Pegelstroms versprach genau
+  /// das Gegenteil („endet spaetestens ueber _maxGesamt"). Das Versprechen
+  /// gab es, die Uhr dazu nicht. Jetzt schon.
+  ///
+  /// Eine Uhr an der Wand statt einer Rechnung im Datenstrom: sie laeuft
+  /// auch dann, wenn vom Mikrofon nichts mehr kommt.
+  Timer? _notbremse;
+
   DateTime? _begonnen;
   DateTime? _letzteStimme;
   bool _hatGesprochen = false;
   int _lauteHintereinander = 0;
+
+  /// Das Leiseste seit Beginn dieser Aufnahme — der Grundpegel des Raumes.
+  ///
+  /// Laeuft nur nach unten: er soll sich auf die Stille einpendeln, nicht
+  /// auf den Satz, der gerade gesprochen wird.
+  double? _grundpegel;
+
+  /// Das Lauteste — nur fuer die eine Zeile im Log am Ende.
+  double? _hoechstpegel;
+
+  /// Dasselbe fuer `Amplitude.max`, und die ersten Messwerte im Klartext.
+  ///
+  /// Nur zur Untersuchung: auf dem Tab A8 lieferte `current` eine
+  /// Konstante (-2.8 dBFS ueber 15 Sekunden). Bevor die Pegelmessung
+  /// selbst gebaut wird, muss dastehen, ob sich irgendein Feld ueberhaupt
+  /// bewegt -- sonst baut man auf Sand weiter.
+  double? _maxMin;
+  double? _maxMax;
+  final List<String> _probe = [];
   bool _beendet = false;
 
   /// Wie oft in diesem Zuruf schon zurückgefragt wurde.
@@ -308,13 +367,33 @@ class SprachProvider extends ChangeNotifier {
 
     _begonnen = DateTime.now();
     _letzteStimme = _begonnen;
+    _grundpegel = null;
+    _hoechstpegel = null;
+    _maxMin = null;
+    _maxMax = null;
+    _probe.clear();
+    _lauteHintereinander = 0;
+    _hatGesprochen = false;
     _setze(SprachZustand.hoert);
 
+    // Zuerst die Notbremse, dann der Pegelstrom: gibt es den Strom gar
+    // nicht, ist die Uhr schon gestellt.
+    _notbremse?.cancel();
+    _notbremse = Timer(_maxGesamt, () {
+      if (_beendet) return;
+      // Nicht verwerfen, sondern auswerten: gesagt wurde ja etwas, nur
+      // das Ende hat niemand erkannt. Wegwerfen hiesse, den Satz noch
+      // einmal zu verlangen.
+      unawaited(_beenden());
+    });
+
+    debugPrint('[Jarvis] Pegel-Abo wird gesetzt');
     _pegelAbo = TranscriptionService.pegel().listen(
       _pegelGesehen,
       onError: (_) {
-        // Ohne Pegelwerte gibt es keine Stille-Erkennung mehr. Die Aufnahme
-        // läuft weiter und endet per Hand oder spätestens über _maxGesamt.
+        // Ohne Pegelwerte gibt es keine Stille-Erkennung mehr. Die
+        // Aufnahme endet dann von Hand oder ueber [_notbremse] — und die
+        // ist eine echte Uhr, keine Rechnung in diesem Strom.
       },
     );
   }
@@ -341,7 +420,32 @@ class SprachProvider extends ChangeNotifier {
     final seitStart = jetzt.difference(_begonnen!);
 
     if (seitStart >= _blindzeit) {
-      if (amp.current > _schwelleStimme) {
+      // Der Grundpegel wandert nur nach unten. Die Blindzeit ist bewusst
+      // ausgenommen: dort laeuft das Bestaetigungs-Pling, und danach
+      // waere der „Grundpegel" des Raumes der eines Klingeltons.
+      _grundpegel = _grundpegel == null
+          ? amp.current
+          : (amp.current < _grundpegel! ? amp.current : _grundpegel!);
+      _hoechstpegel = _hoechstpegel == null
+          ? amp.current
+          : (amp.current > _hoechstpegel! ? amp.current : _hoechstpegel!);
+      _maxMin = _maxMin == null
+          ? amp.max
+          : (amp.max < _maxMin! ? amp.max : _maxMin!);
+      _maxMax = _maxMax == null
+          ? amp.max
+          : (amp.max > _maxMax! ? amp.max : _maxMax!);
+      if (_probe.length < 25) {
+        _probe.add('${amp.current.toStringAsFixed(1)}/'
+            '${amp.max.toStringAsFixed(1)}');
+      }
+
+      // Zwei Wege, und es genuegt einer: die feste Schwelle wie bisher,
+      // oder deutlich ueber dem Grundpegel dieses Raumes. So wird die
+      // Erkennung nie unempfindlicher als vorher, nur zusaetzlich
+      // empfindlich dort, wo das Mikrofon insgesamt leise anzeigt.
+      if (amp.current > _schwelleStimme ||
+          amp.current > stimmschwelle(_grundpegel!)) {
         _lauteHintereinander++;
         _letzteStimme = jetzt;
       } else {
@@ -369,6 +473,15 @@ class SprachProvider extends ChangeNotifier {
         _beenden();
     }
   }
+
+  /// Ab welchem Pegel etwas als Stimme gilt, gemessen am Raum.
+  ///
+  /// Herausgezogen wie [entscheide] und aus demselben Grund: eine Zahl,
+  /// die am Mikrofon haengt, laesst sich sonst nur auf dem Geraet pruefen
+  /// — und genau dort sass der Fehler.
+  @visibleForTesting
+  static double stimmschwelle(double grundpegel) =>
+      (grundpegel + _abstandUeberGrund).clamp(_schwelleMin, _schwelleMax);
 
   /// Wann eine laufende Aufnahme endet — als reine Rechnung, ohne Mikrofon
   /// und ohne Uhr.
@@ -464,6 +577,8 @@ class SprachProvider extends ChangeNotifier {
 
   /// Alles abbrechen und verwerfen.
   Future<void> abbrechen() async {
+    _notbremse?.cancel();
+    _notbremse = null;
     await _pegelAbo?.cancel();
     _pegelAbo = null;
     _beendet = true;
@@ -476,8 +591,24 @@ class SprachProvider extends ChangeNotifier {
   Future<void> _beenden({bool nichtsGehoert = false}) async {
     if (_beendet) return;
     _beendet = true;
+    _notbremse?.cancel();
+    _notbremse = null;
     await _pegelAbo?.cancel();
     _pegelAbo = null;
+
+    // EINE Zeile je Aufnahme, und sie steht auch in der Freigabe-Fassung.
+    // Ohne sie ist „er hoert mich nicht" auf einem Geraet an der Wand
+    // nicht zu untersuchen: die Pegel haengen am Mikrofon und am Raum,
+    // und beides hat man beim Entwickeln nicht vor sich.
+    debugPrint('[Jarvis] Aufnahme beendet: '
+        'Dauer ${DateTime.now().difference(_begonnen ?? DateTime.now()).inMilliseconds} ms, '
+        'Grundpegel ${_grundpegel?.toStringAsFixed(1) ?? "-"} dBFS, '
+        'Hoechstpegel ${_hoechstpegel?.toStringAsFixed(1) ?? "-"} dBFS, '
+        'Schwelle ${_grundpegel == null ? "-" : stimmschwelle(_grundpegel!).toStringAsFixed(1)} dBFS, '
+        'gesprochen: $_hatGesprochen, nichtsGehoert: $nichtsGehoert');
+    debugPrint('[Jarvis] max-Feld: ${_maxMin?.toStringAsFixed(1) ?? "-"} '
+        'bis ${_maxMax?.toStringAsFixed(1) ?? "-"} dBFS');
+    debugPrint('[Jarvis] Messwerte (current/max): ${_probe.join(" ")}');
 
     if (nichtsGehoert) {
       await TranscriptionService.cancel();
@@ -1085,6 +1216,7 @@ class SprachProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _notbremse?.cancel();
     _pegelAbo?.cancel();
     TtsService.stopp();
     // Ganz freigeben, nicht nur anhalten: wer die Küchenansicht verlässt,
