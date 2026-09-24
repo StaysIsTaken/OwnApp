@@ -172,6 +172,22 @@ class TileAktion {
 /// werden. Die Oberfläche entscheidet daran, welches Feld sie zeigt.
 enum ParamArt { zahl, text, mehrzeilig, datum, einkaufsliste }
 
+/// Welche Arten einen **Zahlenwert** in `params` ablegen.
+///
+/// Der Unterschied steht hier und nicht verstreut in `if`-Zweigen, weil
+/// genau daran etwas kaputtging: `einkaufsliste` sieht wie eine eigene
+/// Art aus (sie braucht eine Auswahl vom Server), legt aber eine **Zahl**
+/// ab — die Kennung der Liste. Der Editor setzte sie trotzdem als leeren
+/// Text vor und las sie danach mit `as num?` zurueck. Das wirft
+///
+///     type 'String' is not a subtype of type 'num?' in type cast
+///
+/// bei JEDEM Neubau, und in einer Freigabe-Fassung heisst das: weisser
+/// Bildschirm. Wer eine neue Art ergaenzt, traegt sie hier ein, statt die
+/// Frage ein drittes Mal zu beantworten.
+bool istZahlenart(ParamArt art) =>
+    art == ParamArt.zahl || art == ParamArt.einkaufsliste;
+
 /// Ein einstellbarer Wert einer Quelle (z.B. „letzte N Tage").
 class TileParam {
   final String key;
@@ -354,4 +370,34 @@ class DashboardData {
     this.geplant = const [],
     this.finanzkategorien = const {},
   });
+
+  /// Einzelne Felder tauschen, der Rest bleibt.
+  ///
+  /// Fuer das gezielte Nachladen: aendert der Nutzer die Kalenderauswahl,
+  /// sind nur Termine und Kalenderfarben betroffen. Alles andere noch
+  /// einmal vom Server zu holen, dauert auf einem Tablet spuerbar -- und
+  /// solange stuende die alte Auswahl da, als haette der Tipp nicht
+  /// gewirkt.
+  DashboardData copyWith({
+    List<dynamic>? plannerEntries,
+    Map<int, String>? kalenderFarben,
+    Map<int, List<dynamic>>? einkauf,
+  }) =>
+      DashboardData(
+        tasks: tasks,
+        timeEntries: timeEntries,
+        plannerEntries: plannerEntries ?? this.plannerEntries,
+        pantryItems: pantryItems,
+        notes: notes,
+        journalEntries: journalEntries,
+        sentimentStats: sentimentStats,
+        ingredientMap: ingredientMap,
+        nachrichten: nachrichten,
+        witz: witz,
+        kalenderFarben: kalenderFarben ?? this.kalenderFarben,
+        einkauf: einkauf ?? this.einkauf,
+        buchungen: buchungen,
+        geplant: geplant,
+        finanzkategorien: finanzkategorien,
+      );
 }

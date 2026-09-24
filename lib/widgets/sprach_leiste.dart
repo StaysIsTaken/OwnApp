@@ -10,6 +10,16 @@ import 'package:productivity/provider/sprach_provider.dart';
 /// Der Zustand muss sichtbar sein. Ohne die Rückmeldung redet man ins Leere
 /// und weiß nicht, ob das Gerät zugehört hat — das ist der Unterschied
 /// zwischen „funktioniert" und „fühlt sich kaputt an".
+///
+/// **Und das gilt auch dafür, dass es sie gar nicht gibt.** Ohne die
+/// Rechte verschwand hier alles spurlos: kein Knopf, keine Karte, kein
+/// Satz. Wer dann in die Küche ruft, bekommt keine Antwort und hat
+/// nichts, woran er sähe, warum — das Gerät wirkt kaputt, obwohl es
+/// genau das tut, was seine Rolle erlaubt.
+///
+/// Deshalb bleibt ein stiller Hinweis stehen. Er nennt das fehlende
+/// Recht, denn das ist die einzige Angabe, mit der ein Administrator
+/// etwas anfangen kann.
 class SprachLeiste extends StatelessWidget {
   const SprachLeiste({super.key});
 
@@ -18,8 +28,14 @@ class SprachLeiste extends StatelessWidget {
     // Zurufen braucht beides: erkennen lassen (`ai:use`) und die erkannte
     // Bitte ausführen (`chat:use`). Fehlt eines, wäre der Knopf ein Weg in
     // eine Fehlermeldung — dann zeigt die Küchenansicht eben nur.
-    if (!context.watch<PermissionProvider>().darfSprache) {
-      return const SizedBox.shrink();
+    final rechte = context.watch<PermissionProvider>();
+    if (!rechte.darfSprache) {
+      return _OhneRecht(
+        fehlt: [
+          if (!rechte.darfKi) 'ai:use',
+          if (!rechte.darfChat) 'chat:use',
+        ],
+      );
     }
 
     final sprache = context.watch<SprachProvider>();
@@ -196,6 +212,53 @@ class _Karte extends StatelessWidget {
                     ],
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Was statt der Sprachbedienung dasteht, wenn ein Recht fehlt.
+///
+/// Klein und am Rand, nicht als Fehlermeldung: an der Küchenwand hängt
+/// das Gerät den ganzen Tag, und eine rote Kachel, die nie weggeht, liest
+/// nach dem zweiten Tag niemand mehr. Es genügt, dass die Frage „warum
+/// antwortet Jarvis nicht" eine Antwort findet, wenn jemand sie stellt.
+class _OhneRecht extends StatelessWidget {
+  final List<String> fehlt;
+
+  const _OhneRecht({required this.fehlt});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Positioned(
+      right: 20,
+      bottom: 20,
+      child: Tooltip(
+        message: 'Diesem Konto fehlt ${fehlt.join(" und ")}. '
+            'Ein Administrator kann es der Rolle geben.',
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.mic_off_outlined,
+                  size: 20, color: colors.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Text(
+                'Zuruf aus — ${fehlt.join(" und ")} fehlt',
+                style: TextStyle(
+                    fontSize: 13, color: colors.onSurfaceVariant),
+              ),
             ],
           ),
         ),

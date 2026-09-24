@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:record/record.dart';
 import 'package:cross_file/cross_file.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'package:productivity/dataservice/wav.dart';
 import 'package:productivity/dataservice/api_client.dart';
@@ -18,6 +20,50 @@ class TranscriptionService {
   static final AudioRecorder _recorder = AudioRecorder();
   static const String _path = '/transcribe';
 
+  // ── Die laufende Aufnahme, nativ ────────────────────────────────────
+  // Nativ laeuft die Aufnahme seit dem Pegel-Problem ueber `startStream`:
+  // die Abtastwerte kommen stueckweise hierher, statt dass das Paket sie
+  // in eine Datei schreibt. Der Grund steht bei [pegel].
+
+  static StreamSubscription<Uint8List>? _rohAbo;
+
+  /// Nur zur Untersuchung: wie viele Stuecke kamen, wie viele Bytes.
+  static int _stuecke = 0;
+  static final BytesBuilder _puffer = BytesBuilder();
+  static StreamController<Amplitude>? _pegelCtrl;
+
+  /// Lautstaerke eines Stuecks Abtastwerte, in dBFS.
+  ///
+  /// Effektivwert ueber die 16-Bit-Werte, nicht der Spitzenwert: ein
+  /// einzelnes Knacken hebt den Spitzenwert auf Vollausschlag, und die
+  /// Stille-Erkennung haette daraufhin einen Satz gehoert, wo eine Tuer
+  /// zufiel.
+  @visibleForTesting
+  static double pegelAus(Uint8List stueck) {
+    // ByteData statt `buffer.asInt16List`: die Stuecke aus dem Strom sind
+    // Ausschnitte eines groesseren Puffers und beginnen an beliebiger
+    // Byte-Position. `asInt16List` verlangt dort eine GERADE Position und
+    // wirft sonst -- auf dem Geraet kam Position 5, und die Aufnahme
+    // stuerzte bei jedem Stueck ab. `getInt16` kennt diese Einschraenkung
+    // nicht.
+    final sicht = ByteData.view(
+        stueck.buffer, stueck.offsetInBytes, stueck.lengthInBytes);
+    final anzahl = sicht.lengthInBytes ~/ 2;
+    if (anzahl == 0) return -160.0;
+
+    var summe = 0.0;
+    for (var i = 0; i < anzahl; i++) {
+      final w = sicht.getInt16(i * 2, Endian.little);
+      summe += w * w;
+    }
+    final effektiv = math.sqrt(summe / anzahl);
+    if (effektiv <= 0) return -160.0;
+    // 32768 ist Vollausschlag bei 16 Bit. Untergrenze -160, damit aus
+    // echter Stille kein negativ Unendlich wird.
+    final db = 20 * (math.log(effektiv / 32768.0) / math.ln10);
+    return db.isFinite ? (db < -160.0 ? -160.0 : db) : -160.0;
+  }
+
   static Future<bool> hasPermission() => _recorder.hasPermission();
 
   static Future<bool> isRecording() => _recorder.isRecording();
@@ -25,9 +71,34 @@ class TranscriptionService {
   /// Lautstärkeverlauf der laufenden Aufnahme, in dBFS (0 = Vollausschlag,
   /// Stille liegt weit im Negativen). Damit erkennt der Sprach-Ablauf, wann
   /// der Satz zu Ende ist — beim Zurufen tippt niemand auf „Stopp".
+  ///
+  /// **Selbst gerechnet, nicht vom Paket geholt.** `getAmplitude()` liefert
+  /// auf dem Küchen-Tablet (Galaxy Tab A8, `record_android` 1.5.2) eine
+  /// **Konstante**: fünfundzwanzig Messungen hintereinander exakt derselbe
+  /// Wert, `current` wie `max`. Zwischen zwei Aufnahmen ändert er sich —
+  /// laut beim Schreien, leise beim Sprechen — aber **innerhalb** einer
+  /// Aufnahme steht er still.
+  ///
+  /// Damit kann die Stille-Erkennung nicht arbeiten: entweder gilt
+  /// durchgehend „spricht" und die Aufnahme läuft bis zur Notbremse, oder
+  /// durchgehend „still" und sie endet mit „Nichts gehört". Etwas
+  /// dazwischen gibt es nicht. Beides haben wir auf dem Gerät gesehen.
+  ///
+  /// Der Ausweg führt an dem Feld vorbei: `startStream` liefert die
+  /// Abtastwerte selbst, und aus denen ist der Effektivwert eine
+  /// Schulrechnung (siehe [pegelAus]). Nebenbei fällt damit das Schreiben
+  /// in eine Datei weg — die WAV-Datei baut [Wav.ausPcm16] am Ende aus
+  /// demselben Puffer.
+  ///
+  /// Der früher hier notierte Einwand gegen `pcm16bits` gilt weiterhin,
+  /// trifft aber nicht mehr zu: er betraf die **Dateiendung**, aus der
+  /// iOS das Containerformat ableitet. Ohne Datei gibt es keine Endung.
   static Stream<Amplitude> pegel(
-          [Duration intervall = const Duration(milliseconds: 200)]) =>
-      _recorder.onAmplitudeChanged(intervall);
+      [Duration intervall = const Duration(milliseconds: 200)]) {
+    // Das Intervall bestimmt jetzt das Aufnahmegerät über die Größe der
+    // Stücke; der Parameter bleibt für die Aufrufstelle stehen.
+    return _pegelCtrl?.stream ?? const Stream<Amplitude>.empty();
+  }
 
   /// Die Abtastwerte der letzten Aufnahme — roh, 16 bit, 16 kHz, ein Kanal.
   ///
@@ -53,26 +124,84 @@ class TranscriptionService {
   /// Der Preis ist die Größe: 32 kB je Sekunde statt gut 2 kB. Bei
   /// fünfzehn Sekunden über das eigene WLAN fällt das nicht ins Gewicht.
   static Future<void> start() async {
-    // Web kann kein WAV in eine Datei schreiben -> Opus/WebM wie bisher.
-    final encoder = kIsWeb ? AudioEncoder.opus : AudioEncoder.wav;
-
-    String path = '';
-    if (!kIsWeb) {
-      final dir = await getTemporaryDirectory();
-      final stamp = DateTime.now().millisecondsSinceEpoch;
-      path = '${dir.path}/rec_$stamp.wav';
-    }
     letzteAufnahme = null;
-    await _recorder.start(
-      RecordConfig(
-        encoder: encoder,
+    await _stromAufraeumen();
+
+    if (kIsWeb) {
+      // Web kann keine Abtastwerte streamen und auch kein WAV in eine
+      // Datei schreiben -> Opus/WebM in eine Blob-URL, wie bisher. Dort
+      // gibt es folglich auch keine Pegel und keine Stille-Erkennung;
+      // die Kuechenansicht laeuft ohnehin nicht im Browser.
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.opus,
+          sampleRate: Wav.rate,
+          numChannels: 1,
+        ),
+        path: '',
+      );
+      return;
+    }
+
+    _puffer.clear();
+    _stuecke = 0;
+    _pegelCtrl = StreamController<Amplitude>.broadcast();
+
+    final strom = await _recorder.startStream(
+      const RecordConfig(
+        // Rohe Abtastwerte statt einer WAV-Datei. Die Datei baut
+        // [Wav.ausPcm16] am Ende selbst -- siehe [pegel].
+        encoder: AudioEncoder.pcm16bits,
         // Beide Modelle -- Weckwort und Sprecher -- erwarten genau das.
         // Eine andere Rate liefert bei beiden Unsinn, keinen Fehler.
         sampleRate: Wav.rate,
         numChannels: 1,
       ),
-      path: path,
     );
+
+    debugPrint('[Jarvis] startStream steht, warte auf Stuecke');
+
+    _rohAbo = strom.listen(
+      (stueck) {
+        _stuecke++;
+        if (_stuecke <= 3) {
+          debugPrint('[Jarvis] Stueck $_stuecke: ${stueck.lengthInBytes} Bytes, '
+              'Versatz ${stueck.offsetInBytes}');
+        }
+        _puffer.add(stueck);
+        final db = pegelAus(stueck);
+        if (!(_pegelCtrl?.isClosed ?? true)) {
+          _pegelCtrl!.add(Amplitude(current: db, max: db));
+        }
+      },
+      // Reisst der Strom, ist die Aufnahme zu Ende. Der Sprach-Ablauf
+      // merkt es an der ausbleibenden Stille-Erkennung und faellt auf
+      // seine Notbremse zurueck.
+      onError: (e) => debugPrint('[Jarvis] Strom-Fehler: $e'),
+      onDone: () => debugPrint('[Jarvis] Strom zu Ende nach $_stuecke Stuecken'),
+      cancelOnError: false,
+    );
+  }
+
+  /// Abo und Pegelkanal der letzten Aufnahme schliessen.
+  static Future<void> _stromAufraeumen() async {
+    await _rohAbo?.cancel();
+    _rohAbo = null;
+    final ctrl = _pegelCtrl;
+    _pegelCtrl = null;
+    await ctrl?.close();
+  }
+
+  /// Stoppt die Aufnahme und gibt die gesammelten Abtastwerte zurueck.
+  ///
+  /// Null auf Web und wenn nichts lief.
+  static Future<Uint8List?> _stoppUndPcm() async {
+    debugPrint('[Jarvis] Stopp: $_stuecke Stuecke, '
+        '${_puffer.length} Bytes gesammelt');
+    await _recorder.stop();
+    await _stromAufraeumen();
+    final pcm = _puffer.takeBytes();
+    return pcm.isEmpty ? null : pcm;
   }
 
   /// Stoppt die Aufnahme und gibt nur die Abtastwerte zurück.
@@ -84,11 +213,13 @@ class TranscriptionService {
   ///
   /// Null auf Web (dort wird in Opus aufgenommen) und wenn nichts lief.
   static Future<Uint8List?> stopNurAudio() async {
-    final result = await _recorder.stop();
-    if (result == null || kIsWeb) return null;
-    final datei = await XFile(result).readAsBytes();
-    final pcm = Wav.pcmAus(datei);
-    letzteAufnahme = pcm.isEmpty ? null : pcm;
+    if (kIsWeb) {
+      await _recorder.stop();
+      return null;
+    }
+    // Die Abtastwerte liegen schon roh vor -- kein Umweg mehr ueber eine
+    // Datei und `Wav.pcmAus`.
+    letzteAufnahme = await _stoppUndPcm();
     return letzteAufnahme;
   }
 
@@ -108,27 +239,27 @@ class TranscriptionService {
     String? model,
     void Function(String segment)? onSegment,
   }) async {
-    final result = await _recorder.stop();
-    if (result == null) {
-      throw Exception('Keine Aufnahme vorhanden.');
-    }
-
-    final roh = await XFile(result).readAsBytes();
-    if (roh.isEmpty) {
-      throw Exception('Leere Aufnahme.');
-    }
-
-    // Nativ liegt hier fertiges WAV: das geht unverändert zum Server, und
-    // die Stimmerkennung hebt sich die Abtastwerte daraus ab. Auf Web
-    // bleibt alles wie bisher.
-    final Uint8List bytes = roh;
+    final Uint8List bytes;
     final String filename;
+
     if (kIsWeb) {
+      final result = await _recorder.stop();
+      if (result == null) throw Exception('Keine Aufnahme vorhanden.');
+      bytes = await XFile(result).readAsBytes();
       filename = 'audio.webm';
     } else {
+      // Aus den gesammelten Abtastwerten wird hier die WAV-Datei --
+      // dieselben Werte, die auch die Stimmerkennung bekommt. Zweimal
+      // aufnehmen geht nicht, das Mikrofon gehoert immer nur einem.
+      final pcm = await _stoppUndPcm();
+      if (pcm == null) throw Exception('Keine Aufnahme vorhanden.');
+      letzteAufnahme = pcm;
+      bytes = Wav.ausPcm16(pcm);
       filename = 'audio.wav';
-      final pcm = Wav.pcmAus(roh);
-      letzteAufnahme = pcm.isEmpty ? null : pcm;
+    }
+
+    if (bytes.isEmpty) {
+      throw Exception('Leere Aufnahme.');
     }
 
     final form = FormData.fromMap({
@@ -185,5 +316,7 @@ class TranscriptionService {
     if (await _recorder.isRecording()) {
       await _recorder.stop();
     }
+    await _stromAufraeumen();
+    _puffer.clear();
   }
 }

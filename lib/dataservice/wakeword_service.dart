@@ -161,6 +161,22 @@ class WakewordService {
 
   /// Hält das Lauschen an und gibt das Mikrofon frei. Erkenner und Modell
   /// bleiben im Speicher — sie neu zu laden dauert spürbar länger.
+  ///
+  /// **`stop()` allein genügt nicht, der Rekorder muss weg.** Das war der
+  /// Fehler, an dem Jarvis auf dem Küchen-Tablet nie antwortete: die
+  /// Aufnahme danach bekam genau EIN Stück von 80 Millisekunden und
+  /// verstummte. Whisper hörte entsprechend nichts, und weil ohne weitere
+  /// Messwerte auch die Stille-Erkennung nichts zu rechnen hatte, lief
+  /// jeder Zuruf in die Zeitgrenze.
+  ///
+  /// Der Grund: `AudioRecorder` hält seine native Aufnahmesitzung, bis er
+  /// freigegeben wird. Hier und in `TranscriptionService` gibt es je
+  /// einen — zwei Rekorder auf einem Mikrofon, und das Mikrofon gehört
+  /// immer nur einem. Ein gestoppter, aber nicht freigegebener Rekorder
+  /// gibt es nicht wirklich her.
+  ///
+  /// Freigeben kostet hier nichts: [fortsetzen] legt ihn ohnehin neu an,
+  /// und teuer ist allein das Modell — das bleibt.
   static Future<void> anhalten() async {
     if (!_laeuft) return;
     _laeuft = false;
@@ -168,9 +184,11 @@ class WakewordService {
     _abo = null;
     try {
       await _rekorder?.stop();
+      await _rekorder?.dispose();
     } catch (_) {
       // Schon gestoppt ist kein Fehler.
     }
+    _rekorder = null;
   }
 
   /// Nimmt das Mikrofon wieder in Beschlag und lauscht weiter.

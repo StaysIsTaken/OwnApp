@@ -85,6 +85,26 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
 
   DashboardData _daten = const DashboardData();
 
+  /// Welcher Ladelauf gerade gilt.
+  ///
+  /// **Gegen Antworten, die sich ueberholen.** Wer in der Kalenderleiste
+  /// zwei Haekchen schnell hintereinander setzt, stoesst zwei Ladelaeufe
+  /// an. Sie holen ein Dutzend Quellen parallel, und welcher zuerst
+  /// fertig wird, entscheidet das Netz -- nicht die Reihenfolge der
+  /// Klicks. Ohne diese Zahl gewinnt der langsamere, und auf dem
+  /// Bildschirm stehen die Kalender von vorletzter Wahl.
+  ///
+  /// Genau so fuehlt es sich an wie "es laedt nicht das Richtige".
+  int _ladelauf = 0;
+
+  /// Laeuft gerade ein Nachladen wegen der Kalenderauswahl?
+  ///
+  /// Eigenes Kennzeichen neben [_laedt]: das grosse Laden tauscht die
+  /// ganze Seite gegen einen Fortschrittskreis, und dabei verschwindet
+  /// die Leiste, auf die man gerade getippt hat. Hier soll nur sie selbst
+  /// zeigen, dass etwas passiert.
+  bool _kalenderLaedt = false;
+
   @override
   void initState() {
     super.initState();
@@ -107,6 +127,7 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
   /// Jede Quelle für sich – wie auf der Übersichtsseite. Ein fehlendes
   /// Recht lässt eine Kachel weg, statt die Seite abzureißen.
   Future<void> _datenLaden() async {
+    final lauf = ++_ladelauf;
     final rechte = context.read<PermissionProvider>();
     var versucht = 0;
     var gescheitert = 0;
@@ -193,7 +214,10 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           await _stillHolen(FinanzService.kategorien) ?? const [];
     }
 
-    if (!mounted) return;
+    // Ueberholt? Dann gehoeren diese Daten zu einer Auswahl, die der
+    // Nutzer inzwischen wieder geaendert hat. Wegwerfen ist richtig:
+    // anzeigen hiesse, seine letzte Entscheidung zu uebergehen.
+    if (!mounted || lauf != _ladelauf) return;
     final zutaten = ergebnisse[4] as List<Ingredient>;
     setState(() {
       _daten = DashboardData(
@@ -218,6 +242,52 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
           ? 'Der Server ist gerade nicht erreichbar.'
           : null;
       _laedt = false;
+    });
+  }
+
+  /// Nur die Termine neu holen — fuer die Kalenderleiste.
+  ///
+  /// [_datenLaden] holt ein Dutzend Quellen: Aufgaben, Zeiten, Vorrat,
+  /// Zutaten, Notizen, Journal, Einkaufslisten, Nachrichten, Witz,
+  /// Buchungen. An einem Haekchen in der Kalenderleiste aendert sich von
+  /// alldem **nichts**. Auf einem Tablet an der Wand dauert der grosse
+  /// Lauf spuerbar, und solange steht die alte Auswahl da — es sieht aus,
+  /// als haette der Tipp nicht gewirkt.
+  ///
+  /// Also nur, was die Auswahl wirklich betrifft: die Termine und die
+  /// Farben der Kalender.
+  Future<void> _termineLaden() async {
+    final lauf = ++_ladelauf;
+    final rechte = context.read<PermissionProvider>();
+    if (!rechte.darf(rechtJeQuelle['planner'] ?? '')) return;
+
+    setState(() => _kalenderLaedt = true);
+
+    final termine = await _stillHolen(() => PlannerService.loadAll(
+          kalender: _einstellungen.kalender,
+          alle: _einstellungen.alleKalender,
+        ));
+    final kalender = await _stillHolen(
+        () => CalendarService.laden(alle: _einstellungen.alleKalender));
+
+    // Dieselbe Laufnummer-Pruefung wie im grossen Lauf: zwei schnelle
+    // Haekchen duerfen sich nicht ueberholen.
+    if (!mounted || lauf != _ladelauf) return;
+    setState(() {
+      _kalenderLaedt = false;
+      if (termine == null) {
+        // Nicht erreichbar: die alten Termine stehen lassen. Eine leere
+        // Woche saehe aus wie "nichts los", und das waere gelogen.
+        _fehler = 'Die Termine konnten nicht geholt werden.';
+        return;
+      }
+      _fehler = null;
+      _daten = _daten.copyWith(
+        plannerEntries: termine,
+        kalenderFarben: kalender == null
+            ? _daten.kalenderFarben
+            : {for (final k in kalender) k.id: k.color},
+      );
     });
   }
 
@@ -424,10 +494,16 @@ class _TabletSeitenInhaltState extends State<TabletSeitenInhalt> {
             if (zeigtTermine)
               KalenderLeiste(
                 einstellungen: _einstellungen,
+                laedt: _kalenderLaedt,
                 onGeaendert: (neu) async {
                   setState(() => _einstellungen = neu);
-                  await _speichern();
-                  await _datenLaden();
+                  // Erst holen, dann speichern. Das Speichern geht auf
+                  // den Server und darf nicht zwischen dem Tipp und dem
+                  // neuen Bild stehen -- gewartet wird auf die Termine,
+                  // nicht auf die Einstellung.
+                  final gespeichert = _speichern();
+                  await _termineLaden();
+                  await gespeichert;
                 },
               ),
             Expanded(child: _raster(sichtbar)),

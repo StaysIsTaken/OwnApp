@@ -104,6 +104,11 @@ class CustomTileCard extends StatelessWidget {
       // Flaeche – ein leeres Wochenraster sagt mehr als der Satz, dass es
       // leer ist.
       fuellt: view.fuelltFlaeche,
+      // Wie hoch die Darstellung mindestens sein will. Braucht die Karte
+      // nur dort, wo sie keine Hoehe von aussen bekommt -- dann muss
+      // irgendeine endliche her, sonst rechnet ein `Expanded` weiter
+      // unten gegen Unendlich.
+      ersatzhoehe: view.minHoehe,
       child: (ergebnis.isEmpty && !view.fuelltFlaeche)
           ? Text(
               ergebnis.emptyHint,
@@ -128,6 +133,10 @@ class _Rahmen extends StatelessWidget {
   /// Der Inhalt nimmt die ganze Karte statt nur seiner Mindesthöhe.
   final bool fuellt;
 
+  /// Die Hoehe, die eine [fuellt]-Darstellung bekommt, wenn von aussen
+  /// keine kommt. Siehe den langen Kommentar in [build].
+  final double ersatzhoehe;
+
   /// Grosse Trefferflaeche statt eines Symbols – fuer das Geraet an der Wand.
   final bool grosseBedienung;
 
@@ -142,6 +151,7 @@ class _Rahmen extends StatelessWidget {
     this.aktion,
     this.onAktion,
     this.fuellt = false,
+    this.ersatzhoehe = 240,
     this.grosseBedienung = false,
   });
 
@@ -150,6 +160,43 @@ class _Rahmen extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
 
+    // Ist die Hoehe von aussen begrenzt?
+    //
+    // IM RASTER JA, IN DER VORSCHAU DES EDITORS NEIN -- dort steht die
+    // Karte in einer Scrollspalte. `Expanded` in einer Spalte ohne
+    // begrenzte Hoehe ist ein Widerspruch, und Flutter bricht das Layout
+    // dann ab:
+    //
+    //     RenderFlex children have non-zero flex but incoming height
+    //     constraints are unbounded
+    //
+    // In der Freigabe-Fassung reisst das die ganze Seite mit: WEISSER
+    // BILDSCHIRM, kein Hinweis, nichts. Genau das passierte, sobald man
+    // die Einkaufsliste als neue Kachel waehlte -- sie ist eine
+    // `fuelltFlaeche`-Darstellung, und die Vorschau baut sie sofort.
+    //
+    // Die Karte rechnet das deshalb selbst aus, statt sich darauf zu
+    // verlassen, dass jeder Aufrufer sie begrenzt. Ein Widget, das eine
+    // ganze Seite mitnimmt, wenn es jemand woanders hinstellt, ist zu
+    // scharf geladen.
+    return LayoutBuilder(builder: (context, constraints) {
+      final begrenzt = constraints.hasBoundedHeight;
+      if (fuellt && !begrenzt) {
+        // Statt zu dehnen: eine feste, endliche Hoehe. Die Darstellung
+        // bekommt damit dieselbe Form wie im Raster, nur eben ihr
+        // Mindestmass -- und ihr eigenes `Expanded` hat wieder etwas zum
+        // Rechnen.
+        return SizedBox(
+          height: ersatzhoehe,
+          child: _karte(context, text, colors, true),
+        );
+      }
+      return _karte(context, text, colors, fuellt);
+    });
+  }
+
+  Widget _karte(BuildContext context, TextTheme text, ColorScheme colors,
+      bool dehnen) {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -158,7 +205,7 @@ class _Rahmen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: fuellt ? MainAxisSize.max : MainAxisSize.min,
+          mainAxisSize: dehnen ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -233,7 +280,7 @@ class _Rahmen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            if (fuellt) Expanded(child: child) else child,
+            if (dehnen) Expanded(child: child) else child,
           ],
         ),
       ),

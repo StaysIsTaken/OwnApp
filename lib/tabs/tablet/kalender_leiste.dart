@@ -22,10 +22,19 @@ class KalenderLeiste extends StatefulWidget {
   /// Wird bei jeder Änderung gerufen — die Seite speichert und lädt neu.
   final ValueChanged<SeitenEinstellungen> onGeaendert;
 
+  /// Holt die Seite gerade die Termine zur neuen Auswahl?
+  ///
+  /// Ohne dieses Zeichen sieht ein Tipp aus, als sei nichts passiert: die
+  /// Termine darunter brauchen ihren Weg zum Server, und bis sie da sind,
+  /// steht die alte Woche im Raster. Ein Strich unter der Leiste sagt,
+  /// dass gearbeitet wird — und nimmt ihr nicht den Platz weg.
+  final bool laedt;
+
   const KalenderLeiste({
     super.key,
     required this.einstellungen,
     required this.onGeaendert,
+    this.laedt = false,
   });
 
   @override
@@ -111,10 +120,30 @@ class _KalenderLeisteState extends State<KalenderLeiste> {
     final colors = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: colors.outlineVariant)),
       ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _leiste(colors),
+          // Immer da, nur meist unsichtbar: ein Strich, der beim Laden
+          // erscheint und die Leiste sonst nicht verrueckt.
+          SizedBox(
+            height: 3,
+            child: widget.laedt
+                ? const LinearProgressIndicator(minHeight: 3)
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _leiste(ColorScheme colors) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
           Icon(Icons.calendar_month_outlined,
@@ -150,6 +179,23 @@ class _KalenderLeisteState extends State<KalenderLeiste> {
     );
   }
 
+  /// Was auf dem Chip steht.
+  ///
+  /// Normalerweise der Name. Aber **der eigene Kalender heisst bei jedem
+  /// „Mein Kalender"**, und im Haushalt stehen dann drei gleich
+  /// beschriftete Chips nebeneinander — man kann nicht wissen, wen man
+  /// gerade abwaehlt. Kommt ein Name mehrfach vor, tritt der Besitzer
+  /// dazu; beim gemeinsamen Kalender ist das der Haushalt.
+  ///
+  /// Nur bei Doppelung, nicht immer: „Muellabfuhr (Jan)" ist laenger und
+  /// sagt nichts dazu, und auf einem Tablet ist die Leiste schmal.
+  String _beschriftung(Kalender k) {
+    final mehrfach =
+        _kalender.where((a) => a.name == k.name).length > 1;
+    if (!mehrfach || k.ownerName.isEmpty) return k.name;
+    return '${k.name} · ${k.ownerName}';
+  }
+
   Widget _chips() {
     if (_kalender.isEmpty) {
       return Text(
@@ -179,7 +225,8 @@ class _KalenderLeisteState extends State<KalenderLeiste> {
                     shape: BoxShape.circle,
                   ),
                 ),
-                label: Text(k.name, style: const TextStyle(fontSize: 15)),
+                label: Text(_beschriftung(k),
+                    style: const TextStyle(fontSize: 15)),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               ),
