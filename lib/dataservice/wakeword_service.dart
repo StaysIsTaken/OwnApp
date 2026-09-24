@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
+import 'package:productivity/dataservice/transcription_service.dart';
+
 /// Lauscht dauerhaft auf „Jarvis" und meldet sich, wenn es fällt.
 ///
 /// Warum sherpa-onnx und nicht Whisper: Whisper braucht einen fertigen
@@ -162,18 +164,16 @@ class WakewordService {
   /// Hält das Lauschen an und gibt das Mikrofon frei. Erkenner und Modell
   /// bleiben im Speicher — sie neu zu laden dauert spürbar länger.
   ///
-  /// **`stop()` allein genügt nicht, der Rekorder muss weg.** Das war der
-  /// Fehler, an dem Jarvis auf dem Küchen-Tablet nie antwortete: die
-  /// Aufnahme danach bekam genau EIN Stück von 80 Millisekunden und
-  /// verstummte. Whisper hörte entsprechend nichts, und weil ohne weitere
-  /// Messwerte auch die Stille-Erkennung nichts zu rechnen hatte, lief
-  /// jeder Zuruf in die Zeitgrenze.
+  /// **`stop()` allein genügt nicht, der Rekorder muss weg.**
+  /// `AudioRecorder` hält seine native Aufnahmesitzung, bis er freigegeben
+  /// wird. Hier und in `TranscriptionService` gibt es je einen — zwei
+  /// Rekorder auf einem Mikrofon, und das Mikrofon gehört immer nur einem.
   ///
-  /// Der Grund: `AudioRecorder` hält seine native Aufnahmesitzung, bis er
-  /// freigegeben wird. Hier und in `TranscriptionService` gibt es je
-  /// einen — zwei Rekorder auf einem Mikrofon, und das Mikrofon gehört
-  /// immer nur einem. Ein gestoppter, aber nicht freigegebener Rekorder
-  /// gibt es nicht wirklich her.
+  /// Hier stand einmal, das sei der Grund, warum die Aufnahme nach dem
+  /// Weckwort nur EIN Stück von 80 ms bekam. Das stimmte nicht — das
+  /// Freigeben änderte daran nichts. Der Grund war der Audio-Fokus, siehe
+  /// `TranscriptionService.aufnahmeOhneFokus`. Freigeben bleibt trotzdem
+  /// richtig.
   ///
   /// Freigeben kostet hier nichts: [fortsetzen] legt ihn ohnehin neu an,
   /// und teuer ist allein das Modell — das bleibt.
@@ -210,6 +210,10 @@ class WakewordService {
       encoder: AudioEncoder.pcm16bits,
       sampleRate: _rate,
       numChannels: 1,
+      // Ohne das haelt ein klingelnder Timer oder die eigene Stimme das
+      // Lauschen an -- still und fuer immer. Siehe
+      // `TranscriptionService.aufnahmeOhneFokus`.
+      audioInterruption: TranscriptionService.aufnahmeOhneFokus,
     ));
     _abo = strom.listen(
       (bytes) => _verarbeite(bytes, rufe),

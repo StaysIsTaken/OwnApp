@@ -27,6 +27,34 @@ class TranscriptionService {
 
   static StreamSubscription<Uint8List>? _rohAbo;
 
+  /// Wie eine Aufnahme auf fremden Ton reagiert: gar nicht.
+  ///
+  /// **Das war der Fehler hinter „Hey Jarvis -- und dann nichts".** Die
+  /// Vorgabe von `record` ist [AudioInterruptionMode.pause]: beim Start
+  /// fordert der Rekorder den Audio-Fokus an, und verliert er ihn, haelt
+  /// er die Aufnahme an -- still, ohne Fehler, der Strom bleibt offen.
+  /// Mit `pause` (anders als `pauseResume`) auch fuer immer.
+  ///
+  /// Den Fokus nimmt ihm ausgerechnet das Bestaetigungs-Pling: es startet
+  /// unmittelbar NACH der Aufnahme, `audioplayers` fordert fuer jeden Ton
+  /// Fokus an, und der Rekorder pausiert. Bis dahin hat er genau einmal
+  /// gelesen -- das eine Stueck von 2560 Bytes (80 ms), das auf dem Tablet
+  /// reproduzierbar ankam. Danach keine Pegel, keine Stille-Erkennung,
+  /// nur die Notbremse, und Whisper bekam 80 ms. Beim Mikrofon-Knopf gibt
+  /// es kein Pling; deshalb lief der.
+  ///
+  /// Dasselbe traf den Weckwort-Rekorder, sobald ein Timer klingelte oder
+  /// Jarvis sprach: pausiert, und Jarvis war taub, bis jemand die
+  /// Kuechenansicht neu oeffnete.
+  ///
+  /// Ein Mikrofon hat mit dem Audio-Fokus nichts zu schaffen -- der
+  /// regelt, wer SPIELT. Zuhoeren darf man auch, waehrend etwas klingt;
+  /// dass das Pling mit aufgenommen wird, faengt die Blindzeit im
+  /// Sprach-Ablauf ab. Nebenbei haelt eine Aufnahme so nicht mehr die
+  /// Musik anderer Apps an.
+  static const AudioInterruptionMode aufnahmeOhneFokus =
+      AudioInterruptionMode.none;
+
   /// Nur zur Untersuchung: wie viele Stuecke kamen, wie viele Bytes.
   static int _stuecke = 0;
   static final BytesBuilder _puffer = BytesBuilder();
@@ -137,6 +165,7 @@ class TranscriptionService {
           encoder: AudioEncoder.opus,
           sampleRate: Wav.rate,
           numChannels: 1,
+          audioInterruption: aufnahmeOhneFokus,
         ),
         path: '',
       );
@@ -156,6 +185,9 @@ class TranscriptionService {
         // Eine andere Rate liefert bei beiden Unsinn, keinen Fehler.
         sampleRate: Wav.rate,
         numChannels: 1,
+        // Siehe [aufnahmeOhneFokus]. DAS war der Grund fuer das eine
+        // Stueck von 80 ms nach „Hey Jarvis".
+        audioInterruption: aufnahmeOhneFokus,
       ),
     );
 
