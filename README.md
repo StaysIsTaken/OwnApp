@@ -331,11 +331,50 @@ Drei Wege, weil ein Tablet an der Küchenwand selten am Kabel hängt:
 angezeigte Adresse öffnen, herunterladen, antippen. Die Installation aus
 unbekannter Quelle muss einmal erlaubt werden.
 
-**Zur Signierung:** Die Freigabe-APK wird derzeit mit dem *Debug*-Schlüssel
-signiert (`android/app/build.gradle.kts`). Für den Eigengebrauch reicht
-das, hat aber zwei Folgen: Der Schlüssel hängt an diesem Mac, und ein
-späterer Wechsel auf einen echten Schlüssel verlangt einmal
-Deinstallieren.
+### Signierung: einmal einen eigenen Schlüssel anlegen
+
+```bash
+./deploy/schluessel-anlegen.sh
+```
+
+Fragt nach einem Passwort, legt den Schlüssel unter `~/.ownapp/` ab und
+schreibt `android/key.properties`. Beides steht in `.gitignore` und darf
+das Repository nie sehen. Danach signiert jeder `flutter build apk
+--release` damit, ohne dass man weiter daran denken muss.
+
+**Warum das nötig ist:** Android lässt ein Update nur zu, wenn es mit
+*demselben* Schlüssel signiert ist wie die installierte Fassung. Lange
+lief hier der **Debug**-Schlüssel — den legt das SDK auf jedem Rechner
+selbst an, und er ist auf jedem ein anderer. Kam das Update von einem
+anderen Mac, lehnte Android es ab:
+
+```
+INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match
+```
+
+Dann half nur Deinstallieren, und das nimmt die App-Daten auf dem Gerät
+mit (Serveradresse, Anmeldung, Kachel-Cache — die Daten auf dem Server
+bleiben unberührt).
+
+**Der Umstieg kostet genau einmal eine Deinstallation.** Was heute auf den
+Geräten liegt, trägt den Debug-Schlüssel und passt nicht zum neuen:
+
+```bash
+adb uninstall com.example.productivity
+```
+
+Danach nie wieder — dafür ist der Schlüssel da.
+
+**Die Schlüsseldatei ist unersetzlich.** Geht sie verloren, muss jedes
+Gerät die App einmal deinstallieren; es gibt kein Zurücksetzen und
+niemanden, der hilft (hier ist kein Play Store im Spiel). Also sichern —
+in einen Passwortmanager oder auf einen Datenträger, der nicht dieser
+Rechner ist.
+
+**Ohne `key.properties` baut es weiter**, dann wieder mit dem
+Debug-Schlüssel. Wer das Repository frisch auscheckt, soll bauen können,
+ohne erst einen Schlüssel anzulegen; der Build sagt in dem Fall, was er
+tut.
 
 ## 🛠️ Technologie-Stack
 

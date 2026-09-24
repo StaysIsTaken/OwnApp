@@ -52,3 +52,14 @@ android/.kotlin/
 # versehentlich eingecheckt und wurde bei jedem Build neu geschrieben.
 android/build/
 android/.gradle/
+
+# Der Signaturschluessel der Freigabe-APK und seine Passwoerter.
+#
+# BEIDES DARF NIE IN DAS REPOSITORY. Wer den Schluessel hat, kann eine App
+# bauen, die sich auf jedem Geraet als diese hier ausgibt -- inklusive
+# Zugriff auf ihre Daten. Die Vorgabe legt ihn ohnehin ausserhalb des
+# Arbeitsverzeichnisses ab (~/.ownapp/); diese Zeilen sind die zweite
+# Sicherung, falls ihn jemand doch hier hereinlegt.
+android/key.properties
+*.jks
+*.keystore
