@@ -17,6 +17,10 @@ class WakewordTon {
 
   static AudioPlayer? _spieler;
 
+  static final AudioContext _ohneFokus = AudioContext(
+    android: const AudioContextAndroid(audioFocus: AndroidAudioFocus.none),
+  );
+
   /// Für Tests: nichts abspielen, nur mitzählen.
   @visibleForTesting
   static int gespielt = 0;
@@ -29,6 +33,15 @@ class WakewordTon {
     if (stumm) return;
     try {
       final s = _spieler ??= AudioPlayer();
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        // Kein Audio-Fokus für 180 ms Pling. Die Vorgabe `gain` nähme ihn
+        // der Aufnahme weg, die im selben Moment startet — und die hielt
+        // darauf an (siehe `TranscriptionService.aufnahmeOhneFokus`).
+        // Außerdem stoppte sie die Musik anderer Apps, statt kurz
+        // darüberzuklingen. Nur Android: auf iOS setzte derselbe Aufruf
+        // die Audio-Sitzung auf reines Abspielen und das Mikrofon still.
+        await s.setAudioContext(_ohneFokus);
+      }
       await s.stop();
       await s.play(AssetSource(datei));
     } catch (e) {
