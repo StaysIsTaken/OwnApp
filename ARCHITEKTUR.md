@@ -226,6 +226,35 @@ Die ID-Räume sind aus demselben Grund getrennt und dürfen sich nicht
 `_cancelManaged()` räumt nur innerhalb dieser Räume ab — sonst löschte ein
 Neuplanen die bereits sichtbaren Chat-Hinweise mit.
 
+### Das Widget hängt am selben Abgleich
+
+`ErinnerungsAbgleich._lauf()` holt Aufgaben und Termine ohnehin — und
+gibt sie seitdem auch an `WidgetBruecke.aktualisieren()` weiter. Die vier
+Auslöser oben sind genau die Momente, in denen sich ein neuer Stand fürs
+Widget lohnt; ein zweiter Abruf wäre derselbe Abruf noch einmal.
+
+Das Widget (`ios/OwnAppWidget/`, Swift) **fragt nie selbst beim
+Server.** Es läuft in einem Prozess, den iOS startet, wann es will, und
+hätte dort kein gültiges Token — das JWT hält 60 Minuten. Also rechnet
+`WidgetStand` einen Stand für sieben Tage, die App legt ihn als JSON in
+die App Group, und das Widget wirft Vergangenes selbst weg. Zeiten stehen
+als Sekunden seit 1970: eine lokale Zeit als Text hat keine Zone.
+
+Geleert wird der Stand beim **Abmelden** und beim **Serverwechsel**, nicht
+bei jedem 401. Ein abgelaufenes Token heisst nicht, dass jemand anderes
+das Telefon hat.
+
+Drei Namen müssen übereinstimmen, und nur einer davon steht in Dart:
+
+| | Dart | Swift / Xcode |
+|---|---|---|
+| App Group | `WidgetBruecke.appGroup` | `appGroup` in `OwnAppWidget.swift`, beide `.entitlements` |
+| Schlüssel | `WidgetBruecke.schluessel` | `schluessel` in `OwnAppWidget.swift` |
+| Widget-Art | `WidgetBruecke.iosName` | `kind` in `OwnAppWidget.swift` |
+
+Weicht einer ab, gibt es keinen Fehler: das Widget zeigt dauerhaft „App
+einmal öffnen".
+
 ### Web hat gar nichts
 
 Jeder Pfad bricht bei `kIsWeb` ab. Das ist kein Versehen: **geplante**

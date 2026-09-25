@@ -38,6 +38,10 @@ dependencies:
   # stuenden dort Adressen zum Abtippen -- auf einem Tablet an der Wand
   # ist das keine Anleitung, sondern eine Zumutung.
   url_launcher: ^6.3.1
+  # Legt den Stand fuer das Startbildschirm-Widget in die App Group und
+  # stoesst das Neuzeichnen an (lib/dataservice/widget_bruecke.dart). Das
+  # Widget selbst ist Swift und liest nur -- ios/OwnAppWidget/.
+  home_widget: ^0.10.0
   geolocator: ^14.0.3
   # Anmeldung per Face ID / Fingerabdruck: local_auth macht die Pruefung auf
   # dem Geraet, flutter_secure_storage legt die Zugangsdaten in die Keychain

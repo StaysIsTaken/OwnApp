@@ -1,0 +1,15 @@
+// Versionsnummern des Widgets aus demselben Bau wie die App.
+//
+// iOS verlangt, dass eine Erweiterung dieselbe CFBundleVersion traegt wie
+// die App, in der sie steckt. Die App bekommt ihre aus Generated.xcconfig
+// (FLUTTER_BUILD_NAME / FLUTTER_BUILD_NUMBER, von `flutter build` und
+// `flutter run` geschrieben).
+//
+// Bewusst NICHT Flutter/Debug.xcconfig oder Release.xcconfig: die ziehen
+// die CocoaPods-Einstellungen des Runner mit, und dann wuerde das Widget
+// gegen die Pods der App gelinkt, die es nicht braucht.
+//
+// `#include?` statt `#include`: auf einem frisch ausgecheckten Stand gibt es
+// Generated.xcconfig erst nach `flutter pub get`, und Xcode soll das
+// Projekt trotzdem oeffnen koennen.
+#include? "../Flutter/Generated.xcconfig"

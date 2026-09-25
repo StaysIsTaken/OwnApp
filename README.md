@@ -150,7 +150,16 @@ Eine umfassende Flutter-Anwendung für persönliche Produktivitätsmanagement mi
   übergibt erst. Geht der Letzte, löst sich der Haushalt auf und die Daten
   fallen an ihn zurück.
 
-### ⚙️ Einstellungen
+### 📲 Widget und Siri (iPhone)
+- **Widget „Heute"** auf dem Startbildschirm: nächste Termine und offene
+  Aufgaben, klein oder mittel. Es fragt nie selbst beim Server — die App
+  legt bei jedem Erinnerungs-Abgleich einen Stand für sieben Tage hin, und
+  das Widget rückt daraus selbst nach. Unten steht, von wann er ist.
+- **Siri über Kurzbefehle**: „Hey Siri, Einkauf" → „Was soll auf die
+  Liste?" → „Milch". Läuft über den Assistent-Zugang (MCP), auch auf der
+  Apple Watch. Die Anleitung samt fertigem Anfragetext steht in der App
+  unter Einstellungen → Assistent-Zugang → „Siri (Apple-Kurzbefehle)".
+
 - **Serveradresse**: frei einstellbar, mit Erreichbarkeitsprüfung. Kein
   eigener Bauvorgang nötig, um die App gegen einen anderen Server zu
   betreiben. Ein Wechsel meldet ab – das Token gilt beim alten Server.
@@ -310,6 +319,28 @@ Meldet sich sonntags um 18 Uhr. `aus` entfernt sie wieder.
 Der Weg über AltStore/SideStore (Workflow *iOS-ipa-build*) bleibt daneben
 bestehen — dort signiert das Telefon selbst, dafür muss man die App über
 AltStore aktualisieren statt über das Kabel.
+
+### Das Widget auf den Startbildschirm holen
+
+Kommt mit derselben Installation, es braucht keinen eigenen Schritt. Auf
+dem iPhone: lange auf eine freie Stelle des Startbildschirms drücken →
+**Bearbeiten** → **Widget hinzufügen** → nach der App suchen → **Heute**,
+klein oder mittel.
+
+Steht dort „App einmal öffnen", hat die App noch keinen Stand
+hingelegt — öffnen und anmelden genügt. Nach dem **Abmelden** zeigt es
+„Abgemeldet" statt der Termine des vorigen Kontos.
+
+Das Widget ist eine eigene Erweiterung mit eigener Kennung
+(`de.jpanft.homeapp.OwnAppWidget`) und teilt sich mit der App die App
+Group `group.de.jpanft.homeapp`. Beim ersten `aufs-handy.sh` danach legt
+Xcode beides im kostenlosen Konto an; das kostet eine der zehn
+App-Kennungen, die Apple dort je Woche erlaubt. Über AltStore zählt die
+Erweiterung ebenfalls als eigene App-Kennung.
+
+Ob das Xcode-Projekt noch baut, prüft der Workflow *iOS-Bau pruefen* bei
+jeder Änderung unter `ios/` — unsigniert, auf einem Mac von GitHub. Das
+Signieren prüft er nicht, das zeigt erst das Gerät.
 
 ## 🤖 Aufs Android-Tablet bringen
 
@@ -742,7 +773,7 @@ flutter test
 flutter analyze
 ```
 
-**736 Tests.** Neben Einheitentests auch Widget-Tests für das Menü: der
+**833 Tests.** Neben Einheitentests auch Widget-Tests für das Menü: der
 Drawer wird mit einem eingeschränkten Rechtestand aufgebaut, und der Test
 sieht nach, was wirklich dasteht — inzwischen auch, ob der
 Haushaltsabschnitt verschwindet, wenn es keinen Haushalt gibt.

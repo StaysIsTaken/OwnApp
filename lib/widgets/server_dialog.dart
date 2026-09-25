@@ -3,6 +3,7 @@ import 'package:productivity/dataservice/api_client.dart';
 import 'package:productivity/dataservice/biometric_service.dart';
 import 'package:productivity/dataservice/login_service.dart';
 import 'package:productivity/dataservice/server_config.dart';
+import 'package:productivity/dataservice/widget_bruecke.dart';
 
 /// Serveradresse eintragen und prüfen.
 ///
@@ -60,6 +61,7 @@ class _ServerDialogState extends State<ServerDialog> {
     // wäre bestenfalls wirkungslos und schlimmstenfalls verwirrend, weil
     // die App kurz angemeldet aussähe.
     await LoginService.logout();
+    await WidgetBruecke.leeren();
     // Und die gemerkten Zugangsdaten gehören ebenfalls zum alten Server.
     await BiometricService.vergessen();
     await ServerConfig.speichern(url);
