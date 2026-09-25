@@ -443,6 +443,15 @@ Eingang, nur ohne Nutzer dahinter.
 | **Chat** | **nein** | — | kommt nicht vor, §2.6 |
 | **Verwaltung, Rollen, Stimmprofile** | **nein** | — | s. u. |
 
+**Stand der Schreib-Werkzeuge** (`SCHREIB_WERKZEUGE` in
+`app/services/mcp/werkzeuge.py`): gebaut sind `aufgabe_anlegen`,
+`aufgabe_abhaken`, `notiz_anlegen`, `journal_schreiben`,
+`einkauf_hinzufuegen`, `unser_einkauf_hinzufuegen`, `termin_anlegen` und
+`buchung_anlegen`. Die übrigen Zeilen der Tabelle sind Plan. Termine und
+Buchungen gehen nur in **eigene** Kalender und Kassen, nicht in die des
+Haushalts, und tragen eine `kennung` gegen Dubletten — für MailKI, das
+dieselbe Mail auch zweimal schicken kann.
+
 **Verwaltung gibt es nicht im MCP, unter keinem Schalter.** Was Rollen
 vergeben, Passwörter zurücksetzen oder Nutzer löschen kann, darf nicht
 an einem Ende hängen, an dem ein fremdes Sprachmodell entscheidet, was

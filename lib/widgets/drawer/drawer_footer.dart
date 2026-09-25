@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:productivity/dataservice/login_service.dart';
+import 'package:productivity/dataservice/widget_bruecke.dart';
 import 'package:productivity/provider/user_provider.dart';
 import 'package:productivity/main.dart';
 import 'package:provider/provider.dart';
@@ -48,6 +49,11 @@ class DrawerFooterWidget extends StatelessWidget {
                 Provider.of<UserProvider>(context, listen: false).logout();
                 // Clear saved token
                 await LoginService.logout();
+                // Sonst stünden die Termine dieses Kontos weiter auf dem
+                // Startbildschirm. Nur hier und beim Serverwechsel, nicht
+                // bei jedem 401: ein abgelaufenes Token heisst nicht, dass
+                // jemand anderes das Telefon hat.
+                await WidgetBruecke.leeren();
                 // Navigate to login page
                 if (context.mounted) {
                   Navigator.of(

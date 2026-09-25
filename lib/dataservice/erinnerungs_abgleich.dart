@@ -3,6 +3,7 @@ import 'package:productivity/dataservice/login_service.dart';
 import 'package:productivity/dataservice/notification_scheduler.dart';
 import 'package:productivity/dataservice/planner_service.dart';
 import 'package:productivity/dataservice/task_service.dart';
+import 'package:productivity/dataservice/widget_bruecke.dart';
 
 /// Holt Aufgaben und Termine und meldet die Erinnerungen neu beim
 /// Betriebssystem an.
@@ -25,6 +26,10 @@ import 'package:productivity/dataservice/task_service.dart';
 /// * Rückkehr in den Vordergrund
 /// * Meldung `planner_changed` über den WebSocket
 /// * der Hintergrundlauf wie bisher
+///
+/// Das Widget auf dem Startbildschirm hängt am selben Lauf: es braucht
+/// dieselben Aufgaben und Termine, und diese vier Auslöser sind genau die
+/// Momente, in denen sich ein neuer Stand lohnt.
 class ErinnerungsAbgleich {
   ErinnerungsAbgleich._();
 
@@ -92,6 +97,9 @@ class ErinnerungsAbgleich {
 
       final tasks = await TaskService.loadAll(limit: 200);
       final termine = await PlannerService.loadAll();
+      // Vor dem Einplanen: das Widget soll den frischen Stand auch dann
+      // bekommen, wenn beim Einplanen etwas schiefgeht. Wirft nie.
+      await WidgetBruecke.aktualisieren(aufgaben: tasks, termine: termine);
       final angemeldet = await NotificationScheduler.rescheduleAll(
         tasks: tasks,
         plannerEntries: termine,

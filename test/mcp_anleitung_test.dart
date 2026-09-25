@@ -181,6 +181,76 @@ void main() {
     });
   });
 
+  group('Siri-Kurzbefehl', () {
+    // Der Anfragetext ist das, was die Kurzbefehle-App abschickt. Wir
+    // prüfen ihn als JSON — genau so kommt er beim Server an.
+    Map<String, dynamic> anfrage(String vorlage) {
+      final beginn = vorlage.indexOf('{');
+      return jsonDecode(vorlage.substring(beginn)) as Map<String, dynamic>;
+    }
+
+    test('ruft ein Werkzeug direkt, ohne Sitzung', () {
+      final vorlage = McpAnleitung.kurzbefehlVorlage('https://a.de/mcp/x');
+      final d = anfrage(vorlage);
+
+      expect(d['jsonrpc'], '2.0');
+      expect(d['method'], 'tools/call');
+      expect(d['params']['name'], 'einkauf_hinzufuegen');
+      expect((d['params']['arguments'] as Map).containsKey('name'), isTrue);
+      expect(vorlage, contains('POST'));
+      expect(vorlage, contains('https://a.de/mcp/x'));
+    });
+
+    test('das Werkzeug gibt es wirklich', () {
+      // Ein Tippfehler hier kommt beim Nutzer als "Unbekanntes Werkzeug"
+      // an -- nachdem er den Kurzbefehl mühsam abgetippt hat. Die Namen
+      // stehen in OwnAPI, app/services/mcp/werkzeuge.py.
+      const schreibWerkzeuge = {
+        'einkauf_hinzufuegen',
+        'unser_einkauf_hinzufuegen',
+        'aufgabe_anlegen',
+        'aufgabe_abhaken',
+        'notiz_anlegen',
+        'journal_schreiben',
+        'termin_anlegen',
+        'buchung_anlegen',
+      };
+      final d = anfrage(McpAnleitung.kurzbefehlVorlage('https://a.de/mcp/x'));
+      expect(schreibWerkzeuge, contains(d['params']['name']));
+
+      final siri = McpAnleitung.clients
+          .firstWhere((c) => c.schnipsel == McpSchnipsel.kurzbefehl);
+      final genannt = RegExp(r'"([a-z_]+)"')
+          .allMatches(siri.schritte.join(' '))
+          .map((m) => m.group(1)!)
+          .where((n) => n.contains('_'));
+      expect(genannt, isNotEmpty);
+      for (final name in genannt) {
+        expect(schreibWerkzeuge, contains(name), reason: name);
+      }
+    });
+
+    test('trägt den Schlüssel nur, wenn er mitgegeben wird', () {
+      final ohne = McpAnleitung.kurzbefehlVorlage('https://a.de/mcp/x');
+      final mit = McpAnleitung.kurzbefehlVorlage('https://a.de/mcp/x',
+          schluessel: 'mcp_geheim');
+
+      expect(ohne, contains('Bearer ${McpAnleitung.platzhalter}'));
+      expect(ohne, isNot(contains('mcp_geheim')));
+      expect(mit, contains('Bearer mcp_geheim'));
+    });
+
+    test('steht bei den lokalen Wegen und sagt, was der Klartext kostet',
+        () {
+      final siri = McpAnleitung.clients
+          .firstWhere((c) => c.schnipsel == McpSchnipsel.kurzbefehl);
+
+      expect(siri.ort, McpOrt.lokal);
+      expect(siri.nimmtSchluessel, isTrue);
+      expect(siri.hinweis, contains('Klartext'));
+    });
+  });
+
   group('Wo ein Client läuft', () {
     test('die Trennlinie ist der Ort, nicht der Hersteller', () {
       // Jeder der drei Browser-Anbieter hat einen lokalen Bruder, der

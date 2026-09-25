@@ -15,6 +15,10 @@ enum McpSchnipsel {
   /// `mcp.json` in VS Code — fragt den Schlüssel beim ersten Start ab.
   vscode,
 
+  /// Ein Apple-Kurzbefehl, den Siri startet: eine einzige Anfrage an
+  /// `tools/call`, ohne Sitzung.
+  kurzbefehl,
+
   /// Irgendein anderer Client, der lokale Server starten darf.
   bruecke,
 
@@ -195,6 +199,36 @@ class McpAnleitung {
       '  }\n'
       '}';
 
+  /// Was ein Apple-Kurzbefehl in „Inhalte von URL abrufen" einträgt.
+  ///
+  /// **Warum das überhaupt geht:** der Zugang braucht keine Sitzung.
+  /// `tools/call` ist eine einzelne Anfrage mit dem Schlüssel im Kopf —
+  /// genau das, was die Kurzbefehle-App kann, ohne dass es dafür eine
+  /// Zeile Swift in dieser App bräuchte. Und Kurzbefehle startet Siri,
+  /// auf dem Telefon wie auf der Uhr.
+  ///
+  /// `EINGABE` steht dort, wo im Kurzbefehl die Variable „Eingabe"
+  /// hingehört — das, was man Siri gesagt hat. Der Rest wird so
+  /// abgetippt, wie er dasteht; die Kurzbefehle-App hat für den
+  /// Anfragetext ein eigenes Feld je Schlüssel, kein Textfeld für JSON.
+  static String kurzbefehlVorlage(String adresse, {String? schluessel}) =>
+      'URL:      $adresse\n'
+      'Methode:  POST\n'
+      'Header:   Authorization = Bearer ${schluessel ?? platzhalter}\n'
+      'Anfrage:  JSON\n'
+      '{\n'
+      '  "jsonrpc": "2.0",\n'
+      '  "id": 1,\n'
+      '  "method": "tools/call",\n'
+      '  "params": {\n'
+      '    "name": "einkauf_hinzufuegen",\n'
+      '    "arguments": {\n'
+      '      "name": "EINGABE",\n'
+      '      "liste": "Wocheneinkauf"\n'
+      '    }\n'
+      '  }\n'
+      '}';
+
   /// Der Schnipsel, den dieser Client braucht — oder null.
   static String? schnipselFuer(McpClient client, String adresse,
       {String? schluessel}) {
@@ -210,6 +244,8 @@ class McpAnleitung {
         return codexKonfig(adresse);
       case McpSchnipsel.vscode:
         return vscodeKonfig(adresse);
+      case McpSchnipsel.kurzbefehl:
+        return kurzbefehlVorlage(adresse, schluessel: schluessel);
       case McpSchnipsel.keiner:
         return null;
     }
@@ -297,6 +333,44 @@ class McpAnleitung {
       ],
       doku:
           'https://code.visualstudio.com/docs/agents/reference/mcp-configuration',
+    ),
+    McpClient(
+      name: 'Siri (Apple-Kurzbefehle)',
+      nimmtSchluessel: true,
+      schnipsel: McpSchnipsel.kurzbefehl,
+      hinweis: 'Kein Assistent, sondern ein Kurzbefehl je Satz: „Hey Siri, '
+          'Einkauf" fragt, was auf die Liste soll, und schickt es her. '
+          'Läuft auf iPhone und Apple Watch. Schreiben geht nur, wo im '
+          'Baum „auch schreiben" angehakt ist — Einkauf, Aufgaben, '
+          'Notizen, Journal, Termine, Finanzen. Der Schlüssel steht im Kurzbefehl im '
+          'Klartext und wandert mit iCloud auf deine anderen Geräte: '
+          'den Kurzbefehl deshalb nie teilen. Wer ihn verliert, erneuert '
+          'hier den Schlüssel.',
+      schritte: [
+        'Kurzbefehle-App → + → Aktion „Nach Eingabe fragen" (Text), '
+            'Frage: „Was soll auf die Liste?"',
+        'Aktion „Inhalte von URL abrufen": URL, Methode, Header und '
+            'Anfragetext wie unten. Bei "arguments" → "name" statt EINGABE '
+            'die Variable „Eingabe" einsetzen; "liste" ist der Name deines '
+            'Zettels (ohne ihn fragt der Server bei mehreren zurück).',
+        'Aktion „Text sprechen": „Steht drauf." Weil "liste" gesetzt '
+            'ist, fragt der Server nicht zurück. Kommt trotzdem nichts an, '
+            'erst den Namen des Zettels prüfen — „Ergebnis anzeigen" statt '
+            '„Text sprechen" zeigt, was der Server geantwortet hat.',
+        'Den Kurzbefehl „Einkauf" nennen; der Name ist der Satz für '
+            'Siri. In den Details „Auf Apple Watch anzeigen" einschalten.',
+        'Für Aufgaben dasselbe mit "aufgabe_anlegen" und "titel", für '
+            'Notizen "notiz_anlegen" mit "titel", fürs Journal '
+            '"journal_schreiben" mit "inhalt".',
+        'Für Ausgaben "buchung_anlegen" mit "titel" und "betrag" (Euro, '
+            'als Zahl), bei mehreren Kassen dazu "kasse". Für Termine '
+            '"termin_anlegen" mit "titel" und "beginn" '
+            '(JJJJ-MM-TTTHH:MM) — aus dem Gesagten machen das die '
+            'Aktionen „Datumsangaben abrufen" und „Datum formatieren" '
+            'mit ISO 8601; die Zeitzone darin rechnet der Server um.',
+      ],
+      doku: 'https://support.apple.com/de-de/guide/shortcuts/'
+          'apd58d46713f/ios',
     ),
     McpClient(
       name: 'Ein anderer Client mit lokalem Start',

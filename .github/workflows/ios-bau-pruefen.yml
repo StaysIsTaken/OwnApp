@@ -1,0 +1,55 @@
+name: iOS-Bau pruefen
+
+# Baut die iOS-App samt Widget-Erweiterung, ohne zu signieren und ohne etwas
+# zu veroeffentlichen.
+#
+# WARUM ES DAS GIBT: Aenderungen an ios/ -- am Xcode-Projekt, an Swift, an
+# den Entitlements -- lassen sich nur auf einem Mac bauen. Ohne diesen Lauf
+# merkt man einen Fehler erst am Sonntagabend, wenn ./deploy/aufs-handy.sh
+# scheitert und das Profil in ein paar Stunden ablaeuft.
+#
+# Der Workflow iOS-ipa-build (dart.yml) taugt dafuer nicht: er ueberschreibt
+# das Release v1.0 und die AltStore-Quelle, auch von einem Seitenzweig aus.
+#
+# Was dieser Lauf NICHT prueft: das Signieren. Ob das kostenlose Konto die
+# App Group fuer App und Widget annimmt, zeigt erst aufs-handy.sh am Geraet.
+on:
+  push:
+    paths:
+      - 'ios/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/ios-bau-pruefen.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  workflow_dispatch:
+
+jobs:
+  bauen:
+    name: iOS bauen (unsigniert)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - run: flutter pub get
+
+      - name: Bauen
+        run: flutter build ios --release --no-codesign
+
+      - name: Widget steckt in der App
+        run: |
+          APPEX=build/ios/iphoneos/Runner.app/PlugIns/OwnAppWidgetExtension.appex
+          test -d "$APPEX" || { echo "Widget fehlt in Runner.app/PlugIns"; exit 1; }
+          # Dieselbe Versionsnummer wie die App -- sonst lehnt iOS die
+          # Erweiterung beim Installieren ab.
+          A=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' build/ios/iphoneos/Runner.app/Info.plist)
+          W=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APPEX/Info.plist")
+          echo "App $A, Widget $W"
+          test "$A" = "$W"

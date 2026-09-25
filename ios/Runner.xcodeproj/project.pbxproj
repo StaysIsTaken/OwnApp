@@ -17,6 +17,8 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		A1D0E0012E80000100C0FFEE /* OwnAppWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0E0062E80000100C0FFEE /* OwnAppWidget.swift */; };
+		A1D0E0022E80000100C0FFEE /* OwnAppWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1D0E0052E80000100C0FFEE /* OwnAppWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,6 +28,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+		A1D0E0032E80000100C0FFEE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1D0E00D2E80000100C0FFEE;
+			remoteInfo = OwnAppWidgetExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -38,6 +47,17 @@
 			files = (
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1D0E0042E80000100C0FFEE /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A1D0E0022E80000100C0FFEE /* OwnAppWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -67,6 +87,12 @@
 		CBD06654F6E3F74E883F150C /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		DEAF58F43C347731A20186D6 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		EA05B801033738E97FDA742E /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
+		A1D0E0052E80000100C0FFEE /* OwnAppWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OwnAppWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1D0E0062E80000100C0FFEE /* OwnAppWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnAppWidget.swift; sourceTree = "<group>"; };
+		A1D0E0072E80000100C0FFEE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1D0E0082E80000100C0FFEE /* OwnAppWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OwnAppWidget.entitlements; sourceTree = "<group>"; };
+		A1D0E0092E80000100C0FFEE /* Widget.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Widget.xcconfig; sourceTree = "<group>"; };
+		A1D0E00A2E80000100C0FFEE /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +109,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				0D7B5E9B2005CD84B8A8D10D /* Pods_RunnerTests.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1D0E00B2E80000100C0FFEE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -137,6 +170,7 @@
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
+				A1D0E00C2E80000100C0FFEE /* OwnAppWidget */,
 				2BE16550E0624245AAC9F86B /* Pods */,
 				0010B0C717360D99868831C6 /* Frameworks */,
 			);
@@ -147,6 +181,7 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
+				A1D0E0052E80000100C0FFEE /* OwnAppWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -163,8 +198,20 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
+				A1D0E00A2E80000100C0FFEE /* Runner.entitlements */,
 			);
 			path = Runner;
+			sourceTree = "<group>";
+		};
+		A1D0E00C2E80000100C0FFEE /* OwnAppWidget */ = {
+			isa = PBXGroup;
+			children = (
+				A1D0E0062E80000100C0FFEE /* OwnAppWidget.swift */,
+				A1D0E0072E80000100C0FFEE /* Info.plist */,
+				A1D0E0082E80000100C0FFEE /* OwnAppWidget.entitlements */,
+				A1D0E0092E80000100C0FFEE /* Widget.xcconfig */,
+			);
+			path = OwnAppWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -199,6 +246,7 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				A1D0E0042E80000100C0FFEE /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				21CF955D25832AEC81DE02FA /* [CP] Embed Pods Frameworks */,
 				5549143BD2FA35D4B4AE5DD2 /* [CP] Copy Pods Resources */,
@@ -206,11 +254,29 @@
 			buildRules = (
 			);
 			dependencies = (
+				A1D0E0102E80000100C0FFEE /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A1D0E00D2E80000100C0FFEE /* OwnAppWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1D0E0142E80000100C0FFEE /* Build configuration list for PBXNativeTarget "OwnAppWidgetExtension" */;
+			buildPhases = (
+				A1D0E00E2E80000100C0FFEE /* Sources */,
+				A1D0E00B2E80000100C0FFEE /* Frameworks */,
+				A1D0E00F2E80000100C0FFEE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OwnAppWidgetExtension;
+			productName = OwnAppWidgetExtension;
+			productReference = A1D0E0052E80000100C0FFEE /* OwnAppWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -230,6 +296,9 @@
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
 					};
+					A1D0E00D2E80000100C0FFEE = {
+						CreatedOnToolsVersion = 15.0;
+					};
 				};
 			};
 			buildConfigurationList = 97C146E91CF9000F007C117D /* Build configuration list for PBXProject "Runner" */;
@@ -247,6 +316,7 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
+				A1D0E00D2E80000100C0FFEE /* OwnAppWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -267,6 +337,13 @@
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1D0E00F2E80000100C0FFEE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -403,6 +480,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1D0E00E2E80000100C0FFEE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1D0E0012E80000100C0FFEE /* OwnAppWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -410,6 +495,11 @@
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+		A1D0E0102E80000100C0FFEE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1D0E00D2E80000100C0FFEE /* OwnAppWidgetExtension */;
+			targetProxy = A1D0E0032E80000100C0FFEE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -495,6 +585,7 @@
 				DEVELOPMENT_TEAM = 8X6XQ4MW3W;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -678,6 +769,7 @@
 				DEVELOPMENT_TEAM = 8X6XQ4MW3W;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -701,6 +793,7 @@
 				DEVELOPMENT_TEAM = 8X6XQ4MW3W;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -712,6 +805,83 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		A1D0E0112E80000100C0FFEE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1D0E0092E80000100C0FFEE /* Widget.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = OwnAppWidget/OwnAppWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 8X6XQ4MW3W;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OwnAppWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = de.jpanft.homeapp.OwnAppWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1D0E0122E80000100C0FFEE /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1D0E0092E80000100C0FFEE /* Widget.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = OwnAppWidget/OwnAppWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 8X6XQ4MW3W;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OwnAppWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = de.jpanft.homeapp.OwnAppWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1D0E0132E80000100C0FFEE /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1D0E0092E80000100C0FFEE /* Widget.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = OwnAppWidget/OwnAppWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 8X6XQ4MW3W;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OwnAppWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = de.jpanft.homeapp.OwnAppWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
 		};
 /* End XCBuildConfiguration section */
 
@@ -742,6 +912,16 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1D0E0142E80000100C0FFEE /* Build configuration list for PBXNativeTarget "OwnAppWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1D0E0112E80000100C0FFEE /* Debug */,
+				A1D0E0122E80000100C0FFEE /* Release */,
+				A1D0E0132E80000100C0FFEE /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -182,6 +182,21 @@ in Release still abgeschnitten wurden.
 
 ---
 
+### Was unter `ios/` liegt, prüft nur ein Mac
+
+Xcode-Projekt, Swift des Widgets und Entitlements lassen sich hier nicht
+bauen. Dafür gibt es den Workflow **iOS-Bau pruefen**
+(`.github/workflows/ios-bau-pruefen.yml`): er läuft bei jedem Push, der
+`ios/` oder `pubspec.*` anfasst, baut unsigniert und prüft, dass das
+Widget mit derselben Versionsnummer in der App steckt. Nicht den Workflow
+*iOS-ipa-build* dafür nehmen — der überschreibt das Release und die
+AltStore-Quelle.
+
+`project.pbxproj` von Hand zu ändern geht, wenn man danach die
+Verweise prüft: jede Kennung, die irgendwo steht, muss als Objekt
+definiert sein. Und die Phase „Embed Foundation Extensions" muss im
+Runner **vor** „Thin Binary" stehen, sonst meldet Xcode einen Zyklus.
+
 ## 5. Der Kachel-Baukasten
 
 `lib/tabs/dashboard/custom/` — eine Kachel ist **Quelle × Darstellung ×
