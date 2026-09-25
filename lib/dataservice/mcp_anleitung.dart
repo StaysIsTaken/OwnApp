@@ -342,7 +342,7 @@ class McpAnleitung {
           'Einkauf" fragt, was auf die Liste soll, und schickt es her. '
           'Läuft auf iPhone und Apple Watch. Schreiben geht nur, wo im '
           'Baum „auch schreiben" angehakt ist — Einkauf, Aufgaben, '
-          'Notizen, Journal. Der Schlüssel steht im Kurzbefehl im '
+          'Notizen, Journal, Termine, Finanzen. Der Schlüssel steht im Kurzbefehl im '
           'Klartext und wandert mit iCloud auf deine anderen Geräte: '
           'den Kurzbefehl deshalb nie teilen. Wer ihn verliert, erneuert '
           'hier den Schlüssel.',
@@ -362,6 +362,12 @@ class McpAnleitung {
         'Für Aufgaben dasselbe mit "aufgabe_anlegen" und "titel", für '
             'Notizen "notiz_anlegen" mit "titel", fürs Journal '
             '"journal_schreiben" mit "inhalt".',
+        'Für Ausgaben "buchung_anlegen" mit "titel" und "betrag" (Euro, '
+            'als Zahl), bei mehreren Kassen dazu "kasse". Für Termine '
+            '"termin_anlegen" mit "titel" und "beginn" '
+            '(JJJJ-MM-TTTHH:MM) — aus dem Gesagten machen das die '
+            'Aktionen „Datumsangaben abrufen" und „Datum formatieren" '
+            'mit ISO 8601; die Zeitzone darin rechnet der Server um.',
       ],
       doku: 'https://support.apple.com/de-de/guide/shortcuts/'
           'apd58d46713f/ios',

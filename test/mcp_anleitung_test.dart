@@ -212,6 +212,8 @@ void main() {
         'aufgabe_abhaken',
         'notiz_anlegen',
         'journal_schreiben',
+        'termin_anlegen',
+        'buchung_anlegen',
       };
       final d = anfrage(McpAnleitung.kurzbefehlVorlage('https://a.de/mcp/x'));
       expect(schreibWerkzeuge, contains(d['params']['name']));
